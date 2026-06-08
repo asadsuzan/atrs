@@ -11,6 +11,7 @@ import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
+import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/ui/skeletons';
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -61,7 +62,7 @@ export default function ProductDetails() {
     }
   }, [activitiesData, location.hash, activeTab]);
 
-  if (productLoading) return <div>Loading...</div>;
+  if (productLoading) return <ProductDetailsSkeleton />;
   if (!product) return <div>Product not found</div>;
 
   const activities = activitiesData?.data || [];
@@ -277,7 +278,7 @@ export default function ProductDetails() {
         {activeTab === 'activities' && (
           <div className="space-y-6">
             {activitiesLoading ? (
-              <div>Loading activities...</div>
+              <ProductActivitiesSkeleton />
             ) : activities.length === 0 ? (
               <div className="text-muted-foreground">No activities recorded for this product yet.</div>
             ) : (

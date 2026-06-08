@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ReportsSkeleton } from '@/components/ui/skeletons';
 
 export default function Reports() {
   const currentDate = new Date();
@@ -420,7 +421,7 @@ export default function Reports() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
+        <ReportsSkeleton />
       ) : report ? (
         <div ref={reportRef} className="space-y-6">
           <motion.div 

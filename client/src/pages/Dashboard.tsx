@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
+import { DashboardSkeleton } from '@/components/ui/skeletons';
 
 export default function Dashboard() {
   const today = new Date();
@@ -38,11 +39,7 @@ export default function Dashboard() {
   });
 
   if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const summary = report?.summary || {
