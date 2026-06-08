@@ -16,6 +16,7 @@ import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
+import SmoothScroll from './components/layout/SmoothScroll';
 
 const queryClient = new QueryClient();
 
@@ -123,15 +124,17 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="system" storageKey="atrs-theme">
       <ConfirmProvider>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <Layout>
-              <CommandPalette />
-              <AnimatedRoutes />
-            </Layout>
-          </BrowserRouter>
+          <SmoothScroll>
+            <BrowserRouter>
+              <Layout>
+                <CommandPalette />
+                <AnimatedRoutes />
+              </Layout>
+            </BrowserRouter>
+          </SmoothScroll>
           <Toaster />
         </QueryClientProvider>
       </ConfirmProvider>

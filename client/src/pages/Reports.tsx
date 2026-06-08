@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ReportsSkeleton } from '@/components/ui/skeletons';
+import { MediaCarousel } from '@/components/ui/media-carousel';
 
 export default function Reports() {
   const currentDate = new Date();
@@ -131,7 +132,7 @@ export default function Reports() {
   const ReportActivityCard = ({ act }: { act: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
-      <Card className="bg-card">
+      <Card className="bg-card overflow-hidden">
         <CardHeader 
           className="p-4 pb-2 cursor-pointer hover:bg-muted/30 transition-colors"
           onClick={() => setIsOpen(!isOpen)}
@@ -154,8 +155,38 @@ export default function Reports() {
         <AnimatePresence>
           {isOpen && (
             <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-              <CardContent className="p-4 pt-0 space-y-3">
+              <CardContent className="p-4 pt-2 space-y-3">
+                {(() => {
+                  const urls = act.mediaUrls?.length ? act.mediaUrls : (act.mediaUrl ? [act.mediaUrl] : []);
+                  if (urls.length === 0) return null;
+                  return (
+                    <div className="mb-4">
+                      <MediaCarousel urls={urls} title={act.title} />
+                    </div>
+                  );
+                })()}
                 <p className="text-sm text-muted-foreground">{act.shortDescription}</p>
+                
+                {act.items && act.items.length > 0 && (
+                  <div className="mt-6 space-y-3 border-t pt-4">
+                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Included Items</h5>
+                    {act.items.map((item: any, idx: number) => (
+                      <div key={idx} className="bg-muted/20 border border-border/40 rounded-lg p-3">
+                        {(() => {
+                          const itemUrls = item.mediaUrls?.length ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : []);
+                          if (itemUrls.length === 0) return null;
+                          return (
+                            <div className="mb-3">
+                              <MediaCarousel urls={itemUrls} title={item.title} />
+                            </div>
+                          );
+                        })()}
+                        <h6 className="font-medium text-sm text-foreground">{item.title}</h6>
+                        {item.description && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.description}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </motion.div>
           )}
