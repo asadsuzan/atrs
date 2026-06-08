@@ -217,8 +217,8 @@ export default function Reports() {
     const [expanded, setExpanded] = useState(false);
     const { product, activities, counts } = pData;
     return (
-      <Card className="overflow-hidden">
-        <div className="p-4 flex items-center justify-between bg-card hover:bg-accent cursor-pointer transition-colors" onClick={() => setExpanded(!expanded)}>
+      <Card className="overflow-visible relative">
+        <div className="sticky top-0 lg:top-[185px] z-20 p-4 flex items-center justify-between bg-card/95 backdrop-blur-md hover:bg-accent cursor-pointer transition-colors shadow-sm rounded-t-lg border-b" onClick={() => setExpanded(!expanded)}>
           <div className="flex items-center gap-4">
             {product.icon ? <img src={product.icon} className="w-10 h-10 rounded bg-muted" /> : <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs">No Icon</div>}
             <div>
@@ -340,11 +340,13 @@ export default function Reports() {
             <ReportsSkeleton />
           ) : monthlyReport ? (
             <div ref={reportRef} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{monthlyReport.summary.products}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Products Updated</div></CardContent></Card>
+              <div className="lg:sticky lg:top-4 z-30 bg-background/80 lg:backdrop-blur-md pb-4 pt-2 -mt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shadow-sm rounded-xl">
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{monthlyReport.summary.products}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Products Updated</div></CardContent></Card>
                 <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><PlusCircle className="w-8 h-8 text-blue-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.features}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Features Delivered</div></CardContent></Card>
                 <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Wrench className="w-8 h-8 text-purple-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.improvements}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Improvements Made</div></CardContent></Card>
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Bug Fixes Resolved</div></CardContent></Card>
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Bug Fixes Resolved</div></CardContent></Card>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -385,11 +387,13 @@ export default function Reports() {
             <ReportsSkeleton />
           ) : annualReport ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{annualReport.summary.total}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Activities</div></CardContent></Card>
+              <div className="lg:sticky lg:top-4 z-30 bg-background/80 lg:backdrop-blur-md pb-4 pt-2 -mt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shadow-sm rounded-xl">
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{annualReport.summary.total}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Activities</div></CardContent></Card>
                 <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><PlusCircle className="w-8 h-8 text-blue-500 opacity-80" /><div className="text-3xl font-bold">{annualReport.summary.features}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Features</div></CardContent></Card>
                 <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Wrench className="w-8 h-8 text-purple-500 opacity-80" /><div className="text-3xl font-bold">{annualReport.summary.improvements}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Improvements</div></CardContent></Card>
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{annualReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Bug Fixes</div></CardContent></Card>
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{annualReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Total Bug Fixes</div></CardContent></Card>
+                </div>
               </div>
 
               <div className="space-y-4">
