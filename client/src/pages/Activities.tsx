@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActivities, createActivity, deleteActivity, updateActivity } from '../services/activities';
+import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities, bulkDeleteActivities } from '../services/activities';
 import { getProducts } from '../services/products';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,6 +11,7 @@ import { ActivityForm } from '../components/activities/ActivityForm';
 import { Plus, Edit2, Trash2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { motion } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
@@ -25,9 +26,11 @@ export default function Activities() {
   const [type, setType] = useLocalStorage<string>('atrs_filter_type', 'all');
   const [tier, setTier] = useLocalStorage<string>('atrs_filter_tier', 'all');
   const [tagFilter, setTagFilter] = useLocalStorage<string>('atrs_filter_tag', 'all');
+  const [search, setSearch] = useLocalStorage<string>('atrs_filter_search', '');
   const [startDate, setStartDate] = useLocalStorage<string>('atrs_filter_startDate', '');
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_filter_endDate', '');
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useLocalStorage<string>('atrs_filter_sortBy', 'activityDate');
   const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_filter_sortOrder', 'desc');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -38,6 +41,7 @@ export default function Activities() {
   if (type && type !== 'all') queryParams.type = type;
   if (type === 'feature' && tier && tier !== 'all') queryParams.tier = tier;
   if (tagFilter && tagFilter !== 'all') queryParams.tags = tagFilter;
+  if (search) queryParams.search = search;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
 
@@ -98,6 +102,36 @@ export default function Activities() {
     onError: () => toast.error("Failed to delete activity")
   });
 
+  const bulkUpdateMutation = useMutation({
+    mutationFn: ({ ids, update }: { ids: string[], update: any }) => bulkUpdateActivities(ids, update),
+    onSuccess: () => {
+      toast.success("Activities updated");
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+    onError: () => toast.error("Failed to update activities")
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: bulkDeleteActivities,
+    onSuccess: () => {
+      toast.success("Activities deleted");
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+    onError: () => toast.error("Failed to delete activities")
+  });
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedIds(activities.map((a: any) => a._id));
+    else setSelectedIds([]);
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) setSelectedIds([...selectedIds, id]);
+    else setSelectedIds(selectedIds.filter(i => i !== id));
+  };
+
   const getTypeColor = (t: string) => {
     switch (t) {
       case 'feature': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200';
@@ -131,6 +165,12 @@ export default function Activities() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border flex-wrap">
+        <Input 
+          placeholder="Search activities..." 
+          value={search} 
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="w-full sm:w-[250px]"
+        />
         <Select value={productId} onValueChange={(v) => { setProductId(v); setPage(1); }}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filter by Product" />
@@ -186,6 +226,13 @@ export default function Activities() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox 
+                  checked={activities.length > 0 && selectedIds.length === activities.length}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
               <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('activityDate')}>
                 <div className="flex items-center">Date <SortIcon field="activityDate" /></div>
               </TableHead>
@@ -203,6 +250,7 @@ export default function Activities() {
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-4 rounded" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
@@ -222,7 +270,7 @@ export default function Activities() {
               ))
             ) : activities.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">No activities found.</TableCell>
+                <TableCell colSpan={6} className="text-center h-24">No activities found.</TableCell>
               </TableRow>
             ) : (
               activities.map((activity: any, index: number) => (
@@ -233,6 +281,13 @@ export default function Activities() {
                   transition={{ delay: index * 0.05 }}
                   className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
                 >
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedIds.includes(activity._id)}
+                      onCheckedChange={(checked: boolean) => handleSelectOne(activity._id, checked)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {new Date(activity.activityDate).toLocaleDateString()}
                   </TableCell>
@@ -301,6 +356,30 @@ export default function Activities() {
             </Button>
           </div>
         </div>
+      )}
+
+      {selectedIds.length > 0 && (
+        <motion.div 
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-popover border shadow-lg rounded-full px-6 py-3 flex items-center gap-4 z-50"
+        >
+          <span className="text-sm font-medium">{selectedIds.length} selected</span>
+          <div className="h-4 w-px bg-border" />
+          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { $addToSet: { tags: 'released' }, $pull: { tags: 'unreleased' } } })}>
+            Mark Released
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { $addToSet: { tags: 'unreleased' }, $pull: { tags: 'released' } } })}>
+            Mark Unreleased
+          </Button>
+          <Button variant="destructive" size="sm" onClick={async () => {
+            if (await confirm({ title: 'Delete Activities', description: `Are you sure you want to delete ${selectedIds.length} activities?` })) {
+              bulkDeleteMutation.mutate(selectedIds);
+            }
+          }}>
+            Delete
+          </Button>
+        </motion.div>
       )}
 
       <Dialog open={!!editingActivity} onOpenChange={(open: boolean) => !open && setEditingActivity(null)}>

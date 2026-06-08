@@ -1,21 +1,153 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
-import { getActivities } from '../services/activities';
+import { getActivities, reorderActivity } from '../services/activities';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, GitBranch, Globe, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, GitBranch, Globe, ChevronDown, ChevronUp, ChevronRight, Download, GripVertical } from 'lucide-react';
 import { MediaLightbox } from '@/components/ui/media-lightbox';
 import { motion, AnimatePresence } from 'framer-motion';
-import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
+import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
+import { VersionManager } from '../components/versions/VersionManager';
+import { MediaCarousel } from '@/components/ui/media-carousel';
+import { cn } from '@/lib/utils';
+import { DonutChart } from '../components/reports/DonutChart';
 import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/ui/skeletons';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const SortableActivityCard = ({ act, colorClass, isActive, onClick }: { act: any, colorClass: string, isActive: boolean, onClick: () => void }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      id={`activity-${act._id}`} 
+      className={cn(
+        "transition-all duration-300 h-full cursor-pointer",
+        isActive ? "scale-[1.02]" : "hover:-translate-y-1"
+      )}
+      onClick={onClick}
+    >
+      <div className={cn(
+        "bg-white border rounded-[12px] p-6 h-full flex flex-col group relative transition-all duration-300",
+        isActive 
+          ? "border-primary ring-2 ring-primary ring-offset-2 shadow-xl shadow-primary/10" 
+          : "border-gray-200 shadow-sm hover:shadow-md"
+      )}>
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700 p-1 bg-gray-50 rounded-md border">
+             <GripVertical className="w-4 h-4" />
+           </div>
+        </div>
+
+        {/* Media Presentation at the top */}
+        {(() => {
+          const urls = act.mediaUrls?.length ? act.mediaUrls : (act.mediaUrl ? [act.mediaUrl] : []);
+          if (urls.length === 0) return null;
+          return (
+            <div className="mb-5 -mx-2">
+              <MediaCarousel urls={urls} title={act.title} />
+            </div>
+          );
+        })()}
+
+        {/* Typography & Hierarchy */}
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2 mb-2 pr-8">
+            <h4 className="font-semibold text-[18px] text-gray-900 leading-tight">{act.title}</h4>
+            {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
+            {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
+            {act.tags?.includes('unreleased') && <span className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">UNRELEASED</span>}
+          </div>
+          
+          <p className="text-[14px] text-[#6B7280] uppercase tracking-wider font-medium mb-3">
+            {new Date(act.activityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+          
+          <p className="text-[14px] text-[#4B5563] leading-[1.6]">{act.shortDescription}</p>
+
+          {/* Sub-items */}
+          {act.items && act.items.length > 0 && (
+            <div className="mt-8 space-y-4">
+              <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Included Items</h5>
+              {act.items.map((item: any, idx: number) => (
+                <div key={idx} className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 transition-colors hover:bg-gray-50">
+                  {(() => {
+                    const itemUrls = item.mediaUrls?.length ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : []);
+                    if (itemUrls.length === 0) return null;
+                    return (
+                      <div className="mb-4">
+                        <MediaCarousel urls={itemUrls} title={item.title} />
+                      </div>
+                    );
+                  })()}
+                  <h6 className="font-semibold text-[15px] text-gray-900">{item.title}</h6>
+                  {item.description && <p className="text-[14px] text-[#4B5563] leading-[1.6] mt-1.5">{item.description}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void }) => {
+  const [isOpen, setIsOpen] = useState(true);
+  if (typeActs.length === 0) return null;
+  return (
+    <div className="space-y-4 mb-10">
+      <h3 
+        className={`text-xl font-semibold flex items-center gap-2 ${colorClass} cursor-pointer select-none hover:opacity-80 transition-opacity w-fit`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {isOpen ? <ChevronDown className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />} 
+        {title} <span className="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-medium ml-1">{typeActs.length}</span>
+      </h3>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 pt-2 pb-4">
+              <SortableContext items={typeActs.map(a => a._id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                  {typeActs.map((act: any) => (
+                    <SortableActivityCard 
+                      key={act._id} 
+                      act={act} 
+                      colorClass={colorClass} 
+                      isActive={activeCardId === act._id}
+                      onClick={() => onCardClick(act._id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default function ProductDetails() {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState<'activities' | 'marketing'>('activities');
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions'>('activities');
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const { data: product, isLoading: productLoading } = useQuery({
     queryKey: ['product', id],
@@ -39,7 +171,7 @@ export default function ProductDetails() {
 
   const { data: activitiesData, isLoading: activitiesLoading } = useQuery({
     queryKey: ['activities', id],
-    queryFn: () => getActivities({ productId: id, limit: -1 }),
+    queryFn: () => getActivities({ productId: id, limit: -1, sortBy: 'displayOrder', sortOrder: 'asc' }),
     enabled: !!id,
   });
 
@@ -62,6 +194,41 @@ export default function ProductDetails() {
     }
   }, [activitiesData, location.hash, activeTab]);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      const act = activitiesData?.data.find((a: any) => a._id === active.id);
+      const targetIndex = activitiesData?.data.findIndex((a: any) => a._id === over.id);
+      if (act && targetIndex !== undefined) {
+        // Just set the displayOrder to match the target index as a quick reorder
+        await reorderActivity(act._id, targetIndex);
+        queryClient.invalidateQueries({ queryKey: ['activities', id] });
+      }
+    }
+  };
+
+  const exportChangelog = () => {
+    if (!activitiesData?.data) return;
+    let markdown = `# Changelog - ${product?.name}\n\n`;
+    activitiesData.data.forEach((act: any) => {
+      markdown += `## ${act.title}\n`;
+      markdown += `*Date: ${new Date(act.activityDate).toLocaleDateString()} | Type: ${act.type}*\n\n`;
+      markdown += `${act.shortDescription}\n\n`;
+    });
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${product?.slug}-changelog.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (productLoading) return <ProductDetailsSkeleton />;
   if (!product) return <div>Product not found</div>;
 
@@ -70,136 +237,7 @@ export default function ProductDetails() {
   const improvements = activities.filter((a: any) => a.type === 'improvement') || [];
   const bugFixes = activities.filter((a: any) => a.type === 'bug-fix') || [];
 
-  const ActivityCard = ({ act, colorClass }: { act: any, colorClass: string }) => {
-    const [isOpen, setIsOpen] = useState(true);
-    return (
-      <motion.div variants={staggerItem} layout id={`activity-${act._id}`} className="transition-all duration-500">
-        <Card>
-          <CardHeader 
-            className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors" 
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${colorClass} bg-opacity-10 dark:bg-opacity-20`}>
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-lg">{act.title}</h4>
-                    {act.tier === 'pro' && (
-                      <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">PRO</Badge>
-                    )}
-                    {act.tags?.includes('released') && (
-                      <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">RELEASED</Badge>
-                    )}
-                    {act.tags?.includes('unreleased') && (
-                      <Badge variant="default" className="bg-slate-500 hover:bg-slate-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">UNRELEASED</Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{new Date(act.activityDate).toLocaleDateString()}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon" className="shrink-0 -mr-2">
-                <motion.div animate={{ rotate: isOpen ? 0 : -180 }} transition={{ duration: 0.3 }}>
-                  <ChevronUp className="w-4 h-4" />
-                </motion.div>
-              </Button>
-            </div>
-          </CardHeader>
-          <AnimatePresence>
-            {isOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <CardContent className="space-y-4 pt-2">
-                  <p className="text-sm text-muted-foreground">{act.shortDescription}</p>
-                  {act.mediaUrl && (
-                    <div className="p-1.5 bg-gradient-to-br from-white to-gray-50 dark:from-zinc-900 dark:to-zinc-950 border border-border/50 rounded-xl shadow-sm max-w-sm mb-4">
-                      <MediaLightbox mediaUrl={act.mediaUrl} mediaType={act.mediaType || 'image'}>
-                        <div className="rounded-lg overflow-hidden bg-muted relative border border-border/20">
-                          {act.mediaType === 'video' ? (
-                            <video src={act.mediaUrl} className="w-full h-auto object-cover pointer-events-none" />
-                          ) : (
-                            <img src={act.mediaUrl} alt={act.title} className="w-full h-auto object-cover" />
-                          )}
-                        </div>
-                      </MediaLightbox>
-                    </div>
-                  )}
-                  {act.items && act.items.length > 0 && (
-                    <div className="space-y-4 pt-2">
-                      {act.items.map((item: any, idx: number) => (
-                        <div key={idx} className="bg-muted/30 p-3 rounded-md">
-                          <h5 className="font-medium text-sm">{item.title}</h5>
-                          {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
-                          {item.mediaUrl && (
-                            <div className="p-1 bg-gradient-to-br from-white to-gray-50 dark:from-zinc-900 dark:to-zinc-950 border border-border/50 rounded-xl shadow-sm max-w-sm mt-3">
-                              <MediaLightbox mediaUrl={item.mediaUrl} mediaType={item.mediaType || 'image'}>
-                                <div className="rounded-lg overflow-hidden bg-muted relative border border-border/20">
-                                  {item.mediaType === 'video' ? (
-                                    <video src={item.mediaUrl} className="w-full h-auto pointer-events-none" />
-                                  ) : (
-                                    <img src={item.mediaUrl} alt={item.title} className="w-full h-auto object-cover" />
-                                  )}
-                                </div>
-                              </MediaLightbox>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Card>
-      </motion.div>
-    );
-  };
 
-  const ActivitySection = ({ title, items: typeActs, colorClass }: { title: string, items: any[], colorClass: string }) => {
-    const [isOpen, setIsOpen] = useState(true);
-    if (typeActs.length === 0) return null;
-    return (
-      <div className="space-y-4 mb-8">
-        <h3 
-          className={`text-xl font-semibold flex items-center gap-2 ${colorClass} cursor-pointer select-none hover:opacity-80 transition-opacity w-fit`}
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? <ChevronDown className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />} 
-          {title} <Badge variant="secondary">{typeActs.length}</Badge>
-        </h3>
-          <AnimatePresence>
-            {isOpen && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <motion.div 
-                  variants={staggerContainer}
-                  initial="hidden"
-                  animate="show"
-                  className="space-y-4 mt-4"
-                >
-                  {typeActs.map((act: any) => (
-                    <ActivityCard key={act._id} act={act} colorClass={colorClass} />
-                  ))}
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-      </div>
-    );
-  };
 
   return (
     <PageTransition>
@@ -238,6 +276,7 @@ export default function ProductDetails() {
             <p className="text-sm text-gray-500">
                By <span className="text-blue-600 font-medium hover:underline cursor-pointer">{wpData && wpData.author ? wpData.author.replace(/(<([^>]+)>)/gi, "") : 'bPlugins'}</span>
             </p>
+            {product.description && <p className="text-muted-foreground text-sm mt-2">{product.description}</p>}
             
             <div className="flex gap-4 mt-3 pt-2">
               <Badge variant="outline" className="capitalize">{product.category}</Badge>
@@ -255,7 +294,16 @@ export default function ProductDetails() {
             </div>
           </div>
           
-        
+          <div className="w-full md:w-[250px] shrink-0">
+            <Card className="h-full">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm">Activity Distribution</CardTitle>
+              </CardHeader>
+              <CardContent className="py-0 px-4 pb-3">
+                <DonutChart data={{ features: features.length, improvements: improvements.length, bugFixes: bugFixes.length }} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -268,6 +316,12 @@ export default function ProductDetails() {
             Activity Timeline
           </button>
           <button 
+            className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'versions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('versions')}
+          >
+            Versions
+          </button>
+          <button 
             className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'marketing' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('marketing')}
           >
@@ -277,18 +331,27 @@ export default function ProductDetails() {
 
         {activeTab === 'activities' && (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={exportChangelog}>
+                <Download className="w-4 h-4 mr-2" /> Export Changelog
+              </Button>
+            </div>
             {activitiesLoading ? (
               <ProductActivitiesSkeleton />
             ) : activities.length === 0 ? (
               <div className="text-muted-foreground">No activities recorded for this product yet.</div>
             ) : (
-              <div>
-                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" />
-                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" />
-                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" />
-              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
+                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
+                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
+              </DndContext>
             )}
           </div>
+        )}
+
+        {activeTab === 'versions' && id && (
+          <VersionManager productId={id} />
         )}
 
         {activeTab === 'marketing' && id && (

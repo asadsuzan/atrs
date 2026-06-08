@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
 // Placeholders for Pages
@@ -10,9 +10,11 @@ import Products from './pages/Products';
 import ProductDetails from './pages/ProductDetails';
 import Activities from './pages/Activities';
 import Reports from './pages/Reports';
+import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
+import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
 
 const queryClient = new QueryClient();
@@ -26,6 +28,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     { to: '/products', icon: Package, label: 'Products' },
     { to: '/activities', icon: Activity, label: 'Activities' },
     { to: '/reports', icon: BarChart2, label: 'Reports' },
+    { to: '/audit-logs', icon: History, label: 'Audit Logs' },
   ];
 
   return (
@@ -86,7 +89,14 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 p-6 md:p-8 transition-all duration-300 ease-in-out w-full">
-        <div className="max-w-6xl mx-auto w-full transition-all duration-300">
+        <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+          <Search className="w-4 h-4" />
+          <span>Search</span>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 ml-1">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        </div>
+        <div className="max-w-6xl mx-auto w-full transition-all duration-300 mt-4 md:mt-0">
           {children}
         </div>
       </main>
@@ -104,6 +114,7 @@ function AnimatedRoutes() {
         <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/activities" element={<Activities />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </AnimatePresence>
@@ -117,6 +128,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <Layout>
+              <CommandPalette />
               <AnimatedRoutes />
             </Layout>
           </BrowserRouter>

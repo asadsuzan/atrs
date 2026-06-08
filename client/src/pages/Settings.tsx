@@ -1,7 +1,9 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check } from 'lucide-react';
+import { Check, Download, Database } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { exportAllData } from '../services/export';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -19,9 +21,10 @@ export default function Settings() {
   return (
     <PageTransition className="space-y-8 max-w-4xl mx-auto pb-12">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight mb-6 border-b pb-4">Theme Settings</h2>
+        <h2 className="text-3xl font-bold tracking-tight mb-6 border-b pb-4">Settings</h2>
         
-        <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+        <h3 className="text-xl font-bold mb-4">Appearance</h3>
+        <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm mb-8">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-lg">Auto Dark Mode</p>
@@ -53,7 +56,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="pt-4">
+      <div className="pt-2 border-b pb-8">
         <h3 className="text-xl font-bold mb-6">Your themes</h3>
         <motion.div 
           variants={staggerContainer}
@@ -112,6 +115,22 @@ export default function Settings() {
             );
           })}
         </motion.div>
+      </div>
+
+      <div className="pt-8">
+        <h3 className="text-xl font-bold mb-4">Data Management</h3>
+        <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+          <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
+            <div>
+              <p className="font-semibold text-lg flex items-center gap-2"><Database className="w-5 h-5 text-primary" /> Full Database Export</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-lg">Download a complete JSON dump of your database including all products, activities, audit logs, and versions. Useful for backups or migration.</p>
+            </div>
+            <Button onClick={exportAllData}>
+              <Download className="w-4 h-4 mr-2" />
+              Export Data
+            </Button>
+          </div>
+        </div>
       </div>
     </PageTransition>
   );

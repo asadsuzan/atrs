@@ -7,16 +7,22 @@ export const createActivitySchema = z.object({
     title: z.string(),
     shortDescription: z.string(),
     tier: z.enum(['free', 'pro']).optional(),
+    priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+    referenceUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
-    mediaType: z.enum(['image', 'gif', 'video']).optional(),
-    mediaUrl: z.string().optional(),
+    mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+    mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    mediaUrls: z.array(z.string()).optional(),
     items: z
       .array(
         z.object({
           title: z.string(),
-          description: z.string().optional(),
-          mediaType: z.enum(['image', 'gif', 'video']).optional(),
-          mediaUrl: z.string().optional(),
+          description: z.string().nullable().optional(),
+          mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+          mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+          mediaUrls: z.array(z.string()).optional(),
         })
       )
       .default([]),
@@ -31,16 +37,22 @@ export const updateActivitySchema = z.object({
     title: z.string().optional(),
     shortDescription: z.string().optional(),
     tier: z.enum(['free', 'pro']).optional(),
+    priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+    referenceUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
-    mediaType: z.enum(['image', 'gif', 'video']).optional(),
-    mediaUrl: z.string().optional(),
+    mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+    mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    mediaUrls: z.array(z.string()).optional(),
     items: z
       .array(
         z.object({
           title: z.string(),
-          description: z.string().optional(),
-          mediaType: z.enum(['image', 'gif', 'video']).optional(),
-          mediaUrl: z.string().optional(),
+          description: z.string().nullable().optional(),
+          mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+          mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
+          mediaUrls: z.array(z.string()).optional(),
         })
       )
       .optional(),

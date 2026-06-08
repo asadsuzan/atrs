@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { getMonthlyReport } from '../services/reports';
+import { getMonthlyReport, getTrendData } from '../services/reports';
 import { getProducts } from '../services/products';
 import { getActivities } from '../services/activities';
 import { getAuditLogs } from '../services/auditLogs';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
+import { TrendChart } from '../components/reports/TrendChart';
 import { DashboardSkeleton } from '@/components/ui/skeletons';
 
 export default function Dashboard() {
@@ -38,7 +39,12 @@ export default function Dashboard() {
     queryFn: () => getAuditLogs(),
   });
 
-  if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading) {
+  const { data: trendData, isLoading: isTrendLoading } = useQuery({
+    queryKey: ['dashboardTrend'],
+    queryFn: () => getTrendData({ months: 6 }),
+  });
+
+  if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading || isTrendLoading) {
     return <DashboardSkeleton />;
   }
 
@@ -209,6 +215,16 @@ export default function Dashboard() {
         
         {/* Left Column (Span 4) */}
         <div className="md:col-span-4 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center"><ActivityIcon className="w-5 h-5 mr-2 text-primary" /> Activity Trend</CardTitle>
+              <CardDescription>Activity breakdown over the last 6 months.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TrendChart data={trendData || []} />
+            </CardContent>
+          </Card>
+
           <Card className="flex flex-col h-full max-h-[480px]">
             <CardHeader>
               <CardTitle className="flex items-center"><ActivityIcon className="w-5 h-5 mr-2 text-primary" /> Recent Activity Feed</CardTitle>

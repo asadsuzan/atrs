@@ -24,3 +24,18 @@ export const deleteActivity = async (id: string) => {
   const { data } = await api.delete(`/activities/${id}`);
   return data;
 };
+
+export const bulkUpdateActivities = async (ids: string[], update: any) => {
+  const { data } = await api.patch('/activities/bulk-update', { ids, update });
+  return data;
+};
+
+export const bulkDeleteActivities = async (ids: string[]) => {
+  const { data } = await api.delete('/activities/bulk-delete', { data: { ids } });
+  return data;
+};
+
+export const reorderActivity = async (id: string, displayOrder: number) => {
+  const { data } = await api.patch(`/activities/${id}/reorder`, { displayOrder });
+  return data;
+};

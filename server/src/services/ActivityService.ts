@@ -19,23 +19,18 @@ export class ActivityService {
 
   async getActivities(query: any): Promise<any> {
     const filter: any = {};
-    if (query.productId) {
-      filter.productId = query.productId;
-    }
-    if (query.type) {
-      filter.type = query.type;
-    }
-    if (query.tier) {
-      filter.tier = query.tier;
-    }
-    if (query.tags) {
-      filter.tags = query.tags;
+    if (query.productId) filter.productId = query.productId;
+    if (query.type) filter.type = query.type;
+    if (query.tier) filter.tier = query.tier;
+    if (query.tags) filter.tags = query.tags;
+    if (query.priority) filter.priority = query.priority;
+    if (query.versionId) filter.versionId = query.versionId;
+    if (query.search) {
+      filter.title = { $regex: query.search, $options: 'i' };
     }
     if (query.startDate || query.endDate) {
       filter.activityDate = {};
-      if (query.startDate) {
-        filter.activityDate.$gte = new Date(query.startDate);
-      }
+      if (query.startDate) filter.activityDate.$gte = new Date(query.startDate);
       if (query.endDate) {
         const end = new Date(query.endDate);
         end.setHours(23, 59, 59, 999);
@@ -71,5 +66,17 @@ export class ActivityService {
       await auditLogService.logEvent('DELETE', 'ACTIVITY', activity._id.toString(), activity.title, `Deleted ${activity.type}`);
     }
     return activity;
+  }
+
+  async bulkUpdateActivities(ids: string[], update: any): Promise<number> {
+    return await this.repository.bulkUpdate(ids, update);
+  }
+
+  async bulkDeleteActivities(ids: string[]): Promise<number> {
+    return await this.repository.bulkDelete(ids);
+  }
+
+  async reorderActivity(id: string, displayOrder: number): Promise<IActivity | null> {
+    return await this.repository.reorder(id, displayOrder);
   }
 }

@@ -11,13 +11,13 @@ export class ActivityRepository {
     const sortObj: any = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
     
     if (limit === -1) {
-      const data = await Activity.find(filter).sort(sortObj).populate('productId', 'name slug icon category status');
+      const data = await Activity.find(filter).sort(sortObj).populate('productId', 'name slug icon category status').populate('versionId', 'label');
       return { data, total: data.length, page: 1, totalPages: 1 };
     }
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      Activity.find(filter).sort(sortObj).skip(skip).limit(limit).populate('productId', 'name slug icon category status'),
+      Activity.find(filter).sort(sortObj).skip(skip).limit(limit).populate('productId', 'name slug icon category status').populate('versionId', 'label'),
       Activity.countDocuments(filter)
     ]);
 
@@ -25,7 +25,7 @@ export class ActivityRepository {
   }
 
   async findById(id: string): Promise<IActivity | null> {
-    return await Activity.findById(id).populate('productId', 'name slug icon category status');
+    return await Activity.findById(id).populate('productId', 'name slug icon category status').populate('versionId', 'label');
   }
 
   async update(id: string, data: Partial<IActivity>): Promise<IActivity | null> {
@@ -34,5 +34,19 @@ export class ActivityRepository {
 
   async delete(id: string): Promise<IActivity | null> {
     return await Activity.findByIdAndDelete(id);
+  }
+
+  async bulkUpdate(ids: string[], update: any): Promise<number> {
+    const result = await Activity.updateMany({ _id: { $in: ids } }, update);
+    return result.modifiedCount;
+  }
+
+  async bulkDelete(ids: string[]): Promise<number> {
+    const result = await Activity.deleteMany({ _id: { $in: ids } });
+    return result.deletedCount;
+  }
+
+  async reorder(id: string, displayOrder: number): Promise<IActivity | null> {
+    return await Activity.findByIdAndUpdate(id, { displayOrder }, { new: true });
   }
 }

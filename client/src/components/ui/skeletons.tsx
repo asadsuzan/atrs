@@ -453,3 +453,58 @@ export function ReportsSkeleton() {
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────
+   AUDIT LOG SKELETON
+───────────────────────────────────────────── */
+
+export function AuditLogSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center gap-4">
+        <Skeleton className="h-9 w-40" />
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border flex-wrap">
+        <Skeleton className="h-9 w-[200px] rounded-md" />
+        <Skeleton className="h-9 w-[160px] rounded-md" />
+        <Skeleton className="h-9 w-[160px] rounded-md" />
+        <Skeleton className="h-9 w-[140px] rounded-md" />
+        <Skeleton className="h-9 w-[140px] rounded-md" />
+      </div>
+
+      <div className="border rounded-md bg-card">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              {['Date & Time', 'Action', 'Entity Type', 'Entity Name', 'Details'].map((h) => (
+                <th key={h} className="p-4 text-left">
+                  <Skeleton className="h-4 w-20" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <tr key={i} className="border-b">
+                <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                <td className="p-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                <td className="p-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                <td className="p-4"><Skeleton className="h-4 w-40" /></td>
+                <td className="p-4"><Skeleton className="h-4 w-64" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-24" />
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-24 rounded-md" />
+          <Skeleton className="h-8 w-20 rounded-md" />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -3,11 +3,12 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IProduct extends Document {
   name: string;
   slug: string;
+  description?: string;
   githubUrl: string;
   banner?: string;
   icon?: string;
   wpOrgSlug?: string;
-  category: 'plugin' | 'block';
+  category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
   updatedAt: Date;
@@ -17,13 +18,14 @@ const ProductSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
+    description: { type: String, default: '' },
     githubUrl: { type: String, required: true },
     banner: { type: String, default: '' },
     icon: { type: String, default: '' },
     wpOrgSlug: { type: String, default: '' },
     category: {
       type: String,
-      enum: ['plugin', 'block'],
+      enum: ['plugin', 'block', 'theme', 'standalone'],
       required: true,
     },
     status: {

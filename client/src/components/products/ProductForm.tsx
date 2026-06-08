@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import { uploadFile } from '../../services/api';
+import { MediaUploader } from '@/components/ui/MediaUploader';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   githubUrl: z.string().url('Must be a valid URL'),
-  category: z.enum(['plugin', 'block']),
+  description: z.string().optional(),
+  category: z.enum(['plugin', 'block', 'theme', 'standalone']),
   status: z.enum(['active', 'inactive']),
   icon: z.string().optional(),
   banner: z.string().optional(),
@@ -31,6 +34,7 @@ export function ProductForm({
     defaultValues: initialData || {
       name: '',
       githubUrl: '',
+      description: '',
       category: 'plugin',
       status: 'active',
       icon: '',
@@ -50,6 +54,20 @@ export function ProductForm({
               <FormLabel>Name</FormLabel>
               <FormControl>
                 <Input placeholder="e.g. Test Plugin" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control as any}
+          name="description"
+          render={({ field }: any) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Brief description of the product..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -100,6 +118,8 @@ export function ProductForm({
                   <SelectContent>
                     <SelectItem value="plugin">Plugin</SelectItem>
                     <SelectItem value="block">Block</SelectItem>
+                    <SelectItem value="theme">Theme</SelectItem>
+                    <SelectItem value="standalone">Standalone App</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -138,18 +158,13 @@ export function ProductForm({
               <FormItem>
                 <FormLabel>Icon Upload (optional)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="file"
+                  <MediaUploader
+                    value={field.value}
+                    onChange={field.onChange}
                     accept="image/*"
-                    onChange={async (e: any) => {
-                      if (e.target.files && e.target.files[0]) {
-                        const url = await uploadFile(e.target.files[0]);
-                        field.onChange(url);
-                      }
-                    }}
+                    label="Upload product icon"
                   />
                 </FormControl>
-                {field.value && <p className="text-xs text-muted-foreground mt-1">Uploaded: {field.value}</p>}
                 <FormMessage />
               </FormItem>
             )}
@@ -162,18 +177,13 @@ export function ProductForm({
               <FormItem>
                 <FormLabel>Banner Upload (optional)</FormLabel>
                 <FormControl>
-                  <Input
-                    type="file"
+                  <MediaUploader
+                    value={field.value}
+                    onChange={field.onChange}
                     accept="image/*"
-                    onChange={async (e: any) => {
-                      if (e.target.files && e.target.files[0]) {
-                        const url = await uploadFile(e.target.files[0]);
-                        field.onChange(url);
-                      }
-                    }}
+                    label="Upload product banner"
                   />
                 </FormControl>
-                {field.value && <p className="text-xs text-muted-foreground mt-1">Uploaded: {field.value}</p>}
                 <FormMessage />
               </FormItem>
             )}

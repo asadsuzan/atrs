@@ -10,7 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../../services/products';
+import { getVersions } from '../../services/versions';
 import { uploadFile } from '../../services/api';
+import { MediaUploader } from '@/components/ui/MediaUploader';
 
 const formSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -18,15 +20,20 @@ const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   shortDescription: z.string().min(1, 'Short description is required'),
   tier: z.enum(['free', 'pro']).optional(),
-  mediaType: z.enum(['image', 'gif', 'video']).optional().or(z.literal('')),
-  mediaUrl: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  referenceUrl: z.string().nullable().optional(),
+  versionId: z.string().nullable().optional(),
+  mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().or(z.literal('')),
+  mediaUrl: z.string().nullable().optional(),
+  mediaUrls: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   activityDate: z.string().min(1, 'Date is required'),
   items: z.array(z.object({
     title: z.string().min(1, 'Title is required'),
-    description: z.string().optional(),
-    mediaType: z.enum(['image', 'gif', 'video']).optional().or(z.literal('')),
-    mediaUrl: z.string().optional()
+    description: z.string().nullable().optional(),
+    mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().or(z.literal('')),
+    mediaUrl: z.string().nullable().optional(),
+    mediaUrls: z.array(z.string()).optional()
   }))
 });
 
@@ -50,13 +57,24 @@ export function ActivityForm({
       title: '',
       shortDescription: '',
       tier: 'free',
-      mediaType: '',
-      mediaUrl: '',
+      priority: 'medium',
+      referenceUrl: initialData?.referenceUrl || '',
+      versionId: typeof initialData?.versionId === 'object' ? initialData.versionId?._id : (initialData?.versionId || ''),
+      mediaType: initialData?.mediaType || '',
+      mediaUrls: initialData?.mediaUrls || (initialData?.mediaUrl ? [initialData.mediaUrl] : []),
       tags: [],
       activityDate: new Date().toISOString().split('T')[0],
       items: [],
     },
   });
+
+  const selectedProductId = form.watch('productId');
+  const { data: versionsData } = useQuery({ 
+    queryKey: ['versions', selectedProductId], 
+    queryFn: () => getVersions(selectedProductId),
+    enabled: !!selectedProductId
+  });
+  const versions = versionsData || [];
 
   const { fields, append, remove } = useFieldArray({
     name: "items",
@@ -115,6 +133,30 @@ export function ActivityForm({
 
           <FormField
             control={form.control as any}
+            name="priority"
+            render={({ field }: any) => (
+              <FormItem>
+                <FormLabel>Priority</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || 'medium'}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control as any}
             name="activityDate"
             render={({ field }: any) => (
               <FormItem>
@@ -164,6 +206,45 @@ export function ActivityForm({
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control as any}
+            name="referenceUrl"
+            render={({ field }: any) => (
+              <FormItem>
+                <FormLabel>Reference URL (e.g. PR link)</FormLabel>
+                <FormControl>
+                  <Input placeholder="https://github.com/..." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control as any}
+            name="versionId"
+            render={({ field }: any) => (
+              <FormItem>
+                <FormLabel>Version (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || undefined} disabled={!selectedProductId || versions.length === 0}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!selectedProductId ? "Select product first" : versions.length === 0 ? "No versions found" : "Select version"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {versions.map((v: any) => (
+                      <SelectItem key={v._id} value={v._id}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control as any}
@@ -259,20 +340,21 @@ export function ActivityForm({
 
                   <FormField
                     control={form.control as any}
-                    name={`items.${index}.mediaUrl`}
+                    name={`items.${index}.mediaUrls`}
                     render={({ field: itemMediaUrlField }: any) => (
                       <FormItem>
                         <FormLabel>Item Media Upload</FormLabel>
                         <FormControl>
-                          <Input
-                            type="file"
+                          <MediaUploader
+                            multiple
+                            value={itemMediaUrlField.value}
+                            onChange={itemMediaUrlField.onChange}
                             accept="image/*,video/*"
-                            onChange={async (e: any) => {
-                              if (e.target.files && e.target.files[0]) {
-                                const url = await uploadFile(e.target.files[0]);
-                                itemMediaUrlField.onChange(url);
-                                
-                                const fileType = e.target.files[0].type;
+                            label="Upload item media"
+                            onUploadComplete={(urls, files) => {
+                              const fileList = Array.isArray(files) ? files : [files];
+                              if (fileList.length > 0) {
+                                const fileType = fileList[0].type;
                                 if (fileType.startsWith('video/')) {
                                   form.setValue(`items.${index}.mediaType`, 'video');
                                 } else if (fileType === 'image/gif') {
@@ -284,7 +366,6 @@ export function ActivityForm({
                             }}
                           />
                         </FormControl>
-                        {itemMediaUrlField.value && <p className="text-xs text-muted-foreground mt-1 truncate">Uploaded: {itemMediaUrlField.value}</p>}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -324,21 +405,21 @@ export function ActivityForm({
 
           <FormField
             control={form.control as any}
-            name="mediaUrl"
+            name="mediaUrls"
             render={({ field }: any) => (
               <FormItem>
                 <FormLabel>Media Upload</FormLabel>
                 <FormControl>
-                  <Input
-                    type="file"
+                  <MediaUploader
+                    multiple
+                    value={field.value}
+                    onChange={field.onChange}
                     accept="image/*,video/*"
-                    onChange={async (e: any) => {
-                      if (e.target.files && e.target.files[0]) {
-                        const url = await uploadFile(e.target.files[0]);
-                        field.onChange(url);
-                        
-                        // Auto-detect media type
-                        const fileType = e.target.files[0].type;
+                    label="Upload activity media"
+                    onUploadComplete={(urls, files) => {
+                      const fileList = Array.isArray(files) ? files : [files];
+                      if (fileList.length > 0) {
+                        const fileType = fileList[0].type;
                         if (fileType.startsWith('video/')) {
                           form.setValue('mediaType', 'video');
                         } else if (fileType === 'image/gif') {
@@ -350,7 +431,6 @@ export function ActivityForm({
                     }}
                   />
                 </FormControl>
-                {field.value && <p className="text-xs text-muted-foreground mt-1 truncate">Uploaded: {field.value}</p>}
                 <FormMessage />
               </FormItem>
             )}

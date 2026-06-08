@@ -1,0 +1,210 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { UploadCloud, Image as ImageIcon, FileVideo, Loader2, X, File as FileIcon } from 'lucide-react';
+import { uploadFile } from '../../services/api';
+import { cn } from '@/lib/utils';
+import { Button } from './button';
+
+interface MediaUploaderProps {
+  value?: string | string[];
+  onChange: (url: any) => void;
+  onUploadStart?: () => void;
+  onUploadComplete?: (urls: string | string[], files: File | File[]) => void;
+  onUploadError?: (error: Error) => void;
+  accept?: string;
+  className?: string;
+  label?: string;
+  multiple?: boolean;
+}
+
+export function MediaUploader({
+  value,
+  onChange,
+  onUploadStart,
+  onUploadComplete,
+  onUploadError,
+  accept = 'image/*,video/*',
+  className,
+  label = 'Drag & drop media here or click to browse',
+  multiple = false,
+}: MediaUploaderProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const isHoveredOrFocusedRef = useRef(false);
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Only process paste if this specific uploader is being hovered or focused
+      const isFocused = document.activeElement === containerRef.current;
+      if (!isHoveredOrFocusedRef.current && !isFocused) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      
+      const files: File[] = [];
+      for (const item of items) {
+        if (item.type.indexOf('image') === 0 || item.type.indexOf('video') === 0) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFilesUpload(multiple ? files : [files[0]]);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesUpload(multiple ? Array.from(e.dataTransfer.files) : [e.dataTransfer.files[0]]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesUpload(multiple ? Array.from(e.target.files) : [e.target.files[0]]);
+    }
+  };
+
+  const handleFilesUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    try {
+      setIsUploading(true);
+      onUploadStart?.();
+      
+      const uploadPromises = files.map(file => uploadFile(file));
+      const urls = await Promise.all(uploadPromises);
+      
+      if (multiple) {
+        const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+        onChange([...currentUrls, ...urls]);
+        onUploadComplete?.(urls, files);
+      } else {
+        onChange(urls[0]);
+        onUploadComplete?.(urls[0], files[0]);
+      }
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      onUploadError?.(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleClear = (e: React.MouseEvent, indexToRemove?: number) => {
+    e.stopPropagation();
+    if (multiple && Array.isArray(value)) {
+      if (indexToRemove !== undefined) {
+        onChange(value.filter((_, i) => i !== indexToRemove));
+      } else {
+        onChange([]);
+      }
+    } else {
+      onChange('');
+    }
+  };
+
+  const isVideo = (url: string) => url.match(/\.(mp4|webm|ogg)$/i);
+  const hasValue = multiple ? (Array.isArray(value) && value.length > 0) : !!value;
+  const values = multiple ? (Array.isArray(value) ? value : (value ? [value] : [])) : (value ? [value as string] : []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        'relative group flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg transition-colors cursor-pointer overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+        isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 bg-muted/30 hover:bg-muted/50',
+        className
+      )}
+      onMouseEnter={() => { isHoveredOrFocusedRef.current = true; }}
+      onMouseLeave={() => { isHoveredOrFocusedRef.current = false; }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onClick={() => !isUploading && fileInputRef.current?.click()}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fileInputRef.current?.click();
+        }
+      }}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept={accept}
+        onChange={handleFileSelect}
+        disabled={isUploading}
+        multiple={multiple}
+      />
+
+      {isUploading ? (
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="text-sm font-medium">Uploading...</span>
+        </div>
+      ) : hasValue ? (
+        <div className="absolute inset-0 w-full h-full bg-black/5 flex items-center justify-start p-2 gap-2 overflow-x-auto">
+          {values.map((val, idx) => (
+            <div key={idx} className="relative h-full aspect-square shrink-0">
+              {isVideo(val) ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-center text-muted-foreground bg-card/90 rounded-md shadow-sm border">
+                  <FileVideo className="w-8 h-8 text-primary" />
+                </div>
+              ) : (
+                <img src={val} alt="Uploaded media" className="w-full h-full object-cover rounded-md" />
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => handleClear(e, idx)}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 mb-1">
+            <ImageIcon className="w-6 h-6 opacity-70" />
+            <span className="text-xs font-bold text-muted-foreground/50">/</span>
+            <FileVideo className="w-6 h-6 opacity-70" />
+          </div>
+          <span className="text-sm font-medium text-center px-4">
+            {label}
+            <br />
+            <span className="text-xs font-normal opacity-70">or paste from clipboard</span>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

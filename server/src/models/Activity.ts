@@ -5,6 +5,7 @@ export interface IActivityItem {
   description?: string;
   mediaType?: 'image' | 'gif' | 'video';
   mediaUrl?: string;
+  mediaUrls?: string[];
 }
 
 export interface IActivity extends Document {
@@ -13,8 +14,13 @@ export interface IActivity extends Document {
   title: string;
   shortDescription: string;
   tier?: 'free' | 'pro';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  referenceUrl?: string;
+  versionId?: mongoose.Types.ObjectId;
+  displayOrder?: number;
   mediaType?: 'image' | 'gif' | 'video';
   mediaUrl?: string;
+  mediaUrls?: string[];
   tags?: string[];
   items: IActivityItem[];
   activityDate: Date;
@@ -32,6 +38,7 @@ const ActivityItemSchema: Schema = new Schema(
       required: false,
     },
     mediaUrl: { type: String, required: false },
+    mediaUrls: [{ type: String, required: false }],
   },
   { _id: false }
 );
@@ -56,12 +63,25 @@ const ActivitySchema: Schema = new Schema(
       required: false,
     },
     tags: [{ type: String }],
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'critical'],
+      required: false,
+    },
+    referenceUrl: { type: String, required: false },
+    versionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Version',
+      required: false,
+    },
+    displayOrder: { type: Number, required: false },
     mediaType: {
       type: String,
       enum: ['image', 'gif', 'video'],
       required: false,
     },
     mediaUrl: { type: String, required: false },
+    mediaUrls: [{ type: String, required: false }],
     items: [ActivityItemSchema],
     activityDate: { type: Date, required: true },
   },

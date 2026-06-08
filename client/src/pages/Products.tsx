@@ -106,6 +106,8 @@ export default function Products() {
             <SelectItem value="all">All Categories</SelectItem>
             <SelectItem value="plugin">Plugin</SelectItem>
             <SelectItem value="block">Block</SelectItem>
+            <SelectItem value="theme">Theme</SelectItem>
+            <SelectItem value="standalone">Standalone App</SelectItem>
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
