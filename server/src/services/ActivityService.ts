@@ -1,5 +1,8 @@
 import { ActivityRepository } from '../repositories/ActivityRepository';
 import { IActivity } from '../models/Activity';
+import { AuditLogService } from './AuditLogService';
+
+const auditLogService = new AuditLogService();
 
 export class ActivityService {
   private repository: ActivityRepository;
@@ -9,7 +12,9 @@ export class ActivityService {
   }
 
   async createActivity(data: any): Promise<IActivity> {
-    return await this.repository.create(data);
+    const activity = await this.repository.create(data);
+    await auditLogService.logEvent('CREATE', 'ACTIVITY', activity._id.toString(), activity.title, `Logged a new ${activity.type}`);
+    return activity;
   }
 
   async getActivities(query: any): Promise<any> {
@@ -53,10 +58,18 @@ export class ActivityService {
   }
 
   async updateActivity(id: string, data: any): Promise<IActivity | null> {
-    return await this.repository.update(id, data);
+    const activity = await this.repository.update(id, data);
+    if (activity) {
+      await auditLogService.logEvent('UPDATE', 'ACTIVITY', activity._id.toString(), activity.title, `Updated ${activity.type}`);
+    }
+    return activity;
   }
 
   async deleteActivity(id: string): Promise<IActivity | null> {
-    return await this.repository.delete(id);
+    const activity = await this.repository.delete(id);
+    if (activity) {
+      await auditLogService.logEvent('DELETE', 'ACTIVITY', activity._id.toString(), activity.title, `Deleted ${activity.type}`);
+    }
+    return activity;
   }
 }

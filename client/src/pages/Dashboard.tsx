@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { getMonthlyReport } from '../services/reports';
 import { getProducts } from '../services/products';
 import { getActivities } from '../services/activities';
+import { getAuditLogs } from '../services/auditLogs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,12 @@ export default function Dashboard() {
     queryFn: () => getActivities({ limit: -1 }),
   });
 
-  if (isReportLoading || isProductsLoading || isActivitiesLoading) {
+  const { data: auditLogsData, isLoading: isAuditLogsLoading } = useQuery({
+    queryKey: ['dashboardAuditLogs'],
+    queryFn: () => getAuditLogs(),
+  });
+
+  if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -55,11 +61,7 @@ export default function Dashboard() {
 
   const allActivities = activitiesData?.data || [];
   
-  const recentActivities = [...allActivities].sort((a: any, b: any) => {
-    const dateA = new Date(a.createdAt || a.activityDate).getTime();
-    const dateB = new Date(b.createdAt || b.activityDate).getTime();
-    return dateB - dateA;
-  }).slice(0, 8);
+  const recentActivities = auditLogsData || [];
 
   const totalFeatures = allActivities.filter((a: any) => a.type === 'feature').length;
   const totalImprovements = allActivities.filter((a: any) => a.type === 'improvement').length;
@@ -72,13 +74,28 @@ export default function Dashboard() {
   const improvePct = Math.round((totalImprovements / grandTotal) * 100);
   const bugPct = grandTotal > 1 ? (100 - featurePct - improvePct) : Math.round((totalBugs / grandTotal) * 100);
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'feature': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-      case 'improvement': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      case 'bug-fix': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+  const getLogLink = (log: any) => {
+    if (log.action === 'DELETE') return '#';
+    if (log.entityType === 'PRODUCT') return `/products/${log.entityId}`;
+    if (log.entityType === 'ACTIVITY') {
+       const act = allActivities.find((a: any) => a._id === log.entityId);
+       if (act && act.productId) {
+         return `/products/${act.productId._id || act.productId}#activity-${log.entityId}`;
+       }
+       return '/activities';
     }
+    return '#';
+  };
+
+  const getProductNameForLog = (log: any) => {
+    if (log.entityType === 'ACTIVITY') {
+      const act = allActivities.find((a: any) => a._id === log.entityId);
+      if (act && act.productId) {
+        const prod = allProducts.find((p: any) => p._id === (act.productId._id || act.productId));
+        return prod ? prod.name : null;
+      }
+    }
+    return null;
   };
 
   return (
@@ -205,46 +222,37 @@ export default function Dashboard() {
                 {recentActivities.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No activities logged yet.</p>
                 ) : (
-                  recentActivities.map((activity: any) => (
-                    <Link key={activity._id} to={`/products/${activity.productId?._id}#activity-${activity._id}`} className="flex items-start gap-4 p-3 rounded-lg border bg-card/50 transition-colors hover:bg-muted/50 cursor-pointer block">
+                  recentActivities.map((log: any) => (
+                    <Link 
+                      key={log._id} 
+                      to={getLogLink(log)} 
+                      className={`flex items-start gap-4 p-3 rounded-lg border bg-card/50 transition-colors ${log.action !== 'DELETE' ? 'hover:bg-muted/50 cursor-pointer' : 'cursor-default'} block`}
+                      onClick={(e) => log.action === 'DELETE' && e.preventDefault()}
+                    >
                       <div className="mt-0.5">
-                        {activity.type === 'feature' && <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-full"><PlusCircle className="w-4 h-4" /></div>}
-                        {activity.type === 'improvement' && <div className="p-2 bg-blue-500/10 text-blue-500 rounded-full"><Wrench className="w-4 h-4" /></div>}
-                        {activity.type === 'bug-fix' && <div className="p-2 bg-red-500/10 text-red-500 rounded-full"><Bug className="w-4 h-4" /></div>}
+                        {log.action === 'CREATE' && <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-full"><PlusCircle className="w-4 h-4" /></div>}
+                        {log.action === 'UPDATE' && <div className="p-2 bg-blue-500/10 text-blue-500 rounded-full"><Wrench className="w-4 h-4" /></div>}
+                        {log.action === 'DELETE' && <div className="p-2 bg-red-500/10 text-red-500 rounded-full"><Bug className="w-4 h-4" /></div>}
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                          <p className="text-sm font-medium leading-tight">{activity.title}</p>
+                          <p className="text-sm font-medium leading-tight">{log.details || `${log.action} ${log.entityType}`}</p>
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {formatDistanceToNow(new Date(activity.createdAt || activity.activityDate), { addSuffix: true })}
+                            {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
                           </span>
                         </div>
                         <div className="flex items-center text-xs text-muted-foreground pt-1 flex-wrap gap-y-1">
-                          <span className="font-medium text-foreground/80">{activity.productId?.name || 'Unknown Product'}</span>
+                          <span className="font-medium text-foreground/80">
+                            {log.entityName}
+                            {getProductNameForLog(log) && <span className="font-normal text-muted-foreground ml-1">({getProductNameForLog(log)})</span>}
+                          </span>
                           <span className="mx-2">•</span>
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${getTypeColor(activity.type)}`}>
-                            {activity.type}
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border capitalize`}>
+                            {log.entityType.toLowerCase()}
                           </Badge>
-                          {activity.tier && (
-                            <>
-                              <span className="mx-2">•</span>
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 uppercase">
-                                {activity.tier}
-                              </Badge>
-                            </>
-                          )}
-                          {activity.tags?.includes('released') && (
-                            <>
-                              <span className="mx-2">•</span>
-                              <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white border-none text-[10px] px-1.5 py-0 uppercase">RELEASED</Badge>
-                            </>
-                          )}
-                          {activity.tags?.includes('unreleased') && (
-                            <>
-                              <span className="mx-2">•</span>
-                              <Badge variant="default" className="bg-slate-500 hover:bg-slate-600 text-white border-none text-[10px] px-1.5 py-0 uppercase">UNRELEASED</Badge>
-                            </>
-                          )}
+                          <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ml-2 uppercase ${log.action === 'CREATE' ? 'text-emerald-500' : log.action === 'DELETE' ? 'text-red-500' : 'text-blue-500'}`}>
+                            {log.action}
+                          </Badge>
                         </div>
                       </div>
                     </Link>
