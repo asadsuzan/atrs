@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, createActivity, deleteActivity, updateActivity } from '../services/activities';
 import { getProducts } from '../services/products';
@@ -228,7 +229,12 @@ export default function Activities() {
                   </TableCell>
                   <TableCell className="max-w-[300px] truncate">
                     <div className="flex items-center gap-2">
-                      <span className="truncate">{activity.title}</span>
+                      <Link 
+                        to={`/products/${activity.productId?._id}#activity-${activity._id}`}
+                        className="truncate hover:underline text-primary transition-colors"
+                      >
+                        {activity.title}
+                      </Link>
                       {activity.tier === 'pro' && (
                         <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">PRO</Badge>
                       )}

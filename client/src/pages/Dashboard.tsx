@@ -206,7 +206,7 @@ export default function Dashboard() {
                   <p className="text-muted-foreground text-center py-8">No activities logged yet.</p>
                 ) : (
                   recentActivities.map((activity: any) => (
-                    <div key={activity.id} className="flex items-start gap-4 p-3 rounded-lg border bg-card/50 transition-colors hover:bg-muted/50">
+                    <Link key={activity._id} to={`/products/${activity.productId?._id}#activity-${activity._id}`} className="flex items-start gap-4 p-3 rounded-lg border bg-card/50 transition-colors hover:bg-muted/50 cursor-pointer block">
                       <div className="mt-0.5">
                         {activity.type === 'feature' && <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-full"><PlusCircle className="w-4 h-4" /></div>}
                         {activity.type === 'improvement' && <div className="p-2 bg-blue-500/10 text-blue-500 rounded-full"><Wrench className="w-4 h-4" /></div>}
@@ -219,8 +219,8 @@ export default function Dashboard() {
                             {formatDistanceToNow(new Date(activity.createdAt || activity.activityDate), { addSuffix: true })}
                           </span>
                         </div>
-                        <div className="flex items-center text-xs text-muted-foreground pt-1">
-                          <span className="font-medium text-foreground/80">{activity.product?.name || 'Unknown Product'}</span>
+                        <div className="flex items-center text-xs text-muted-foreground pt-1 flex-wrap gap-y-1">
+                          <span className="font-medium text-foreground/80">{activity.productId?.name || 'Unknown Product'}</span>
                           <span className="mx-2">•</span>
                           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${getTypeColor(activity.type)}`}>
                             {activity.type}
@@ -247,7 +247,7 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>

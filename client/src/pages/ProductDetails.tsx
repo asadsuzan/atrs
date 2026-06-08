@@ -1,5 +1,5 @@
-import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useParams, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
 import { getActivities } from '../services/activities';
@@ -42,6 +42,25 @@ export default function ProductDetails() {
     enabled: !!id,
   });
 
+  const location = useLocation();
+
+  useEffect(() => {
+    if (activitiesData && location.hash && activeTab === 'activities') {
+      const targetId = location.hash.replace('#', '');
+      const timer = setTimeout(() => {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+          }, 2000);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [activitiesData, location.hash, activeTab]);
+
   if (productLoading) return <div>Loading...</div>;
   if (!product) return <div>Product not found</div>;
 
@@ -53,7 +72,7 @@ export default function ProductDetails() {
   const ActivityCard = ({ act, colorClass }: { act: any, colorClass: string }) => {
     const [isOpen, setIsOpen] = useState(true);
     return (
-      <motion.div variants={staggerItem} layout>
+      <motion.div variants={staggerItem} layout id={`activity-${act._id}`} className="transition-all duration-500">
         <Card>
           <CardHeader 
             className="pb-2 cursor-pointer hover:bg-muted/30 transition-colors" 
