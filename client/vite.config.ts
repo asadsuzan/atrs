@@ -1,18 +1,26 @@
 import path from "path"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, loadEnv } from "vite"
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+export default defineConfig(({ mode }) => {
+  // Load environment variables from the root directory
+  const rootEnv = loadEnv(mode, path.resolve(__dirname, "../"), "")
+  const port = rootEnv.PORT || 5000
+  const serverUrl = `http://localhost:${port}`
+
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-  },
-  server: {
-    proxy: {
-      '/api': 'http://localhost:5000',
-      '/uploads': 'http://localhost:5000',
+    envDir: path.resolve(__dirname, "../"), // point envDir to the root directory
+    server: {
+      proxy: {
+        '/api': serverUrl,
+        '/uploads': serverUrl,
+      }
     }
   }
 })

@@ -1,9 +1,14 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database } from 'lucide-react';
+import { Check, Download, Database, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportAllData } from '../services/export';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { getAppConfig, updateAppConfig } from '../services/config';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -17,6 +22,74 @@ const THEMES = [
 
 export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
+
+  const [configForm, setConfigForm] = useState({
+    serverPort: '',
+    mongodbUri: ''
+  });
+  const [isRestarting, setIsRestarting] = useState(false);
+
+  const { data: configData, isLoading: configLoading, refetch } = useQuery({
+    queryKey: ['appConfig'],
+    queryFn: getAppConfig,
+    retry: false
+  });
+
+  useEffect(() => {
+    if (configData) {
+      setConfigForm({
+        serverPort: String(configData.server?.port || 5000),
+        mongodbUri: configData.server?.mongodbUri || ''
+      });
+    }
+  }, [configData]);
+
+  const saveMutation = useMutation({
+    mutationFn: updateAppConfig,
+    onSuccess: (res) => {
+      toast.success(res.message || "Configuration saved. Restarting server...");
+      setIsRestarting(true);
+      
+      // Poll health endpoint until server is back online
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await fetch('/api/health');
+          if (res.ok) {
+            clearInterval(interval);
+            setIsRestarting(false);
+            toast.success("Server is back online!");
+            refetch();
+          }
+        } catch (e) {
+          // Server is still down or restarting
+          if (attempts > 30) {
+            clearInterval(interval);
+            setIsRestarting(false);
+            toast.error("Server took too long to restart. Please refresh manually.");
+          }
+        }
+      }, 1500);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to save configuration");
+    }
+  });
+
+  const handleSaveConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!configForm.serverPort || !configForm.mongodbUri) {
+      toast.error("Please fill in all required configuration fields.");
+      return;
+    }
+    saveMutation.mutate({
+      server: {
+        port: configForm.serverPort,
+        mongodbUri: configForm.mongodbUri
+      }
+    });
+  };
 
   return (
     <PageTransition className="space-y-8 max-w-4xl mx-auto pb-12">
@@ -115,6 +188,56 @@ export default function Settings() {
             );
           })}
         </motion.div>
+      </div>
+
+      <div className="pt-8 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">System Configuration</h3>
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Manage system-wide configuration, including the backend port and database connection. Changing these values will update your root <code>.env</code> and <code>app.config.json</code> files and automatically restart the backend process to apply settings.
+          </p>
+          
+          {configLoading ? (
+            <div className="py-4 text-center text-sm text-muted-foreground animate-pulse">
+              Loading configuration data...
+            </div>
+          ) : isRestarting ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-sm font-semibold text-primary animate-pulse">Restarting background server...</p>
+              <p className="text-xs text-muted-foreground">Reconnecting to MongoDB and binding to new port. Please wait...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveConfig} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Server Port</label>
+                <Input 
+                  type="number" 
+                  placeholder="e.g. 5000" 
+                  value={configForm.serverPort} 
+                  onChange={e => setConfigForm({...configForm, serverPort: e.target.value})} 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">MongoDB Connection URI</label>
+                <Input 
+                  type="text" 
+                  placeholder="mongodb://127.0.0.1:27017/atrs" 
+                  value={configForm.mongodbUri} 
+                  onChange={e => setConfigForm({...configForm, mongodbUri: e.target.value})} 
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button type="submit" disabled={saveMutation.isPending}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
 
       <div className="pt-8">

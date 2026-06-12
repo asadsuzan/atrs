@@ -213,6 +213,13 @@ Configure your workspace settings by clicking the **Settings** cog.
   - `Lavender`: Subtle purple.
   - `Raspberry`: Energetic red.
 - **Auto Dark Mode**: Toggle automatic dark mode syncing that matches the system browser's dark/light preferences.
+- **System Configuration**:
+  - Manage system-wide configuration directly from the UI, including:
+    - **Server Port**: Configures the port to which the Express server binds.
+    - **MongoDB Connection URI**: Configures the database connection string.
+  - Modifying these values updates the root `.env` and `app.config.json` configuration files dynamically.
+  - Automatically triggers a backend server reboot to apply changes cleanly.
+  - Integrates an interactive reconnect loader that polls `/api/health` until the server is back online, ensuring a seamless user experience.
 
 ---
 
