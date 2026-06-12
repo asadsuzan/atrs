@@ -4,23 +4,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
 import { getActivities, reorderActivity } from '../services/activities';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, GitBranch, Globe, ChevronDown, ChevronUp, ChevronRight, Download, GripVertical } from 'lucide-react';
-import { MediaLightbox } from '@/components/ui/media-lightbox';
+import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { cn } from '@/lib/utils';
-import { DonutChart } from '../components/reports/DonutChart';
 import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/ui/skeletons';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const SortableActivityCard = ({ act, colorClass, isActive, onClick }: { act: any, colorClass: string, isActive: boolean, onClick: () => void }) => {
+const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: boolean, onClick: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -128,7 +125,6 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
                     <SortableActivityCard 
                       key={act._id} 
                       act={act} 
-                      colorClass={colorClass} 
                       isActive={activeCardId === act._id}
                       onClick={() => onCardClick(act._id)}
                     />
@@ -294,7 +290,7 @@ export default function ProductDetails() {
             </div>
           </div>
           
-          <div className="w-full md:w-[250px] shrink-0">
+          {/* <div className="w-full md:w-[250px] shrink-0">
             <Card className="h-full">
               <CardHeader className="py-3 px-4">
                 <CardTitle className="text-sm">Activity Distribution</CardTitle>
@@ -303,7 +299,7 @@ export default function ProductDetails() {
                 <DonutChart data={{ features: features.length, improvements: improvements.length, bugFixes: bugFixes.length }} />
               </CardContent>
             </Card>
-          </div>
+          </div> */}
         </div>
       </div>
 

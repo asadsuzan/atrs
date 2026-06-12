@@ -5,6 +5,12 @@ import { AuditLogService } from './AuditLogService';
 
 const auditLogService = new AuditLogService();
 
+import { ActivityService } from './ActivityService';
+import { ProductMarketingService } from './ProductMarketingService';
+import { Activity } from '../models/Activity';
+import { Version } from '../models/Version';
+import { deleteMediaFiles } from '../utils/fileUtils';
+
 export class ProductService {
   private repository: ProductRepository;
 
@@ -56,6 +62,27 @@ export class ProductService {
     const product = await this.repository.delete(id);
     if (product) {
       await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product');
+      
+      deleteMediaFiles([product.icon, product.banner]);
+
+      try {
+        const activities = await Activity.find({ productId: id });
+        if (activities.length > 0) {
+          const activityService = new ActivityService();
+          await activityService.bulkDeleteActivities(activities.map(a => a._id.toString()));
+        }
+      } catch (err) {
+        console.error('Error deleting related activities', err);
+      }
+
+      try {
+        const marketingService = new ProductMarketingService();
+        await marketingService.deleteMarketingData(id).catch(() => {});
+      } catch (err) {}
+
+      try {
+        await Version.deleteMany({ productId: id });
+      } catch (err) {}
     }
     return product;
   }

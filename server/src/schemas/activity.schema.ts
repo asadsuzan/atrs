@@ -12,7 +12,7 @@ export const createActivitySchema = z.object({
     versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
     displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
-    mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+    mediaType: z.preprocess(val => val === '' ? null : val, z.enum(['image', 'gif', 'video']).nullable().optional()),
     mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
     mediaUrls: z.array(z.string()).optional(),
     items: z
@@ -20,7 +20,7 @@ export const createActivitySchema = z.object({
         z.object({
           title: z.string(),
           description: z.string().nullable().optional(),
-          mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+          mediaType: z.preprocess(val => val === '' ? null : val, z.enum(['image', 'gif', 'video']).nullable().optional()),
           mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
           mediaUrls: z.array(z.string()).optional(),
         })
@@ -42,7 +42,7 @@ export const updateActivitySchema = z.object({
     versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
     displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
-    mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+    mediaType: z.preprocess(val => val === '' ? null : val, z.enum(['image', 'gif', 'video']).nullable().optional()),
     mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
     mediaUrls: z.array(z.string()).optional(),
     items: z
@@ -50,7 +50,7 @@ export const updateActivitySchema = z.object({
         z.object({
           title: z.string(),
           description: z.string().nullable().optional(),
-          mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().transform(val => val === '' ? null : val),
+          mediaType: z.preprocess(val => val === '' ? null : val, z.enum(['image', 'gif', 'video']).nullable().optional()),
           mediaUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
           mediaUrls: z.array(z.string()).optional(),
         })

@@ -11,6 +11,7 @@ import { ActivityForm } from '../components/activities/ActivityForm';
 import { Plus, Edit2, Trash2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { motion } from 'framer-motion';
@@ -156,69 +157,128 @@ export default function Activities() {
               <DialogTitle>Add New Activity</DialogTitle>
             </DialogHeader>
             <ActivityForm onSubmit={(data: any) => {
-              if(!data.mediaType) delete data.mediaType;
-              if(!data.mediaUrl) delete data.mediaUrl;
+              if(!data.mediaType) data.mediaType = null;
+              if(!data.mediaUrl) data.mediaUrl = null;
               createMutation.mutate(data);
             }} />
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border flex-wrap">
-        <Input 
-          placeholder="Search activities..." 
-          value={search} 
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full sm:w-[250px]"
-        />
-        <Select value={productId} onValueChange={(v) => { setProductId(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by Product" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Products</SelectItem>
-            {products?.map((p: any) => (
-              <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={type} onValueChange={(v) => { setType(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="feature">Feature</SelectItem>
-            <SelectItem value="improvement">Improvement</SelectItem>
-            <SelectItem value="bug-fix">Bug Fix</SelectItem>
-          </SelectContent>
-        </Select>
-        {type === 'feature' && (
-          <Select value={tier} onValueChange={(v) => { setTier(v); setPage(1); }}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Tier" />
+      <div className="bg-card rounded-lg border overflow-hidden">
+        {/* Row 1: Search + Dropdowns */}
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b">
+          <Input
+            placeholder="Search activities..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="h-9 w-[220px] flex-shrink-0"
+          />
+          <div className="w-px h-5 bg-border flex-shrink-0" />
+          <Select value={productId} onValueChange={(v) => { setProductId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-[180px] flex-shrink-0">
+              <SelectValue placeholder="All Products" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tiers</SelectItem>
-              <SelectItem value="free">Free</SelectItem>
-              <SelectItem value="pro">Pro</SelectItem>
+              <SelectItem value="all">All Products</SelectItem>
+              {products?.map((p: any) => (
+                <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        )}
-        <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Tags" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tags</SelectItem>
-            <SelectItem value="released">Released</SelectItem>
-            <SelectItem value="unreleased">Unreleased</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 sm:ml-auto w-full sm:w-auto">
-          <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="w-full sm:w-[150px]" />
-          <span className="text-muted-foreground text-sm">to</span>
-          <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="w-full sm:w-[150px]" />
+          <Select value={type} onValueChange={(v) => { setType(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-[150px] flex-shrink-0">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="feature">Feature</SelectItem>
+              <SelectItem value="improvement">Improvement</SelectItem>
+              <SelectItem value="bug-fix">Bug Fix</SelectItem>
+            </SelectContent>
+          </Select>
+          {type === 'feature' && (
+            <Select value={tier} onValueChange={(v) => { setTier(v); setPage(1); }}>
+              <SelectTrigger className="h-9 w-[110px] flex-shrink-0">
+                <SelectValue placeholder="All Tiers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tiers</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+                <SelectItem value="pro">Pro</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-[130px] flex-shrink-0">
+              <SelectValue placeholder="All Tags" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              <SelectItem value="released">Released</SelectItem>
+              <SelectItem value="unreleased">Unreleased</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Row 2: Date Range */}
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 bg-muted/20">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+            Date Range
+          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+              <DatePicker
+                value={startDate}
+                onChange={(v) => { setStartDate(v); setPage(1); }}
+                placeholder="Start date"
+                max={endDate || undefined}
+                clearable
+                className="h-8 w-[160px] text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+              <DatePicker
+                value={endDate}
+                onChange={(v) => { setEndDate(v); setPage(1); }}
+                placeholder="End date"
+                min={startDate || undefined}
+                clearable
+                className="h-8 w-[160px] text-sm"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { setStartDate(''); setEndDate(''); setPage(1); }}
+              >
+                Clear dates
+              </Button>
+            )}
+          </div>
+          {(search || productId !== 'all' || type !== 'all' || tagFilter !== 'all' || startDate || endDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground ml-auto"
+              onClick={() => {
+                setSearch('');
+                setProductId('all');
+                setType('all');
+                setTier('all');
+                setTagFilter('all');
+                setStartDate('');
+                setEndDate('');
+                setPage(1);
+              }}
+            >
+              Reset all filters
+            </Button>
+          )}
         </div>
       </div>
 
@@ -389,10 +449,11 @@ export default function Activities() {
           </DialogHeader>
           {editingActivity && (
             <ActivityForm
+              key={editingActivity._id}
               initialData={editingActivity}
               onSubmit={(data: any) => {
-                if(!data.mediaType) delete data.mediaType;
-                if(!data.mediaUrl) delete data.mediaUrl;
+                if(!data.mediaType) data.mediaType = null;
+                if(!data.mediaUrl) data.mediaUrl = null;
                 updateMutation.mutate({ id: editingActivity._id, ...data });
               }}
             />

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Image as ImageIcon, FileVideo, Loader2, X, File as FileIcon } from 'lucide-react';
+import { Image as ImageIcon, FileVideo, Loader2, X } from 'lucide-react';
 import { uploadFile } from '../../services/api';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
@@ -44,7 +44,8 @@ export function MediaUploader({
       if (!items) return;
       
       const files: File[] = [];
-      for (const item of items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         if (item.type.indexOf('image') === 0 || item.type.indexOf('video') === 0) {
           const file = item.getAsFile();
           if (file) files.push(file);

@@ -37,7 +37,7 @@ const apiLimiter = rateLimit({
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-app.use('/api', apiLimiter);
+// app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api/products', productRoutes);

@@ -124,7 +124,7 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="atrs-theme">
+    <ThemeProvider defaultTheme="todoist">
       <ConfirmProvider>
         <QueryClientProvider client={queryClient}>
           <SmoothScroll>

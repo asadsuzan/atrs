@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -297,11 +298,23 @@ export default function Reports() {
               <>
                 <div className="space-y-1 flex-1">
                   <label className="text-sm font-medium">Start Date</label>
-                  <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                  <DatePicker
+                    value={startDate}
+                    onChange={setStartDate}
+                    placeholder="Pick start date"
+                    max={endDate || undefined}
+                    clearable
+                  />
                 </div>
                 <div className="space-y-1 flex-1">
                   <label className="text-sm font-medium">End Date</label>
-                  <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                  <DatePicker
+                    value={endDate}
+                    onChange={setEndDate}
+                    placeholder="Pick end date"
+                    min={startDate || undefined}
+                    clearable
+                  />
                 </div>
               </>
             )}

@@ -196,7 +196,10 @@ export default function Products() {
                       <Edit2 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={async () => {
-                      if (await confirm({ title: 'Delete Product', description: 'Are you sure you want to permanently delete this product?' })) {
+                      if (await confirm({ 
+                        title: 'Delete Product', 
+                        description: 'Are you sure you want to permanently delete this product? This will also delete all associated activities, versions, marketing data, and media files. This action cannot be undone.' 
+                      })) {
                         deleteMutation.mutate(product._id);
                       }
                     }}>

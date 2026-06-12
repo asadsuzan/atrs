@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, History, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -103,11 +104,27 @@ export default function AuditLogs() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-[140px]">
-          <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(1); }} />
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+          <DatePicker
+            value={startDate}
+            onChange={(v) => { setStartDate(v); setPage(1); }}
+            placeholder="Start date"
+            max={endDate || undefined}
+            clearable
+            className="w-[160px]"
+          />
         </div>
-        <div className="w-[140px]">
-          <Input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(1); }} />
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+          <DatePicker
+            value={endDate}
+            onChange={(v) => { setEndDate(v); setPage(1); }}
+            placeholder="End date"
+            min={startDate || undefined}
+            clearable
+            className="w-[160px]"
+          />
         </div>
         {(search || entityType !== 'all' || action !== 'all' || startDate || endDate) && (
           <Button variant="ghost" onClick={clearFilters} className="px-3">

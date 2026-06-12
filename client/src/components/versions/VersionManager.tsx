@@ -4,6 +4,7 @@ import { getVersions, createVersion, updateVersion, deleteVersion } from '../../
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Edit2, Trash2, Plus } from 'lucide-react';
@@ -134,7 +135,13 @@ export function VersionManager({ productId }: { productId: string }) {
             </div>
             <div>
               <label className="text-sm font-medium">Release Date (optional)</label>
-              <Input type="date" value={formData.releasedAt} onChange={e => setFormData({ ...formData, releasedAt: e.target.value })} />
+              <DatePicker
+                value={formData.releasedAt}
+                onChange={(v) => setFormData({ ...formData, releasedAt: v })}
+                placeholder="Pick release date"
+                clearable
+                className="mt-1"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Release Notes (optional)</label>

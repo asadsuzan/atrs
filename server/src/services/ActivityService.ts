@@ -1,6 +1,7 @@
 import { ActivityRepository } from '../repositories/ActivityRepository';
 import { IActivity } from '../models/Activity';
 import { AuditLogService } from './AuditLogService';
+import { deleteMediaFiles } from '../utils/fileUtils';
 
 const auditLogService = new AuditLogService();
 
@@ -53,9 +54,33 @@ export class ActivityService {
   }
 
   async updateActivity(id: string, data: any): Promise<IActivity | null> {
+    const oldActivity = await this.repository.findById(id);
     const activity = await this.repository.update(id, data);
+    
     if (activity) {
       await auditLogService.logEvent('UPDATE', 'ACTIVITY', activity._id.toString(), activity.title, `Updated ${activity.type}`);
+      
+      if (oldActivity) {
+        const getMediaUrls = (act: any) => {
+          const urls: (string | undefined)[] = [
+            act.mediaUrl,
+            ...(act.mediaUrls || []),
+          ];
+          act.items?.forEach((item: any) => {
+            urls.push(item.mediaUrl);
+            if (item.mediaUrls) urls.push(...item.mediaUrls);
+          });
+          return urls.filter(Boolean) as string[];
+        };
+
+        const oldUrls = getMediaUrls(oldActivity);
+        const newUrls = getMediaUrls(activity);
+        
+        const orphanedUrls = oldUrls.filter(url => !newUrls.includes(url));
+        if (orphanedUrls.length > 0) {
+          deleteMediaFiles(orphanedUrls);
+        }
+      }
     }
     return activity;
   }
@@ -64,6 +89,16 @@ export class ActivityService {
     const activity = await this.repository.delete(id);
     if (activity) {
       await auditLogService.logEvent('DELETE', 'ACTIVITY', activity._id.toString(), activity.title, `Deleted ${activity.type}`);
+      
+      const mediaUrls: (string | undefined)[] = [
+        activity.mediaUrl,
+        ...(activity.mediaUrls || []),
+      ];
+      activity.items?.forEach((item: any) => {
+        mediaUrls.push(item.mediaUrl);
+        if (item.mediaUrls) mediaUrls.push(...item.mediaUrls);
+      });
+      deleteMediaFiles(mediaUrls.filter(Boolean) as string[]);
     }
     return activity;
   }
@@ -73,7 +108,23 @@ export class ActivityService {
   }
 
   async bulkDeleteActivities(ids: string[]): Promise<number> {
-    return await this.repository.bulkDelete(ids);
+    const activities = await Promise.all(ids.map(id => this.repository.findById(id)));
+    const deletedCount = await this.repository.bulkDelete(ids);
+    
+    activities.forEach(activity => {
+      if (!activity) return;
+      const mediaUrls: (string | undefined)[] = [
+        activity.mediaUrl,
+        ...(activity.mediaUrls || []),
+      ];
+      activity.items?.forEach((item: any) => {
+        mediaUrls.push(item.mediaUrl);
+        if (item.mediaUrls) mediaUrls.push(...item.mediaUrls);
+      });
+      deleteMediaFiles(mediaUrls.filter(Boolean) as string[]);
+    });
+
+    return deletedCount;
   }
 
   async reorderActivity(id: string, displayOrder: number): Promise<IActivity | null> {

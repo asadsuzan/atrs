@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,8 +12,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../../services/products';
 import { getVersions } from '../../services/versions';
-import { uploadFile } from '../../services/api';
 import { MediaUploader } from '@/components/ui/MediaUploader';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 const formSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -49,24 +50,41 @@ export function ActivityForm({
   const { data: productsData } = useQuery({ queryKey: ['products'], queryFn: () => getProducts() });
   const products = productsData?.data || [];
 
+  const processedInitialData = initialData ? {
+    ...initialData,
+    versionId: typeof initialData.versionId === 'object' ? initialData.versionId?._id : (initialData.versionId || ''),
+    mediaUrls: initialData.mediaUrls && initialData.mediaUrls.length > 0 ? initialData.mediaUrls : (initialData.mediaUrl ? [initialData.mediaUrl] : []),
+    items: (initialData.items || []).map((item: any) => ({
+      ...item,
+      mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : [])
+    }))
+  } : undefined;
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
+    defaultValues: processedInitialData || {
       productId: '',
       type: 'feature',
       title: '',
       shortDescription: '',
       tier: 'free',
       priority: 'medium',
-      referenceUrl: initialData?.referenceUrl || '',
-      versionId: typeof initialData?.versionId === 'object' ? initialData.versionId?._id : (initialData?.versionId || ''),
-      mediaType: initialData?.mediaType || '',
-      mediaUrls: initialData?.mediaUrls || (initialData?.mediaUrl ? [initialData.mediaUrl] : []),
+      referenceUrl: '',
+      versionId: '',
+      mediaType: '',
+      mediaUrls: [],
       tags: [],
       activityDate: new Date().toISOString().split('T')[0],
       items: [],
     },
   });
+
+  // Reset form whenever initialData changes (e.g. opening edit dialog for a different activity)
+  useEffect(() => {
+    if (initialData) {
+      form.reset(processedInitialData);
+    }
+  }, [initialData?._id]);
 
   const selectedProductId = form.watch('productId');
   const { data: versionsData } = useQuery({ 
@@ -83,7 +101,11 @@ export function ActivityForm({
 
   return (
     <Form {...(form as any)}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+      <form onSubmit={form.handleSubmit((data) => {
+        data.mediaUrl = ''; // Clear legacy field
+        data.items = data.items.map(item => ({ ...item, mediaUrl: '' })); // Clear legacy field
+        onSubmit(data);
+      })} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
         <FormField
           control={form.control as any}
           name="productId"
@@ -162,7 +184,12 @@ export function ActivityForm({
               <FormItem>
                 <FormLabel>Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <DatePicker
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    placeholder="Pick activity date"
+                    clearable={false}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -351,7 +378,7 @@ export function ActivityForm({
                             onChange={itemMediaUrlField.onChange}
                             accept="image/*,video/*"
                             label="Upload item media"
-                            onUploadComplete={(urls, files) => {
+                            onUploadComplete={(_urls, files) => {
                               const fileList = Array.isArray(files) ? files : [files];
                               if (fileList.length > 0) {
                                 const fileType = fileList[0].type;
@@ -416,7 +443,7 @@ export function ActivityForm({
                     onChange={field.onChange}
                     accept="image/*,video/*"
                     label="Upload activity media"
-                    onUploadComplete={(urls, files) => {
+                    onUploadComplete={(_urls, files) => {
                       const fileList = Array.isArray(files) ? files : [files];
                       if (fileList.length > 0) {
                         const fileType = fileList[0].type;
