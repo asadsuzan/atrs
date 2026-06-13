@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   // Load environment variables from the root directory
   const rootEnv = loadEnv(mode, path.resolve(__dirname, "../"), "")
   const port = rootEnv.PORT || 5000
-  const serverUrl = `http://localhost:${port}`
+  const serverUrl = `http://127.0.0.1:${port}`
 
   return {
     plugins: [react()],
@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
     },
     envDir: path.resolve(__dirname, "../"), // point envDir to the root directory
     server: {
+      host: true,
       proxy: {
         '/api': serverUrl,
         '/uploads': serverUrl,
