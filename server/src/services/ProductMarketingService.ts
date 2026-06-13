@@ -1,6 +1,13 @@
 import { ProductMarketingRepository } from '../repositories/ProductMarketingRepository';
 import { IProductMarketing } from '../models/ProductMarketing';
+import { Product } from '../models/Product';
 import { deleteMediaFiles } from '../utils/fileUtils';
+import { AuditLogService } from './AuditLogService';
+import { assertOwner } from '../utils/ownership';
+import createHttpError from '../utils/httpError';
+import type { AuthUser } from '../types/auth';
+
+const auditLogService = new AuditLogService();
 
 export class ProductMarketingService {
   private repository: ProductMarketingRepository;
@@ -9,24 +16,31 @@ export class ProductMarketingService {
     this.repository = new ProductMarketingRepository();
   }
 
-  async getMarketingData(productId: string): Promise<IProductMarketing | null> {
-    if (!productId) {
-      throw new Error('Product ID is required');
-    }
+  /** Loads the product and verifies the user owns it (404 otherwise). */
+  private async assertProductOwned(productId: string, user: AuthUser) {
+    if (!productId) throw createHttpError(400, 'Product ID is required');
+    const product = await Product.findById(productId);
+    assertOwner(product, user);
+    return product!;
+  }
+
+  async getMarketingData(productId: string, user: AuthUser): Promise<IProductMarketing | null> {
+    await this.assertProductOwned(productId, user);
     return await this.repository.findByProductId(productId);
   }
 
-  async upsertMarketingData(productId: string, data: Partial<IProductMarketing>): Promise<IProductMarketing> {
-    if (!productId) {
-      throw new Error('Product ID is required');
-    }
-    return await this.repository.upsertByProductId(productId, data);
+  async upsertMarketingData(productId: string, data: Partial<IProductMarketing>, user: AuthUser): Promise<IProductMarketing> {
+    const product = await this.assertProductOwned(productId, user);
+    const clean: any = { ...data };
+    delete clean.ownerId;
+    delete clean.productId;
+    const result = await this.repository.upsertByProductId(productId, { ...clean, ownerId: product.ownerId });
+    await auditLogService.logEvent('UPDATE', 'MARKETING', productId, product.name, 'Updated marketing hub', { id: user.id });
+    return result;
   }
 
-  async deleteMarketingData(productId: string): Promise<boolean> {
-    if (!productId) {
-      throw new Error('Product ID is required');
-    }
+  async deleteMarketingData(productId: string, user: AuthUser): Promise<boolean> {
+    const product = await this.assertProductOwned(productId, user);
     const data = await this.repository.findByProductId(productId);
     if (data) {
       const mediaUrls: (string | undefined)[] = [
@@ -37,9 +51,13 @@ export class ProductMarketingService {
       data.keyFeatures?.forEach((kf: any) => mediaUrls.push(kf.mediaUrl));
       data.screenshots?.forEach((ss: any) => mediaUrls.push(ss.url));
       data.demos?.forEach((demo: any) => mediaUrls.push(demo.icon));
-      
+
       deleteMediaFiles(mediaUrls.filter(Boolean) as string[]);
     }
-    return await this.repository.deleteByProductId(productId);
+    const deleted = await this.repository.deleteByProductId(productId);
+    if (deleted) {
+      await auditLogService.logEvent('DELETE', 'MARKETING', productId, product.name, 'Deleted marketing hub', { id: user.id });
+    }
+    return deleted;
   }
 }

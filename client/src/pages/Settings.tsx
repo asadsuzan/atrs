@@ -9,6 +9,7 @@ import { getAppConfig, updateAppConfig } from '../services/config';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '../contexts/AuthContext';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -22,6 +23,7 @@ const THEMES = [
 
 export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
+  const { isAdmin } = useAuth();
 
   const [configForm, setConfigForm] = useState({
     serverPort: '',
@@ -32,8 +34,17 @@ export default function Settings() {
   const { data: configData, isLoading: configLoading, refetch } = useQuery({
     queryKey: ['appConfig'],
     queryFn: getAppConfig,
-    retry: false
+    retry: false,
+    enabled: isAdmin
   });
+
+  const handleExport = async () => {
+    try {
+      await exportAllData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Export failed');
+    }
+  };
 
   useEffect(() => {
     if (configData) {
@@ -190,6 +201,7 @@ export default function Settings() {
         </motion.div>
       </div>
 
+      {isAdmin && (
       <div className="pt-8 border-b pb-8">
         <h3 className="text-xl font-bold mb-4">System Configuration</h3>
         <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
@@ -239,7 +251,9 @@ export default function Settings() {
           )}
         </div>
       </div>
+      )}
 
+      {isAdmin && (
       <div className="pt-8">
         <h3 className="text-xl font-bold mb-4">Data Management</h3>
         <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
@@ -248,13 +262,14 @@ export default function Settings() {
               <p className="font-semibold text-lg flex items-center gap-2"><Database className="w-5 h-5 text-primary" /> Full Database Export</p>
               <p className="text-sm text-muted-foreground mt-1 max-w-lg">Download a complete JSON dump of your database including all products, activities, audit logs, and versions. Useful for backups or migration.</p>
             </div>
-            <Button onClick={exportAllData}>
+            <Button onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               Export Data
             </Button>
           </div>
         </div>
       </div>
+      )}
     </PageTransition>
   );
 }

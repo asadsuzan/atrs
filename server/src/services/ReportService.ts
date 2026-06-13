@@ -1,9 +1,10 @@
 import { Activity } from '../models/Activity';
-import { Product } from '../models/Product';
 import mongoose from 'mongoose';
+import { scopeFilter } from '../utils/ownership';
+import type { AuthUser } from '../types/auth';
 
 export class ReportService {
-  async getMonthlyReport(month: number, year: number, productId?: string, startDate?: string, endDate?: string) {
+  async getMonthlyReport(month: number, year: number, user: AuthUser, productId?: string, startDate?: string, endDate?: string) {
     let start: Date;
     let end: Date;
 
@@ -16,7 +17,7 @@ export class ReportService {
       end = new Date(year, month, 0, 23, 59, 59, 999);
     }
 
-    const matchStage: any = { activityDate: { $gte: start, $lte: end } };
+    const matchStage: any = scopeFilter(user, { activityDate: { $gte: start, $lte: end } });
     if (productId) matchStage.productId = new mongoose.Types.ObjectId(productId);
 
     const activities = await Activity.find(matchStage).populate('productId').sort({ activityDate: -1 });
@@ -32,6 +33,7 @@ export class ReportService {
     const productsMap = new Map<string, any>();
 
     activities.forEach((act: any) => {
+      if (!act.productId) return; // product was removed; skip orphaned activity
       const pId = act.productId._id.toString();
       if (!productsMap.has(pId)) {
         productsMap.set(pId, { product: act.productId, activities: [], counts: { features: 0, improvements: 0, bugFixes: 0 } });
@@ -47,7 +49,7 @@ export class ReportService {
     return { summary, products: Array.from(productsMap.values()) };
   }
 
-  async getTrendData(months: number = 6, productId?: string) {
+  async getTrendData(months: number = 6, user: AuthUser, productId?: string) {
     const results = [];
     const now = new Date();
 
@@ -55,8 +57,8 @@ export class ReportService {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const start = new Date(d.getFullYear(), d.getMonth(), 1);
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-      
-      const filter: any = { activityDate: { $gte: start, $lte: end } };
+
+      const filter: any = scopeFilter(user, { activityDate: { $gte: start, $lte: end } });
       if (productId) filter.productId = new mongoose.Types.ObjectId(productId);
 
       const [features, improvements, bugFixes] = await Promise.all([
@@ -79,14 +81,14 @@ export class ReportService {
     return results;
   }
 
-  async getAnnualReport(year: number, productId?: string) {
+  async getAnnualReport(year: number, user: AuthUser, productId?: string) {
     const months = [];
     let totalFeatures = 0, totalImprovements = 0, totalBugFixes = 0;
 
     for (let m = 1; m <= 12; m++) {
       const start = new Date(year, m - 1, 1);
       const end = new Date(year, m, 0, 23, 59, 59, 999);
-      const filter: any = { activityDate: { $gte: start, $lte: end } };
+      const filter: any = scopeFilter(user, { activityDate: { $gte: start, $lte: end } });
       if (productId) filter.productId = new mongoose.Types.ObjectId(productId);
 
       const [features, improvements, bugFixes] = await Promise.all([

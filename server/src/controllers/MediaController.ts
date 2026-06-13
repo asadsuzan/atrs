@@ -5,7 +5,7 @@ const mediaService = new MediaService();
 
 export const getMediaList = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const list = await mediaService.getAllMedia();
+    const list = await mediaService.getAllMedia(req.user);
     res.status(200).json(list);
   } catch (error) {
     next(error);

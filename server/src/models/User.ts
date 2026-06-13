@@ -1,0 +1,63 @@
+import mongoose, { Schema, Document } from 'mongoose';
+import bcrypt from 'bcryptjs';
+
+export type UserRole = 'admin' | 'user';
+export type UserStatus = 'pending' | 'active' | 'suspended';
+
+export interface IUser extends Document {
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: UserRole;
+  status: UserStatus;
+  isRoot: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  comparePassword(candidate: string): Promise<boolean>;
+}
+
+const UserSchema: Schema = new Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+    passwordHash: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ['admin', 'user'],
+      default: 'user',
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'active', 'suspended'],
+      default: 'pending',
+    },
+    isRoot: { type: Boolean, default: false },
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      transform(_doc, ret: Record<string, unknown>) {
+        delete ret.passwordHash;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
+);
+
+UserSchema.methods.comparePassword = function (candidate: string): Promise<boolean> {
+  return bcrypt.compare(candidate, this.passwordHash);
+};
+
+export async function hashPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, 10);
+}
+
+export const User = mongoose.model<IUser>('User', UserSchema);

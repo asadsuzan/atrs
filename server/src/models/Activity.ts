@@ -9,6 +9,7 @@ export interface IActivityItem {
 }
 
 export interface IActivity extends Document {
+  ownerId: mongoose.Types.ObjectId;
   productId: mongoose.Types.ObjectId;
   type: 'feature' | 'improvement' | 'bug-fix';
   title: string;
@@ -45,6 +46,7 @@ const ActivityItemSchema: Schema = new Schema(
 
 const ActivitySchema: Schema = new Schema(
   {
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     productId: {
       type: Schema.Types.ObjectId,
       ref: 'Product',

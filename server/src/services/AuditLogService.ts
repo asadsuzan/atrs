@@ -1,4 +1,6 @@
 import AuditLog, { IAuditLog } from '../models/AuditLog';
+import { escapeRegex } from '../utils/sanitize';
+import type { AuthUser } from '../types/auth';
 
 export class AuditLogService {
   public async logEvent(
@@ -6,21 +8,40 @@ export class AuditLogService {
     entityType: IAuditLog['entityType'],
     entityId: string,
     entityName: string,
-    details?: string
+    details?: string,
+    actor?: { id: string; name?: string }
   ): Promise<void> {
     try {
-      await AuditLog.create({ action, entityType, entityId, entityName, details });
+      await AuditLog.create({
+        action,
+        entityType,
+        entityId,
+        entityName,
+        details,
+        userId: actor?.id,
+        userName: actor?.name,
+      });
     } catch (error) {
       console.error('Failed to write audit log:', error);
     }
   }
 
-  public async getRecentLogs(limit: number = 20): Promise<IAuditLog[]> {
-    return await AuditLog.find().sort({ createdAt: -1 }).limit(limit);
+  /** Non-admins only see their own actions. */
+  private scope(user?: AuthUser): Record<string, any> {
+    if (!user) return { userId: null };
+    if (user.role === 'admin') return {};
+    return { userId: user.id };
   }
 
-  public async getLogs(query: any): Promise<any> {
-    const filter: any = {};
+  public async getRecentLogs(limit: number = 20, user?: AuthUser): Promise<IAuditLog[]> {
+    return await AuditLog.find(this.scope(user))
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('userId', 'name email');
+  }
+
+  public async getLogs(query: any, user?: AuthUser): Promise<any> {
+    const filter: any = { ...this.scope(user) };
     if (query.entityType) filter.entityType = query.entityType;
     if (query.action) filter.action = query.action;
     if (query.startDate || query.endDate) {
@@ -33,9 +54,10 @@ export class AuditLogService {
       }
     }
     if (query.search) {
+      const safe = escapeRegex(query.search);
       filter.$or = [
-        { entityName: { $regex: query.search, $options: 'i' } },
-        { details: { $regex: query.search, $options: 'i' } },
+        { entityName: { $regex: safe, $options: 'i' } },
+        { details: { $regex: safe, $options: 'i' } },
       ];
     }
 
@@ -44,7 +66,7 @@ export class AuditLogService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name email'),
       AuditLog.countDocuments(filter),
     ]);
 

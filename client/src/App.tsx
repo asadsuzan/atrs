@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search, Image as ImageIcon, Users as UsersIcon, LogOut, HelpCircle } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
+import { startTour, hasSeenTour } from './lib/tour';
 
 // Placeholders for Pages
 import Dashboard from './pages/Dashboard';
@@ -13,8 +14,13 @@ import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
 import MediaManager from './pages/MediaManager';
+import Help from './pages/Help';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Users from './pages/admin/Users';
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
@@ -24,6 +30,7 @@ const queryClient = new QueryClient();
 function Layout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const { user, isAdmin, logout } = useAuth();
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -32,7 +39,17 @@ function Layout({ children }: { children: React.ReactNode }) {
     { to: '/media', icon: ImageIcon, label: 'Media Library' },
     { to: '/reports', icon: BarChart2, label: 'Reports' },
     { to: '/audit-logs', icon: History, label: 'Audit Logs' },
+    ...(isAdmin ? [{ to: '/users', icon: UsersIcon, label: 'Users' }] : []),
+    { to: '/help', icon: HelpCircle, label: 'Help & Demos' },
   ];
+
+  // Auto-launch the interactive tour once for new users.
+  useEffect(() => {
+    if (user && !hasSeenTour()) {
+      const t = setTimeout(() => startTour({ isAdmin }), 700);
+      return () => clearTimeout(t);
+    }
+  }, [user, isAdmin]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row relative">
@@ -41,7 +58,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           isCollapsed ? 'w-full md:w-20 p-2 md:p-4' : 'w-full md:w-64 p-4'
         }`}
       >
-        <div className={`flex items-center mb-6 mt-2 transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
+        <div data-tour="logo" className={`flex items-center mb-6 mt-2 transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
           <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-bold shrink-0">A</div>
           <h1 className={`text-xl font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>ATRS</h1>
         </div>
@@ -50,9 +67,10 @@ function Layout({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => {
             const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
             return (
-              <Link 
+              <Link
                 key={item.to}
-                to={item.to} 
+                to={item.to}
+                data-tour={`nav-${item.to}`}
                 className={`flex items-center py-2 rounded-md transition-all duration-300 ease-in-out ${
                   isCollapsed ? 'justify-center px-0' : 'px-3 gap-2'
                 } ${isActive ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground font-medium'}`}
@@ -82,7 +100,29 @@ function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           
-          <button 
+          {user && (
+            <div data-tour="user-menu" className={`flex items-center gap-2 rounded-md border bg-muted/40 ${isCollapsed ? 'flex-col p-2' : 'px-3 py-2'}`}>
+              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                {user.name?.substring(0, 2).toUpperCase() || '??'}
+              </div>
+              {!isCollapsed && (
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{user.name}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{user.role}</div>
+                </div>
+              )}
+              <button
+                onClick={logout}
+                className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={`p-2 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors hidden md:flex ${isCollapsed ? 'mx-auto' : 'ml-auto'}`}
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -92,7 +132,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 p-6 md:p-8 transition-all duration-300 ease-in-out w-full">
-        <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+        <div data-tour="search" className="absolute top-4 right-4 hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
           <Search className="w-4 h-4" />
           <span>Search</span>
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 ml-1">
@@ -107,19 +147,72 @@ function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function FullScreenLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+      Loading…
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <h1 className="text-3xl font-bold">404</h1>
+      <p className="text-muted-foreground mt-2">This page could not be found.</p>
+      <Link to="/" className="text-primary font-medium hover:underline mt-4">Back to dashboard</Link>
+    </div>
+  );
+}
+
+/** Layout route: requires an authenticated user, otherwise redirects to /login. */
+function ProtectedLayout() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <FullScreenLoader />;
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  return (
+    <Layout>
+      <CommandPalette />
+      <Outlet />
+    </Layout>
+  );
+}
+
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+/** Redirects already-authenticated users away from auth pages. */
+function PublicOnly({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/products/:id" element={<ProductDetails />} />
-        <Route path="/activities" element={<Activities />} />
-        <Route path="/media" element={<MediaManager />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/audit-logs" element={<AuditLogs />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+        <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/:id" element={<ProductDetails />} />
+          <Route path="/activities" element={<Activities />} />
+          <Route path="/media" element={<MediaManager />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/audit-logs" element={<AuditLogs />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/users" element={<RequireAdmin><Users /></RequireAdmin>} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
       </Routes>
     </AnimatePresence>
   );
@@ -130,15 +223,14 @@ function App() {
     <ThemeProvider defaultTheme="todoist">
       <ConfirmProvider>
         <QueryClientProvider client={queryClient}>
-          <SmoothScroll>
-            <BrowserRouter>
-              <Layout>
-                <CommandPalette />
+          <AuthProvider>
+            <SmoothScroll>
+              <BrowserRouter>
                 <AnimatedRoutes />
-              </Layout>
-            </BrowserRouter>
-          </SmoothScroll>
-          <Toaster />
+              </BrowserRouter>
+            </SmoothScroll>
+            <Toaster />
+          </AuthProvider>
         </QueryClientProvider>
       </ConfirmProvider>
     </ThemeProvider>

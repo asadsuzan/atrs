@@ -11,6 +11,7 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
     if (startDate && endDate) {
       const report = await reportService.getMonthlyReport(
         0, 0,
+        req.user!,
         productId as string,
         startDate as string,
         endDate as string
@@ -25,6 +26,7 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
     const report = await reportService.getMonthlyReport(
       parseInt(month as string, 10),
       parseInt(year as string, 10),
+      req.user!,
       productId as string
     );
     res.status(200).json(report);
@@ -37,7 +39,7 @@ export const getTrend = async (req: Request, res: Response, next: NextFunction) 
   try {
     const months = req.query.months ? parseInt(req.query.months as string, 10) : 6;
     const productId = req.query.productId as string | undefined;
-    const data = await reportService.getTrendData(months, productId);
+    const data = await reportService.getTrendData(months, req.user!, productId);
     res.status(200).json(data);
   } catch (error) {
     next(error);
@@ -48,7 +50,7 @@ export const getAnnual = async (req: Request, res: Response, next: NextFunction)
   try {
     const year = req.query.year ? parseInt(req.query.year as string, 10) : new Date().getFullYear();
     const productId = req.query.productId as string | undefined;
-    const data = await reportService.getAnnualReport(year, productId);
+    const data = await reportService.getAnnualReport(year, req.user!, productId);
     res.status(200).json(data);
   } catch (error) {
     next(error);

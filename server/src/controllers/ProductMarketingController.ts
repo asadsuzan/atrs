@@ -11,7 +11,7 @@ export class ProductMarketingController {
   getMarketingData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = req.params.id as string;
-      const data = await this.service.getMarketingData(productId);
+      const data = await this.service.getMarketingData(productId, req.user!);
       
       if (!data) {
         // Return an empty template rather than a 404 to make frontend state easier
@@ -52,8 +52,8 @@ export class ProductMarketingController {
     try {
       const productId = req.params.id as string;
       const marketingData = req.body;
-      
-      const data = await this.service.upsertMarketingData(productId, marketingData);
+
+      const data = await this.service.upsertMarketingData(productId, marketingData, req.user!);
 
       res.status(200).json({
         status: 'success',
@@ -67,7 +67,7 @@ export class ProductMarketingController {
   deleteMarketingData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = req.params.id as string;
-      const success = await this.service.deleteMarketingData(productId);
+      const success = await this.service.deleteMarketingData(productId, req.user!);
 
       if (!success) {
         return res.status(404).json({

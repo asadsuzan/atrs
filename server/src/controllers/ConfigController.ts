@@ -17,29 +17,53 @@ export const getConfig = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
+/** Reads .env into a key=>value map, preserving keys we don't manage. */
+const readEnvFile = (): Record<string, string> => {
+  const map: Record<string, string> = {};
+  if (!fs.existsSync(envPath)) return map;
+  const content = fs.readFileSync(envPath, 'utf8');
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    map[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1);
+  }
+  return map;
+};
+
 export const updateConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { server } = req.body;
-    console.log("server", server);
     if (!server || !server.port || !server.mongodbUri) {
       return res.status(400).json({ message: 'Server configuration settings are incomplete' });
     }
 
+    const port = parseInt(server.port, 10);
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
+      return res.status(400).json({ message: 'Port must be a number between 1 and 65535' });
+    }
+    if (!/^mongodb(\+srv)?:\/\//.test(String(server.mongodbUri))) {
+      return res.status(400).json({ message: 'MongoDB URI must start with mongodb:// or mongodb+srv://' });
+    }
+
     const configData = {
-      server: {
-        port: parseInt(server.port, 10),
-        mongodbUri: server.mongodbUri
-      }
+      server: { port, mongodbUri: server.mongodbUri }
     };
 
-    // 1. Write to app.config.json
-    fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8');
+    // 1. Write to app.config.json (atomic via temp file + rename)
+    const tmpConfig = `${configPath}.tmp`;
+    fs.writeFileSync(tmpConfig, JSON.stringify(configData, null, 2), 'utf8');
+    fs.renameSync(tmpConfig, configPath);
 
-    // 2. Write to .env
-    const envContent = `PORT=${configData.server.port}
-MONGODB_URI=${configData.server.mongodbUri}
-`;
-    fs.writeFileSync(envPath, envContent, 'utf8');
+    // 2. Merge into .env, preserving all other keys (JWT_SECRET, ROOT_ADMIN_*, etc.)
+    const env = readEnvFile();
+    env.PORT = String(port);
+    env.MONGODB_URI = server.mongodbUri;
+    const envContent = Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+    const tmpEnv = `${envPath}.tmp`;
+    fs.writeFileSync(tmpEnv, envContent, 'utf8');
+    fs.renameSync(tmpEnv, envPath);
 
     res.status(200).json({
       message: 'Configuration updated successfully. Server is restarting to apply changes...',
