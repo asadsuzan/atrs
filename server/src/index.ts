@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import connectDB from './config/db';
 import { errorHandler } from './middlewares/errorHandler';
+import { requireAuth, requireActive, requireAdmin } from './middlewares/auth';
+import { seedAndMigrate } from './scripts/seedAndMigrate';
 
 const envPath = path.resolve(__dirname, '../../.env');
 const result = dotenv.config({ path: envPath });
@@ -17,8 +19,10 @@ if (result.error) {
 const app: Express = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB, then ensure the root admin exists and back-fill ownership.
+connectDB().then(() => {
+  seedAndMigrate().catch((err) => console.error('[server]: seedAndMigrate failed:', err));
+});
 
 // Middleware
 app.use(cors());
@@ -33,31 +37,29 @@ import auditLogRoutes from './routes/auditLogRoutes';
 import versionRoutes from './routes/versionRoutes';
 import configRoutes from './routes/configRoutes';
 import mediaRoutes from './routes/mediaRoutes';
+import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
 import { exportAllData } from './controllers/ExportController';
-import rateLimit from 'express-rate-limit';
-
-// Rate Limiting (P5 feature)
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Limit each IP to 200 requests per windowMs
-  message: 'Too many requests from this IP, please try again after 15 minutes'
-});
 
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-// app.use('/api', apiLimiter);
+// Public auth routes (register / login / me)
+app.use('/api/auth', authRoutes);
 
-// Routes
-app.use('/api/products', productRoutes);
-app.use('/api/activities', activityRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/media', mediaRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
-app.use('/api/versions', versionRoutes);
-app.use('/api/config', configRoutes);
-app.get('/api/export', exportAllData);
+// Authenticated + active-account routes
+app.use('/api/products', requireAuth, requireActive, productRoutes);
+app.use('/api/activities', requireAuth, requireActive, activityRoutes);
+app.use('/api/reports', requireAuth, requireActive, reportRoutes);
+app.use('/api/upload', requireAuth, requireActive, uploadRoutes);
+app.use('/api/media', requireAuth, requireActive, mediaRoutes);
+app.use('/api/audit-logs', requireAuth, requireActive, auditLogRoutes);
+app.use('/api/versions', requireAuth, requireActive, versionRoutes);
+
+// Admin-only routes
+app.use('/api/users', requireAuth, requireActive, requireAdmin, userRoutes);
+app.use('/api/config', requireAuth, requireActive, requireAdmin, configRoutes);
+app.get('/api/export', requireAuth, requireActive, requireAdmin, exportAllData);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'ATRS API is running' });
@@ -68,11 +70,4 @@ app.use(errorHandler);
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
-  console.log(`[server]: MongoDB URI: ${process.env.MONGODB_URI}`);
-  console.log(`[server]: MongoDB port: ${process.env.MONGODB_PORT}`);
-  console.log(`[server]: MongoDB host: ${process.env.MONGODB_HOST}`);
-  console.log(`[server]: MongoDB user: ${process.env.MONGODB_USER}`);
-  console.log(`[server]: MongoDB password: ${process.env.MONGODB_PASSWORD}`);
-  console.log(`[server]: MongoDB database: ${process.env.MONGODB_DATABASE}`);
-
 });

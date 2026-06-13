@@ -5,7 +5,7 @@ const versionService = new VersionService();
 
 export const createVersion = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const version = await versionService.createVersion(req.body);
+    const version = await versionService.createVersion(req.body, req.user!);
     res.status(201).json(version);
   } catch (error) {
     next(error);
@@ -18,7 +18,7 @@ export const getVersions = async (req: Request, res: Response, next: NextFunctio
     if (!productId) {
       return res.status(400).json({ message: 'productId is required' });
     }
-    const versions = await versionService.getVersions(productId as string);
+    const versions = await versionService.getVersions(productId as string, req.user!);
     res.status(200).json(versions);
   } catch (error) {
     next(error);
@@ -27,7 +27,7 @@ export const getVersions = async (req: Request, res: Response, next: NextFunctio
 
 export const getVersionById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const version = await versionService.getVersionById(req.params.id as string);
+    const version = await versionService.getVersionById(req.params.id as string, req.user!);
     if (!version) return res.status(404).json({ message: 'Version not found' });
     res.status(200).json(version);
   } catch (error) {
@@ -37,7 +37,7 @@ export const getVersionById = async (req: Request, res: Response, next: NextFunc
 
 export const updateVersion = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const version = await versionService.updateVersion(req.params.id as string, req.body);
+    const version = await versionService.updateVersion(req.params.id as string, req.body, req.user!);
     if (!version) return res.status(404).json({ message: 'Version not found' });
     res.status(200).json(version);
   } catch (error) {
@@ -47,7 +47,7 @@ export const updateVersion = async (req: Request, res: Response, next: NextFunct
 
 export const deleteVersion = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const version = await versionService.deleteVersion(req.params.id as string);
+    const version = await versionService.deleteVersion(req.params.id as string, req.user!);
     if (!version) return res.status(404).json({ message: 'Version not found' });
     res.status(200).json({ message: 'Version deleted successfully' });
   } catch (error) {

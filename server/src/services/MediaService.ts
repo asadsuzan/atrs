@@ -3,6 +3,8 @@ import path from 'path';
 import { Product } from '../models/Product';
 import { ProductMarketing } from '../models/ProductMarketing';
 import { Activity } from '../models/Activity';
+import createHttpError from '../utils/httpError';
+import type { AuthUser } from '../types/auth';
 
 export interface IMediaReference {
   entityType: 'product' | 'marketing' | 'activity';
@@ -57,7 +59,17 @@ export class MediaService {
     }
   }
 
-  public async getAllMedia(): Promise<IMediaFile[]> {
+  /** Resolves a filename inside the uploads dir, rejecting any path traversal. */
+  private safeResolve(filename: string): string {
+    const resolved = path.resolve(this.uploadsDir, filename);
+    const root = path.resolve(this.uploadsDir);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+      throw createHttpError(400, 'Invalid filename');
+    }
+    return resolved;
+  }
+
+  public async getAllMedia(user?: AuthUser): Promise<IMediaFile[]> {
     if (!fs.existsSync(this.uploadsDir)) {
       return [];
     }
@@ -65,13 +77,17 @@ export class MediaService {
     const files = fs.readdirSync(this.uploadsDir);
     const mediaFiles: IMediaFile[] = [];
 
-    // Query all entities that can hold media
+    // Non-admins only see files referenced by their own content.
+    const isAdmin = user?.role === 'admin';
+    const ownerScope = isAdmin || !user ? {} : { ownerId: user.id };
+
+    // Query entities that can hold media (scoped to the user unless admin)
     const [products, marketings, activities] = await Promise.all([
-      Product.find({}, 'name slug banner icon').lean(),
-      ProductMarketing.find({}, 'productId pluginName thumbnailImage trailerVideo tutorialVideo keyFeatures screenshots')
+      Product.find(ownerScope, 'name slug banner icon').lean(),
+      ProductMarketing.find(ownerScope, 'productId pluginName thumbnailImage trailerVideo tutorialVideo keyFeatures screenshots')
         .populate('productId', 'name slug')
         .lean(),
-      Activity.find({}, 'productId type title mediaUrl mediaUrls items')
+      Activity.find(ownerScope, 'productId type title mediaUrl mediaUrls items')
         .populate('productId', 'name slug')
         .lean()
     ]);
@@ -240,6 +256,9 @@ export class MediaService {
         }
       }
 
+      // Non-admins must not see files that none of their own content references.
+      if (!isAdmin && references.length === 0) continue;
+
       mediaFiles.push({
         filename: file,
         url: fileUrl,
@@ -256,7 +275,7 @@ export class MediaService {
   }
 
   public async deleteMedia(filename: string, force: boolean = false): Promise<{ success: boolean; filename: string }> {
-    const filePath = path.join(this.uploadsDir, filename);
+    const filePath = this.safeResolve(filename);
     if (!fs.existsSync(filePath)) {
       throw new Error(`File ${filename} not found`);
     }
@@ -301,7 +320,7 @@ export class MediaService {
 
     for (const media of orphanedMedia) {
       try {
-        const filePath = path.join(this.uploadsDir, media.filename);
+        const filePath = this.safeResolve(media.filename);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
           deletedFiles.push(media.filename);

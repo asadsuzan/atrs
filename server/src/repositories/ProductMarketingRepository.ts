@@ -9,7 +9,7 @@ export class ProductMarketingRepository {
     return await ProductMarketing.findOneAndUpdate(
       { productId },
       { ...data, productId },
-      { new: true, upsert: true }
+      { new: true, upsert: true, setDefaultsOnInsert: true }
     );
   }
 

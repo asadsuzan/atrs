@@ -36,13 +36,17 @@ export class ActivityRepository {
     return await Activity.findByIdAndDelete(id);
   }
 
-  async bulkUpdate(ids: string[], update: any): Promise<number> {
-    const result = await Activity.updateMany({ _id: { $in: ids } }, update);
+  async findManyByIds(ids: string[], scope: Record<string, any> = {}): Promise<IActivity[]> {
+    return await Activity.find({ _id: { $in: ids }, ...scope });
+  }
+
+  async bulkUpdate(ids: string[], update: any, scope: Record<string, any> = {}): Promise<number> {
+    const result = await Activity.updateMany({ _id: { $in: ids }, ...scope }, update);
     return result.modifiedCount;
   }
 
-  async bulkDelete(ids: string[]): Promise<number> {
-    const result = await Activity.deleteMany({ _id: { $in: ids } });
+  async bulkDelete(ids: string[], scope: Record<string, any> = {}): Promise<number> {
+    const result = await Activity.deleteMany({ _id: { $in: ids }, ...scope });
     return result.deletedCount;
   }
 
