@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image as ImageIcon, FileVideo, Loader2, X } from 'lucide-react';
+import { Image as ImageIcon, FileVideo, Loader2, X, FolderOpen } from 'lucide-react';
 import { uploadFile } from '../../services/api';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
+import { MediaLibraryDialog } from '../media/MediaLibraryDialog';
 
 interface MediaUploaderProps {
   value?: string | string[];
@@ -29,6 +30,7 @@ export function MediaUploader({
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -193,19 +195,51 @@ export function MediaUploader({
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="flex items-center gap-2 mb-1">
-            <ImageIcon className="w-6 h-6 opacity-70" />
+        <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+          <div className="flex items-center gap-2 mb-0.5">
+            <ImageIcon className="w-5 h-5 opacity-70" />
             <span className="text-xs font-bold text-muted-foreground/50">/</span>
-            <FileVideo className="w-6 h-6 opacity-70" />
+            <FileVideo className="w-5 h-5 opacity-70" />
           </div>
-          <span className="text-sm font-medium text-center px-4">
+          <span className="text-xs font-medium text-center px-4 font-semibold">
             {label}
             <br />
-            <span className="text-xs font-normal opacity-70">or paste from clipboard</span>
+            <span className="text-[10px] font-normal opacity-70">or paste from clipboard</span>
           </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 text-[11px] gap-1 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLibraryOpen(true);
+            }}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            Browse Library
+          </Button>
         </div>
       )}
+
+      <MediaLibraryDialog
+        open={isLibraryOpen}
+        onOpenChange={setIsLibraryOpen}
+        onSelect={(selected) => {
+          if (multiple) {
+            const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+            const newUrls = Array.isArray(selected) ? selected : [selected];
+            onChange([...currentUrls, ...newUrls]);
+            onUploadComplete?.(newUrls, []);
+          } else {
+            const val = Array.isArray(selected) ? selected[0] : selected;
+            onChange(val);
+            onUploadComplete?.(val, []);
+          }
+        }}
+        multiple={multiple}
+        accept={accept}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search } from 'lucide-react';
+import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search, Image as ImageIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
 // Placeholders for Pages
@@ -12,6 +12,7 @@ import Activities from './pages/Activities';
 import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
+import MediaManager from './pages/MediaManager';
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -28,6 +29,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/products', icon: Package, label: 'Products' },
     { to: '/activities', icon: Activity, label: 'Activities' },
+    { to: '/media', icon: ImageIcon, label: 'Media Library' },
     { to: '/reports', icon: BarChart2, label: 'Reports' },
     { to: '/audit-logs', icon: History, label: 'Audit Logs' },
   ];
@@ -114,6 +116,7 @@ function AnimatedRoutes() {
         <Route path="/products" element={<Products />} />
         <Route path="/products/:id" element={<ProductDetails />} />
         <Route path="/activities" element={<Activities />} />
+        <Route path="/media" element={<MediaManager />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/settings" element={<Settings />} />

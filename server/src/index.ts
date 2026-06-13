@@ -32,6 +32,7 @@ import uploadRoutes from './routes/uploadRoutes';
 import auditLogRoutes from './routes/auditLogRoutes';
 import versionRoutes from './routes/versionRoutes';
 import configRoutes from './routes/configRoutes';
+import mediaRoutes from './routes/mediaRoutes';
 import { exportAllData } from './controllers/ExportController';
 import rateLimit from 'express-rate-limit';
 
@@ -52,6 +53,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/media', mediaRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/versions', versionRoutes);
 app.use('/api/config', configRoutes);
