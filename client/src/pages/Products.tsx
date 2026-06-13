@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, deleteProduct, updateProduct } from '../services/products';
+import { getProducts, createProduct, deleteProduct, updateProduct, bulkDeleteProducts } from '../services/products';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductForm } from '../components/products/ProductForm';
-import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { WpOrgImportDialog } from '../components/products/WpOrgImportDialog';
+import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { motion } from 'framer-motion';
@@ -25,7 +27,9 @@ export default function Products() {
   const [status, setStatus] = useLocalStorage('atrs_filter_status', 'all');
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const queryParams: any = { page, limit: 10 };
   if (search) queryParams.search = search;
@@ -39,6 +43,36 @@ export default function Products() {
 
   const products = productsData?.data || [];
   const totalPages = productsData?.totalPages || 1;
+
+  // Clear selection when page or filters change
+  useEffect(() => { setSelectedIds(new Set()); }, [page, search, category, status]);
+
+  const allOnPageSelected = products.length > 0 && products.every((p: any) => selectedIds.has(p._id));
+  const someOnPageSelected = products.some((p: any) => selectedIds.has(p._id));
+
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        products.forEach((p: any) => next.delete(p._id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        products.forEach((p: any) => next.add(p._id));
+        return next;
+      });
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const createMutation = useMutation({
     mutationFn: createProduct,
@@ -69,23 +103,49 @@ export default function Products() {
     onError: () => toast.error("Failed to delete product")
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteProducts(ids),
+    onSuccess: (result) => {
+      toast.success(`${result.deleted} product${result.deleted !== 1 ? 's' : ''} deleted`);
+      if (result.errors.length) toast.error(`${result.errors.length} deletion(s) failed`);
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => toast.error("Bulk delete failed")
+  });
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!await confirm({
+      title: `Delete ${ids.length} product${ids.length !== 1 ? 's' : ''}`,
+      description: `This will permanently delete ${ids.length} product${ids.length !== 1 ? 's' : ''} along with all their activities, versions, marketing data, and media files. This action cannot be undone.`,
+    })) return;
+    bulkDeleteMutation.mutate(ids);
+  };
+
   return (
     <PageTransition className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Products</h2>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" /> Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
-            </DialogHeader>
-            <ProductForm onSubmit={(data: any) => createMutation.mutate(data)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Download className="w-4 h-4 mr-2" /> Import from WP.org
+          </Button>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" /> Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Product</DialogTitle>
+              </DialogHeader>
+              <ProductForm onSubmit={(data: any) => createMutation.mutate(data)} />
+            </DialogContent>
+          </Dialog>
+        </div>
+        <WpOrgImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
@@ -122,10 +182,34 @@ export default function Products() {
         </Select>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-2">
+          <span className="text-sm font-medium">{selectedIds.size} product{selectedIds.size !== 1 ? 's' : ''} selected</span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {bulkDeleteMutation.isPending ? 'Deleting…' : `Delete ${selectedIds.size}`}
+          </Button>
+        </div>
+      )}
+
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allOnPageSelected}
+                  data-state={someOnPageSelected && !allOnPageSelected ? 'indeterminate' : undefined}
+                  onCheckedChange={toggleSelectAll}
+                  disabled={isLoading || products.length === 0}
+                  aria-label="Select all on page"
+                />
+              </TableHead>
               <TableHead>Icon</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
@@ -138,6 +222,7 @@ export default function Products() {
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-4 rounded" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-36" /></TableCell>
                   <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
@@ -148,17 +233,24 @@ export default function Products() {
               ))
             ) : products?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">No products found.</TableCell>
+                <TableCell colSpan={7} className="text-center h-24">No products found.</TableCell>
               </TableRow>
             ) : (
               products?.map((product: any, index: number) => (
-                <motion.tr 
+                <motion.tr
                   key={product._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted"
+                  className={`border-b transition-colors hover:bg-muted/50 ${selectedIds.has(product._id) ? 'bg-muted/40' : ''}`}
                 >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(product._id)}
+                      onCheckedChange={() => toggleOne(product._id)}
+                      aria-label={`Select ${product.name}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     {product.icon ? (
                       <img src={product.icon} alt={product.name} className="w-8 h-8 rounded-md object-cover bg-muted" />
@@ -196,9 +288,9 @@ export default function Products() {
                       <Edit2 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={async () => {
-                      if (await confirm({ 
-                        title: 'Delete Product', 
-                        description: 'Are you sure you want to permanently delete this product? This will also delete all associated activities, versions, marketing data, and media files. This action cannot be undone.' 
+                      if (await confirm({
+                        title: 'Delete Product',
+                        description: 'Are you sure you want to permanently delete this product? This will also delete all associated activities, versions, marketing data, and media files. This action cannot be undone.'
                       })) {
                         deleteMutation.mutate(product._id);
                       }
@@ -236,6 +328,7 @@ export default function Products() {
           </Button>
         </div>
       </div>
+
       <Dialog open={!!editingProduct} onOpenChange={(open: boolean) => !open && setEditingProduct(null)}>
         <DialogContent>
           <DialogHeader>

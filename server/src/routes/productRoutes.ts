@@ -10,6 +10,9 @@ const router = Router();
 
 router.post('/', validate(createProductSchema), ProductController.createProduct);
 router.get('/', ProductController.getProducts);
+router.delete('/bulk', ProductController.bulkDeleteProducts);
+router.get('/wporg-preview', ProductController.wpOrgPreview);
+router.post('/import-from-wporg', ProductController.importFromWpOrg);
 router.get('/:id', ProductController.getProductById);
 router.patch('/:id', validate(updateProductSchema), ProductController.updateProduct);
 router.delete('/:id', ProductController.deleteProduct);

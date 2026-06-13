@@ -56,3 +56,37 @@ export const deleteProduct = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+export const bulkDeleteProducts = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'ids must be a non-empty array' });
+    const result = await productService.bulkDeleteProducts(ids, req.user!);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const wpOrgPreview = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { username } = req.query as { username: string };
+    if (!username) return res.status(400).json({ message: 'username is required' });
+    const plugins = await productService.wpOrgPreview(username, req.user!);
+    res.status(200).json(plugins);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const importFromWpOrg = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { username, slugs } = req.body;
+    if (!username) return res.status(400).json({ message: 'username is required' });
+    if (!Array.isArray(slugs) || slugs.length === 0) return res.status(400).json({ message: 'slugs must be a non-empty array' });
+    const result = await productService.importFromWpOrg(username, slugs, req.user!);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};

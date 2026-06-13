@@ -1,5 +1,5 @@
 import { ProductRepository } from '../repositories/ProductRepository';
-import { IProduct } from '../models/Product';
+import { IProduct, Product } from '../models/Product';
 import slugify from 'slugify';
 import { AuditLogService } from './AuditLogService';
 
@@ -67,6 +67,103 @@ export class ProductService {
       await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product details', { id: user.id });
     }
     return product;
+  }
+
+  async bulkDeleteProducts(ids: string[], user: AuthUser): Promise<{ deleted: number; errors: string[] }> {
+    let deleted = 0;
+    const errors: string[] = [];
+    for (const id of ids) {
+      try {
+        await this.deleteProduct(id, user);
+        deleted++;
+      } catch (err: any) {
+        errors.push(`${id}: ${err.message}`);
+      }
+    }
+    return { deleted, errors };
+  }
+
+  async fetchWpOrgPlugins(username: string): Promise<any[]> {
+    const url =
+      `https://api.wordpress.org/plugins/info/1.2/?action=query_plugins` +
+      `&request[author]=${encodeURIComponent(username)}` +
+      `&request[per_page]=100` +
+      `&request[fields][icons]=1&request[fields][banners]=1` +
+      `&request[fields][tags]=1&request[fields][short_description]=1`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch from WordPress.org API');
+    const data: any = await response.json();
+    return data.plugins || [];
+  }
+
+  async wpOrgPreview(username: string, user: AuthUser): Promise<any[]> {
+    const plugins = await this.fetchWpOrgPlugins(username);
+    const existingSlugs = await Product.find({
+      ownerId: user.id,
+      wpOrgSlug: { $in: plugins.map((p: any) => p.slug) },
+    }).distinct('wpOrgSlug');
+
+    return plugins.map((p: any) => {
+      const tags: string[] = Object.keys(p.tags || {});
+      const isBlock = tags.some(t =>
+        ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
+      );
+      return {
+        slug: p.slug,
+        name: p.name,
+        shortDescription: p.short_description || '',
+        icon: p.icons?.['2x'] || p.icons?.['1x'] || '',
+        banner: p.banners?.high || p.banners?.low || '',
+        tags,
+        category: isBlock ? 'block' : 'plugin',
+        alreadyImported: existingSlugs.includes(p.slug),
+      };
+    });
+  }
+
+  async importFromWpOrg(username: string, slugs: string[], user: AuthUser): Promise<any> {
+    const plugins = await this.fetchWpOrgPlugins(username);
+    const toImport = plugins.filter((p: any) => slugs.includes(p.slug));
+
+    const created: any[] = [];
+    const updated: any[] = [];
+    const errors: string[] = [];
+
+    for (const plugin of toImport) {
+      const tags: string[] = Object.keys(plugin.tags || {});
+      const isBlock = tags.some(t =>
+        ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
+      );
+      const wpData = {
+        name: plugin.name,
+        description: plugin.short_description || '',
+        category: isBlock ? 'block' : 'plugin',
+        wpOrgSlug: plugin.slug,
+        icon: plugin.icons?.['2x'] || plugin.icons?.['1x'] || '',
+        banner: plugin.banners?.high || plugin.banners?.low || '',
+      };
+
+      try {
+        const existing = await Product.findOne({ ownerId: user.id, wpOrgSlug: plugin.slug });
+        if (existing) {
+          const product = await this.repository.update(existing._id.toString(), wpData);
+          if (product) {
+            await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product from WordPress.org import', { id: user.id });
+            updated.push(product);
+          }
+        } else {
+          const product = await this.createProduct({
+            ...wpData,
+            githubUrl: `https://wordpress.org/plugins/${plugin.slug}`,
+          }, user);
+          created.push(product);
+        }
+      } catch (err: any) {
+        errors.push(`${plugin.slug}: ${err.message}`);
+      }
+    }
+
+    return { created, updated, errors };
   }
 
   async deleteProduct(id: string, user: AuthUser): Promise<IProduct | null> {

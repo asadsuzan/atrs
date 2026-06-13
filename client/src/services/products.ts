@@ -24,3 +24,18 @@ export const deleteProduct = async (id: string) => {
   const { data } = await api.delete(`/products/${id}`);
   return data;
 };
+
+export const bulkDeleteProducts = async (ids: string[]) => {
+  const { data } = await api.delete('/products/bulk', { data: { ids } });
+  return data;
+};
+
+export const wpOrgPreview = async (username: string) => {
+  const { data } = await api.get('/products/wporg-preview', { params: { username } });
+  return data;
+};
+
+export const importFromWpOrg = async (username: string, slugs: string[]) => {
+  const { data } = await api.post('/products/import-from-wporg', { username, slugs });
+  return data;
+};
