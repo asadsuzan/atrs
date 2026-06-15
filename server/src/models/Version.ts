@@ -6,6 +6,7 @@ export interface IVersion extends Document {
   label: string;
   notes?: string;
   releasedAt?: Date;
+  author?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ const VersionSchema: Schema = new Schema(
     label: { type: String, required: true },
     notes: { type: String, default: '' },
     releasedAt: { type: Date, required: false },
+    author: { type: String, default: '' },
   },
   { timestamps: true }
 );

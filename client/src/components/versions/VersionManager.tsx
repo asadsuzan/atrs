@@ -18,7 +18,7 @@ export function VersionManager({ productId }: { productId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingVersion, setEditingVersion] = useState<any>(null);
 
-  const [formData, setFormData] = useState({ label: '', notes: '', releasedAt: '' });
+  const [formData, setFormData] = useState({ label: '', notes: '', releasedAt: '', author: '' });
 
   const { data: versions, isLoading } = useQuery({
     queryKey: ['versions', productId],
@@ -31,7 +31,7 @@ export function VersionManager({ productId }: { productId: string }) {
       toast.success("Version created");
       queryClient.invalidateQueries({ queryKey: ['versions', productId] });
       setIsOpen(false);
-      setFormData({ label: '', notes: '', releasedAt: '' });
+      setFormData({ label: '', notes: '', releasedAt: '', author: '' });
     },
     onError: () => toast.error("Failed to create version")
   });
@@ -68,7 +68,8 @@ export function VersionManager({ productId }: { productId: string }) {
     setFormData({
       label: version.label,
       notes: version.notes || '',
-      releasedAt: version.releasedAt ? format(new Date(version.releasedAt), 'yyyy-MM-dd') : ''
+      releasedAt: version.releasedAt ? format(new Date(version.releasedAt), 'yyyy-MM-dd') : '',
+      author: version.author || ''
     });
     setEditingVersion(version);
   };
@@ -77,7 +78,7 @@ export function VersionManager({ productId }: { productId: string }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Versions</h3>
-        <Button onClick={() => { setEditingVersion(null); setFormData({ label: '', notes: '', releasedAt: '' }); setIsOpen(true); }}>
+        <Button onClick={() => { setEditingVersion(null); setFormData({ label: '', notes: '', releasedAt: '', author: '' }); setIsOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" /> Add Version
         </Button>
       </div>
@@ -88,20 +89,22 @@ export function VersionManager({ productId }: { productId: string }) {
             <TableRow>
               <TableHead>Version Label</TableHead>
               <TableHead>Release Date</TableHead>
+              <TableHead>Author</TableHead>
               <TableHead>Notes</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
             ) : versions?.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center h-24">No versions found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center h-24">No versions found.</TableCell></TableRow>
             ) : (
               versions?.map((version: any) => (
                 <TableRow key={version._id}>
                   <TableCell className="font-medium">{version.label}</TableCell>
                   <TableCell>{version.releasedAt ? new Date(version.releasedAt).toLocaleDateString() : 'Unreleased'}</TableCell>
+                  <TableCell>{version.author || 'N/A'}</TableCell>
                   <TableCell className="max-w-xs truncate">{version.notes}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(version)}>
@@ -143,6 +146,10 @@ export function VersionManager({ productId }: { productId: string }) {
                 clearable
                 className="mt-1"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Author (optional)</label>
+              <Input placeholder="e.g. John Doe" value={formData.author} onChange={e => setFormData({ ...formData, author: e.target.value })} />
             </div>
             <div>
               <label className="text-sm font-medium">Release Notes (optional)</label>

@@ -9,6 +9,7 @@ export interface IProduct extends Document {
   banner?: string;
   icon?: string;
   wpOrgSlug?: string;
+  wpReadme?: string;
   category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -27,6 +28,7 @@ const ProductSchema: Schema = new Schema(
     banner: { type: String, default: '' },
     icon: { type: String, default: '' },
     wpOrgSlug: { type: String, default: '' },
+    wpReadme: { type: String, default: '' },
     category: {
       type: String,
       enum: ['plugin', 'block', 'theme', 'standalone'],

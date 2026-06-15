@@ -7,6 +7,7 @@ export const createVersionSchema = z.object({
     label: z.string().min(1, 'label is required'),
     notes: z.string().optional(),
     releasedAt: z.string().nullable().optional().transform(val => (val === '' ? null : val)),
+    author: z.string().optional(),
   }),
 });
 
@@ -16,6 +17,7 @@ export const updateVersionSchema = z.object({
     label: z.string().min(1).optional(),
     notes: z.string().optional(),
     releasedAt: z.string().nullable().optional().transform(val => (val === '' ? null : val)),
+    author: z.string().optional(),
   }),
   params: z.object({
     id: objectId,

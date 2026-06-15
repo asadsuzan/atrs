@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
+import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -143,7 +144,7 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
 export default function ProductDetails() {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const { data: product, isLoading: productLoading } = useQuery({
@@ -337,6 +338,14 @@ export default function ProductDetails() {
           >
             Marketing Hub
           </button>
+          {product?.wpReadme && (
+            <button 
+              className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'readme' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setActiveTab('readme')}
+            >
+              Readme
+            </button>
+          )}
         </div>
 
         {activeTab === 'activities' && (
@@ -366,6 +375,10 @@ export default function ProductDetails() {
 
         {activeTab === 'marketing' && id && (
           <MarketingManager productId={id} />
+        )}
+
+        {activeTab === 'readme' && product?.wpReadme && (
+          <WpReadmeViewer content={product.wpReadme} />
         )}
       </div>
     </div>

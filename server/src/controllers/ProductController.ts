@@ -81,12 +81,15 @@ export const wpOrgPreview = async (req: Request, res: Response, next: NextFuncti
 
 export const importFromWpOrg = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('[WP Import Controller] POST /import-from-wporg hit, body:', JSON.stringify(req.body));
     const { username, slugs } = req.body;
     if (!username) return res.status(400).json({ message: 'username is required' });
     if (!Array.isArray(slugs) || slugs.length === 0) return res.status(400).json({ message: 'slugs must be a non-empty array' });
     const result = await productService.importFromWpOrg(username, slugs, req.user!);
+    console.log('[WP Import Controller] import result:', JSON.stringify({ created: result.created.length, updated: result.updated.length, errors: result.errors }));
     res.status(200).json(result);
   } catch (error) {
+    console.error('[WP Import Controller] error:', error);
     next(error);
   }
 };

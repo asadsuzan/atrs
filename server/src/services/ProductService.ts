@@ -102,11 +102,155 @@ export class ProductService {
       `&request[author]=${encodeURIComponent(username)}` +
       `&request[per_page]=100` +
       `&request[fields][icons]=1&request[fields][banners]=1` +
-      `&request[fields][tags]=1&request[fields][short_description]=1`;
+      `&request[fields][tags]=1&request[fields][short_description]=1` +
+      `&request[fields][versions]=1`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch from WordPress.org API');
     const data: any = await response.json();
     return data.plugins || [];
+  }
+
+  /**
+   * Fetch version tags and their metadata (release date, author, release notes)
+   * directly from WordPress.org's Subversion repository using WebDAV.
+   * Bypasses WAF blocks that affect Trac browser and Trac RSS.
+   */
+  private async fetchSvnVersionData(
+    slug: string
+  ): Promise<{ label: string; releasedAt: Date | null; author: string; notes: string }[]> {
+    try {
+      const tagsUrl = `https://plugins.svn.wordpress.org/${encodeURIComponent(slug)}/tags/`;
+
+      // 1. Fetch tags list with Depth: 1 to get revision, author and date of each tag folder
+      const propBody = `<?xml version="1.0" encoding="utf-8"?>
+<propfind xmlns="DAV:">
+  <prop>
+    <version-name/>
+    <creator-displayname/>
+    <creationdate/>
+  </prop>
+</propfind>`;
+
+      const propRes = await fetch(tagsUrl, {
+        method: 'PROPFIND',
+        headers: {
+          'Depth': '1',
+          'Content-Type': 'text/xml',
+          'User-Agent': 'SVN/1.9.5 ATRS/1.0',
+        },
+        body: propBody,
+      });
+
+      if (!propRes.ok) {
+        console.warn(`[WP Import] ${slug}: PROPFIND failed with status ${propRes.status}`);
+        return [];
+      }
+
+      const propText = await propRes.text();
+      const tags: { label: string; revision: number; creator: string; created: string }[] = [];
+      const responseRegex = /<D:response([\s\S]*?)<\/D:response>/gi;
+      let match: RegExpExecArray | null;
+
+      while ((match = responseRegex.exec(propText)) !== null) {
+        const block = match[1];
+        const hrefMatch = block.match(/<D:href>([^<]+)<\/D:href>/);
+        const versionMatch = block.match(/<lp1:version-name>([^<]+)<\/lp1:version-name>/);
+        const creatorMatch = block.match(/<lp1:creator-displayname>([^<]+)<\/lp1:creator-displayname>/);
+        const createdMatch = block.match(/<lp1:creationdate>([^<]+)<\/lp1:creationdate>/);
+
+        const href = hrefMatch ? hrefMatch[1] : '';
+        const rawRev = versionMatch ? versionMatch[1] : '';
+        const creator = creatorMatch ? creatorMatch[1] : '';
+        const created = createdMatch ? createdMatch[1] : '';
+
+        // Extract label from href (e.g. "/image-viewer/tags/1.0.0/" or "/image-viewer/tags/1.0.0")
+        if (href && href !== `/${slug}/tags/` && href !== `/${slug}/tags`) {
+          const parts = href.replace(/\/$/, '').split('/');
+          const label = parts[parts.length - 1];
+          const revision = parseInt(rawRev, 10);
+          if (label && label !== 'tags' && !isNaN(revision)) {
+            tags.push({ label, revision, creator, created });
+          }
+        }
+      }
+
+      console.log(`[WP Import] ${slug}: Found ${tags.length} tags from SVN PROPFIND`);
+      if (tags.length === 0) return [];
+
+      // 2. Fetch comments using SVN REPORT log-report from maxRevision down to minRevision
+      const revisions = tags.map(t => t.revision);
+      const minRev = Math.min(...revisions);
+      const maxRev = Math.max(...revisions);
+
+      const commentsMap = new Map<number, string>();
+      try {
+        const reportUrl = `https://plugins.svn.wordpress.org/${encodeURIComponent(slug)}/`;
+        const reportBody = `<?xml version="1.0" encoding="utf-8"?>
+<S:log-report xmlns:S="svn:">
+  <S:start-revision>${maxRev}</S:start-revision>
+  <S:end-revision>${minRev}</S:end-revision>
+  <S:limit>1000</S:limit>
+  <S:path>tags</S:path>
+</S:log-report>`;
+
+        const reportRes = await fetch(reportUrl, {
+          method: 'REPORT',
+          headers: {
+            'Content-Type': 'text/xml',
+            'User-Agent': 'SVN/1.9.5 ATRS/1.0',
+          },
+          body: reportBody,
+        });
+
+        if (reportRes.ok) {
+          const reportText = await reportRes.text();
+          const itemRegex = /<S:log-item>([\s\S]*?)<\/S:log-item>/gi;
+          let itemMatch: RegExpExecArray | null;
+          while ((itemMatch = itemRegex.exec(reportText)) !== null) {
+            const block = itemMatch[1];
+            const revMatch = block.match(/<D:version-name>([^<]+)<\/D:version-name>/);
+            const commentMatch = block.match(/<D:comment>([\s\S]*?)<\/D:comment>/);
+            if (revMatch && commentMatch) {
+              const r = parseInt(revMatch[1], 10);
+              if (!isNaN(r)) {
+                commentsMap.set(r, commentMatch[1].trim());
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[WP Import] ${slug}: SVN REPORT log query failed: ${err.message}`);
+      }
+
+      // 3. Map everything into the final format
+      return tags.map(t => {
+        const releasedAt = t.created ? new Date(t.created) : null;
+        return {
+          label: t.label,
+          releasedAt: releasedAt && !isNaN(releasedAt.getTime()) ? releasedAt : null,
+          author: t.creator || '',
+          notes: commentsMap.get(t.revision) || '',
+        };
+      });
+    } catch (err: any) {
+      console.error(`[WP Import] ${slug}: fetchSvnVersionData failed:`, err);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch the raw readme.txt from the plugin's SVN trunk.
+   */
+  private async fetchSvnReadme(slug: string): Promise<string> {
+    try {
+      const res = await fetch(`https://plugins.svn.wordpress.org/${encodeURIComponent(slug)}/trunk/readme.txt`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ATRS/1.0)' },
+      });
+      if (!res.ok) return '';
+      return await res.text();
+    } catch {
+      return '';
+    }
   }
 
   async wpOrgPreview(username: string, user: AuthUser): Promise<any[]> {
@@ -135,8 +279,11 @@ export class ProductService {
   }
 
   async importFromWpOrg(username: string, slugs: string[], user: AuthUser): Promise<any> {
+    console.log(`[WP Import] importFromWpOrg called: username=${username}, slugs=${JSON.stringify(slugs)}`);
     const plugins = await this.fetchWpOrgPlugins(username);
+    console.log(`[WP Import] WP API returned ${plugins.length} plugins`);
     const toImport = plugins.filter((p: any) => slugs.includes(p.slug));
+    console.log(`[WP Import] ${toImport.length} plugins to import: ${toImport.map((p: any) => p.slug).join(', ')}`);
 
     const created: any[] = [];
     const updated: any[] = [];
@@ -147,6 +294,13 @@ export class ProductService {
       const isBlock = tags.some(t =>
         ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
       );
+
+      // Build version data from SVN WebDAV, and fetch readme in parallel.
+      const [tracTags, readme] = await Promise.all([
+        this.fetchSvnVersionData(plugin.slug),
+        this.fetchSvnReadme(plugin.slug),
+      ]);
+
       const wpData = {
         name: plugin.name,
         description: plugin.short_description || '',
@@ -154,22 +308,76 @@ export class ProductService {
         wpOrgSlug: plugin.slug,
         icon: plugin.icons?.['2x'] || plugin.icons?.['1x'] || '',
         banner: plugin.banners?.high || plugin.banners?.low || '',
+        wpReadme: readme,
       };
 
       try {
         const existing = await Product.findOne({ ownerId: user.id, wpOrgSlug: plugin.slug });
+        let product: any;
         if (existing) {
-          const product = await this.repository.update(existing._id.toString(), wpData);
+          product = await this.repository.update(existing._id.toString(), wpData);
           if (product) {
             await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product from WordPress.org import', { id: user.id, name: user.name });
             updated.push(product);
           }
         } else {
-          const product = await this.createProduct({
+          product = await this.createProduct({
             ...wpData,
             githubUrl: `https://wordpress.org/plugins/${plugin.slug}`,
           }, user);
           created.push(product);
+        }
+
+        // Sync Version records from Trac tags: create new ones, update existing
+        // ones that are missing releasedAt / notes metadata.
+        if (product && tracTags.length > 0) {
+          const existingVersions = await Version.find({ productId: product._id }).lean();
+          const existingByLabel = new Map(existingVersions.map((v: any) => [v.label, v]));
+          console.log(`[WP Import] ${plugin.slug}: ${tracTags.length} trac tags, ${existingVersions.length} existing versions`);
+
+          const toInsert: any[] = [];
+          const bulkOps: any[] = [];
+
+          for (const tag of tracTags) {
+            const existing = existingByLabel.get(tag.label);
+            if (!existing) {
+              // Brand new version — insert.
+              toInsert.push({
+                productId: product._id,
+                ownerId: product.ownerId,
+                label: tag.label,
+                notes: tag.notes,
+                releasedAt: tag.releasedAt,
+                author: tag.author,
+              });
+            } else if (!existing.releasedAt || !existing.notes || !existing.author) {
+              // Existing version missing metadata — update.
+              bulkOps.push({
+                updateOne: {
+                  filter: { _id: existing._id },
+                  update: {
+                    $set: {
+                      ...(tag.releasedAt ? { releasedAt: tag.releasedAt } : {}),
+                      ...(tag.notes ? { notes: tag.notes } : {}),
+                      ...(tag.author ? { author: tag.author } : {}),
+                    },
+                  },
+                },
+              });
+            }
+          }
+
+          console.log(`[WP Import] ${plugin.slug}: ${toInsert.length} to insert, ${bulkOps.length} to update`);
+          if (toInsert.length > 0) {
+            await Version.insertMany(toInsert, { ordered: false });
+            console.log(`[WP Import] ${plugin.slug}: inserted ${toInsert.length} versions`);
+          }
+          if (bulkOps.length > 0) {
+            await Version.bulkWrite(bulkOps);
+            console.log(`[WP Import] ${plugin.slug}: updated ${bulkOps.length} versions`);
+          }
+        } else {
+          console.log(`[WP Import] ${plugin.slug}: skipping version sync (product=${!!product}, tracTags=${tracTags.length})`);
         }
       } catch (err: any) {
         errors.push(`${plugin.slug}: ${err.message}`);

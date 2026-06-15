@@ -10,6 +10,7 @@ export const createProductSchema = z.object({
     icon: z.string().optional(),
     banner: z.string().optional(),
     wpOrgSlug: z.string().optional(),
+    wpReadme: z.string().optional(),
   }),
 });
 
@@ -23,6 +24,7 @@ export const updateProductSchema = z.object({
     icon: z.string().optional(),
     banner: z.string().optional(),
     wpOrgSlug: z.string().optional(),
+    wpReadme: z.string().optional(),
   }),
   params: z.object({
     id: z.string(),
