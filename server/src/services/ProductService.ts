@@ -208,7 +208,8 @@ export class ProductService {
       code === 263 ||
       /Transaction numbers are only allowed on a replica set member or mongos/i.test(message) ||
       /transactions are not supported/i.test(message) ||
-      /replica set/i.test(message)
+      /replica set/i.test(message) ||
+      /retryable writes/i.test(message)
     );
   }
 
