@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
 import mongoose from 'mongoose';
+import morgan from 'morgan';
 import connectDB from './config/db';
 import { errorHandler } from './middlewares/errorHandler';
 import { requireAuth, requireActive, requireAdmin, assertJwtSecretAtBoot } from './middlewares/auth';
@@ -73,6 +74,9 @@ const apiLimiter = rateLimit({
   message: { message: 'Too many requests, please try again later.' },
 });
 app.use('/api', apiLimiter);
+
+// HTTP request logging
+app.use(morgan('dev'));
 
 // Body parsing. Uploads go through multer, so JSON/urlencoded stay small.
 app.use(express.json({ limit: '5mb' }));
