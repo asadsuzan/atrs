@@ -98,50 +98,50 @@ export default function Activities() {
   const createMutation = useMutation({
     mutationFn: createActivity,
     onSuccess: () => {
-      toast.success("Activity created successfully");
+      toast.success("Changelog entry created successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       setIsAddOpen(false);
     },
-    onError: () => toast.error("Failed to create activity")
+    onError: () => toast.error("Failed to create changelog entry")
   });
 
   const updateMutation = useMutation({
     mutationFn: updateActivity,
     onSuccess: () => {
-      toast.success("Activity updated successfully");
+      toast.success("Changelog entry updated successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       setEditingActivity(null);
     },
-    onError: () => toast.error("Failed to update activity")
+    onError: () => toast.error("Failed to update changelog entry")
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteActivity,
     onSuccess: () => {
-      toast.success("Activity deleted successfully");
+      toast.success("Changelog entry deleted successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to delete activity")
+    onError: () => toast.error("Failed to delete changelog entry")
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: ({ ids, update }: { ids: string[], update: any }) => bulkUpdateActivities(ids, update),
     onSuccess: () => {
-      toast.success("Activities updated");
+      toast.success("Changelog entries updated");
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to update activities")
+    onError: () => toast.error("Failed to update changelog entries")
   });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: bulkDeleteActivities,
     onSuccess: () => {
-      toast.success("Activities deleted");
+      toast.success("Changelog entries deleted");
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to delete activities")
+    onError: () => toast.error("Failed to delete changelog entries")
   });
 
   const handleSelectAll = (checked: boolean) => {
@@ -166,16 +166,16 @@ export default function Activities() {
   return (
     <PageTransition className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-bold tracking-tight">Activities</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Changelogs</h2>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="w-4 h-4 mr-2" /> Add Activity
+              <Plus className="w-4 h-4 mr-2" /> Add Changelog Entry
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Add New Activity</DialogTitle>
+              <DialogTitle>Add New Changelog Entry</DialogTitle>
             </DialogHeader>
             <ActivityForm onSubmit={(data: any) => {
               if(!data.mediaType) data.mediaType = null;
@@ -190,7 +190,7 @@ export default function Activities() {
         {/* Row 1: Search + Dropdowns */}
         <div className="flex flex-wrap items-center gap-3 p-3 border-b">
           <Input
-            placeholder="Search activities..."
+            placeholder="Search changelogs..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="h-9 w-[220px] flex-shrink-0"
@@ -372,12 +372,12 @@ export default function Activities() {
             ) : isError ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center h-24 text-destructive">
-                  Failed to load activities. Please try again.
+                  Failed to load changelogs. Please try again.
                 </TableCell>
               </TableRow>
             ) : activities.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">No activities found.</TableCell>
+                <TableCell colSpan={6} className="text-center h-24">No changelogs found.</TableCell>
               </TableRow>
             ) : (
               activities.map((activity: any, index: number) => (
@@ -435,7 +435,7 @@ export default function Activities() {
                       <Edit2 className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" aria-label={`Delete ${activity.title}`} onClick={async () => {
-                      if (await confirm({ title: 'Delete Activity', description: 'Are you sure you want to permanently delete this activity?' })) {
+                      if (await confirm({ title: 'Delete Changelog Entry', description: 'Are you sure you want to permanently delete this changelog entry?' })) {
                         deleteMutation.mutate(activity._id);
                       }
                     }}>
@@ -480,7 +480,7 @@ export default function Activities() {
             Mark Unreleased
           </Button>
           <Button variant="destructive" size="sm" onClick={async () => {
-            if (await confirm({ title: 'Delete Activities', description: `Are you sure you want to delete ${selectedIds.length} activities?` })) {
+            if (await confirm({ title: 'Delete Changelog Entries', description: `Are you sure you want to delete ${selectedIds.length} changelog entries?` })) {
               bulkDeleteMutation.mutate(selectedIds);
             }
           }}>
@@ -492,7 +492,7 @@ export default function Activities() {
       <Dialog open={!!editingActivity} onOpenChange={(open: boolean) => !open && setEditingActivity(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Activity</DialogTitle>
+            <DialogTitle>Edit Changelog Entry</DialogTitle>
           </DialogHeader>
           {editingActivity && (
             <ActivityForm

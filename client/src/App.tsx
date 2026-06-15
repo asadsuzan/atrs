@@ -48,7 +48,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/products', icon: Package, label: 'Products' },
-    { to: '/activities', icon: Activity, label: 'Activities' },
+    { to: '/activities', icon: Activity, label: 'Changelogs' },
     { to: '/media', icon: ImageIcon, label: 'Media Library' },
     { to: '/reports', icon: BarChart2, label: 'Reports' },
     { to: '/audit-logs', icon: History, label: 'Audit Logs' },

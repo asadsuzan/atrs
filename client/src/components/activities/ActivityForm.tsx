@@ -188,7 +188,7 @@ export function ActivityForm({
                   <DatePicker
                     value={field.value || ''}
                     onChange={field.onChange}
-                    placeholder="Pick activity date"
+                    placeholder="Pick changelog date"
                     clearable={false}
                   />
                 </FormControl>
@@ -281,7 +281,7 @@ export function ActivityForm({
             <FormItem>
               <FormLabel>Short Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Brief summary of the activity..." {...field} />
+                <Textarea placeholder="Brief summary of the change..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -443,7 +443,7 @@ export function ActivityForm({
                     value={field.value}
                     onChange={field.onChange}
                     accept="image/*,video/*"
-                    label="Upload activity media"
+                    label="Upload media"
                     onUploadComplete={(_urls, files) => {
                       const fileList = Array.isArray(files) ? files : [files];
                       if (fileList.length > 0) {
@@ -466,7 +466,7 @@ export function ActivityForm({
         </div>
 
         <Button type="submit" className="w-full">
-          {initialData ? 'Update Activity' : 'Create Activity'}
+          {initialData ? 'Update Changelog Entry' : 'Create Changelog Entry'}
         </Button>
       </form>
     </Form>
