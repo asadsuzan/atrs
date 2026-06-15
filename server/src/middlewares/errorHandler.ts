@@ -16,6 +16,14 @@ export const errorHandler = (
     });
   }
 
+  // MongoDB duplicate-key error (e.g. a duplicate product slug for the same owner).
+  if (err?.code === 11000) {
+    const field = Object.keys(err.keyPattern || err.keyValue || {}).join(', ') || 'value';
+    return res.status(409).json({
+      message: `A record with this ${field} already exists.`,
+    });
+  }
+
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     message: err.message || 'Internal Server Error',

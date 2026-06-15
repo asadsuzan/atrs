@@ -12,6 +12,8 @@ import { ProductMarketing } from '../models/ProductMarketing';
  * Safe to run on every boot; once everything is owned, step 2 is a no-op.
  */
 export async function seedAndMigrate(): Promise<void> {
+  await dropLegacyProductSlugIndex();
+
   const rootAdmin = await ensureRootAdmin();
   if (!rootAdmin) return;
 
@@ -34,6 +36,25 @@ export async function seedAndMigrate(): Promise<void> {
         `${activities.modifiedCount} activities, ${versions.modifiedCount} versions, ` +
         `${marketing.modifiedCount} marketing records.`
     );
+  }
+}
+
+/**
+ * Older builds declared Product.slug as globally unique (index `slug_1`).
+ * Slugs are now unique per owner, so drop the legacy global index if present;
+ * the new compound index `{ ownerId, slug }` is created automatically by Mongoose.
+ */
+async function dropLegacyProductSlugIndex(): Promise<void> {
+  try {
+    const indexes = await Product.collection.indexes();
+    const legacy = indexes.find((idx) => idx.name === 'slug_1');
+    if (legacy) {
+      await Product.collection.dropIndex('slug_1');
+      console.log('[migrate]: Dropped legacy global Product.slug index (now unique per owner).');
+    }
+  } catch (err: any) {
+    // Collection may not exist yet on a fresh DB — nothing to drop.
+    console.warn('[migrate]: Could not check/drop legacy slug index:', err?.message || err);
   }
 }
 

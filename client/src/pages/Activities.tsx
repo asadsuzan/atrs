@@ -447,10 +447,10 @@ export default function Activities() {
         >
           <span className="text-sm font-medium">{selectedIds.length} selected</span>
           <div className="h-4 w-px bg-border" />
-          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { $addToSet: { tags: 'released' }, $pull: { tags: 'unreleased' } } })}>
+          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { addTags: ['released'], removeTags: ['unreleased'] } })}>
             Mark Released
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { $addToSet: { tags: 'unreleased' }, $pull: { tags: 'released' } } })}>
+          <Button variant="ghost" size="sm" onClick={() => bulkUpdateMutation.mutate({ ids: selectedIds, update: { addTags: ['unreleased'], removeTags: ['released'] } })}>
             Mark Unreleased
           </Button>
           <Button variant="destructive" size="sm" onClick={async () => {

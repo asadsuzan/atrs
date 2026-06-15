@@ -19,7 +19,9 @@ const ProductSchema: Schema = new Schema(
   {
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true },
-    slug: { type: String, required: true, unique: true },
+    // Slug is unique per owner (see compound index below), not globally — two
+    // different owners may each have a product that slugifies to the same value.
+    slug: { type: String, required: true },
     description: { type: String, default: '' },
     githubUrl: { type: String, required: true },
     banner: { type: String, default: '' },
@@ -39,6 +41,8 @@ const ProductSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Slug is unique within an owner's namespace, not globally.
+ProductSchema.index({ ownerId: 1, slug: 1 }, { unique: true });
 // Indexes for filter queries.
 ProductSchema.index({ status: 1 });
 ProductSchema.index({ category: 1 });

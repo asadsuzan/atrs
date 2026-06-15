@@ -1,6 +1,6 @@
 import { ProductRepository } from '../repositories/ProductRepository';
 import { IProduct, Product } from '../models/Product';
-import slugify from 'slugify';
+import { baseSlug, disambiguateSlug } from '../utils/slug';
 import { AuditLogService } from './AuditLogService';
 
 const auditLogService = new AuditLogService();
@@ -22,8 +22,20 @@ export class ProductService {
     this.repository = new ProductRepository();
   }
 
+  /**
+   * Builds a slug for `name` that is unique within `ownerId`'s products.
+   * `excludeId` skips the product being updated so it doesn't collide with itself.
+   */
+  private async uniqueSlugForOwner(name: string, ownerId: string, excludeId?: string): Promise<string> {
+    const base = baseSlug(name);
+    const filter: any = { ownerId, slug: { $regex: `^${base}(-\\d+)?$` } };
+    if (excludeId) filter._id = { $ne: excludeId };
+    const taken = new Set<string>(await Product.find(filter).distinct('slug'));
+    return disambiguateSlug(base, taken);
+  }
+
   async createProduct(data: any, user: AuthUser): Promise<IProduct> {
-    const slug = slugify(data.name, { lower: true, strict: true });
+    const slug = await this.uniqueSlugForOwner(data.name, user.id);
     const product = await this.repository.create({ ...data, slug, ownerId: user.id });
     await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id });
     return product;
@@ -61,7 +73,7 @@ export class ProductService {
     assertOwner(existing, user);
     delete data.ownerId; // ownership is not editable through this path
     if (data.name) {
-      data.slug = slugify(data.name, { lower: true, strict: true });
+      data.slug = await this.uniqueSlugForOwner(data.name, existing!.ownerId.toString(), id);
     }
     const product = await this.repository.update(id, data);
     if (product) {

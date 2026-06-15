@@ -9,12 +9,52 @@ export interface JwtPayload {
   isRoot: boolean;
 }
 
+const MIN_SECRET_LENGTH = 32;
+
 const getSecret = (): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET is not configured');
   }
   return secret;
+};
+
+/**
+ * Validates the configured JWT secret. Returns the list of problems found
+ * (empty = OK). Pure-ish so it can be unit-tested by passing a secret in.
+ */
+export const validateJwtSecret = (secret: string | undefined): string[] => {
+  const problems: string[] = [];
+  if (!secret) {
+    problems.push('JWT_SECRET is not set.');
+    return problems;
+  }
+  if (secret.length < MIN_SECRET_LENGTH) {
+    problems.push(`JWT_SECRET is too short (${secret.length} chars); use at least ${MIN_SECRET_LENGTH}.`);
+  }
+  if (/^(changeme|secret|default|password)/i.test(secret)) {
+    problems.push('JWT_SECRET looks like a placeholder value; set a strong random secret.');
+  }
+  return problems;
+};
+
+/**
+ * Fail-fast at boot: a missing secret is always fatal; a weak secret is fatal
+ * in production and a warning elsewhere.
+ */
+export const assertJwtSecretAtBoot = (): void => {
+  const problems = validateJwtSecret(process.env.JWT_SECRET);
+  if (problems.length === 0) return;
+
+  const missing = !process.env.JWT_SECRET;
+  const fatal = missing || process.env.NODE_ENV === 'production';
+  const prefix = fatal ? '[server][FATAL]' : '[server][WARN]';
+  for (const p of problems) console.error(`${prefix} ${p}`);
+
+  if (fatal) {
+    console.error('[server][FATAL] Refusing to start with an insecure JWT configuration.');
+    process.exit(1);
+  }
 };
 
 export const signToken = (user: { id: string; role: 'admin' | 'user'; isRoot: boolean }): string => {

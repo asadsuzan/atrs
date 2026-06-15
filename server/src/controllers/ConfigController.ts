@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { hasControlChars } from '../utils/sanitize';
 
 const configPath = path.resolve(__dirname, '../../../app.config.json');
 const envPath = path.resolve(__dirname, '../../../.env');
@@ -43,12 +44,20 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
     if (Number.isNaN(port) || port < 1 || port > 65535) {
       return res.status(400).json({ message: 'Port must be a number between 1 and 65535' });
     }
-    if (!/^mongodb(\+srv)?:\/\//.test(String(server.mongodbUri))) {
+
+    const mongodbUri = String(server.mongodbUri);
+    // Reject control characters / newlines: the URI is written verbatim into
+    // .env, so an embedded newline could inject arbitrary KEY=VALUE lines
+    // (e.g. overwrite JWT_SECRET) — an env-injection / takeover vector.
+    if (hasControlChars(mongodbUri)) {
+      return res.status(400).json({ message: 'MongoDB URI contains invalid control characters' });
+    }
+    if (!/^mongodb(\+srv)?:\/\//.test(mongodbUri)) {
       return res.status(400).json({ message: 'MongoDB URI must start with mongodb:// or mongodb+srv://' });
     }
 
     const configData = {
-      server: { port, mongodbUri: server.mongodbUri }
+      server: { port, mongodbUri }
     };
 
     // 1. Write to app.config.json (atomic via temp file + rename)
@@ -59,7 +68,7 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
     // 2. Merge into .env, preserving all other keys (JWT_SECRET, ROOT_ADMIN_*, etc.)
     const env = readEnvFile();
     env.PORT = String(port);
-    env.MONGODB_URI = server.mongodbUri;
+    env.MONGODB_URI = mongodbUri;
     const envContent = Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
     const tmpEnv = `${envPath}.tmp`;
     fs.writeFileSync(tmpEnv, envContent, 'utf8');

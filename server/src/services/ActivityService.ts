@@ -5,6 +5,7 @@ import { AuditLogService } from './AuditLogService';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
+import { buildActivityBulkUpdate } from '../utils/activityBulkUpdate';
 import type { AuthUser } from '../types/auth';
 
 const auditLogService = new AuditLogService();
@@ -117,10 +118,10 @@ export class ActivityService {
   }
 
   async bulkUpdateActivities(ids: string[], update: any, user: AuthUser): Promise<number> {
-    if (update && typeof update === 'object') {
-      delete update.ownerId;
-    }
-    return await this.repository.bulkUpdate(ids, update, scopeFilter(user));
+    // Never forward client-supplied keys/operators to the database. The update
+    // document is assembled server-side from whitelisted fields only.
+    const updateDoc = buildActivityBulkUpdate(update || {});
+    return await this.repository.bulkUpdate(ids, updateDoc, scopeFilter(user));
   }
 
   async bulkDeleteActivities(ids: string[], user: AuthUser): Promise<number> {

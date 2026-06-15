@@ -8,7 +8,7 @@ import http from 'http';
 import mongoose from 'mongoose';
 import connectDB from './config/db';
 import { errorHandler } from './middlewares/errorHandler';
-import { requireAuth, requireActive, requireAdmin } from './middlewares/auth';
+import { requireAuth, requireActive, requireAdmin, assertJwtSecretAtBoot } from './middlewares/auth';
 import { seedAndMigrate } from './scripts/seedAndMigrate';
 
 const envPath = path.resolve(__dirname, '../../.env');
@@ -16,9 +16,10 @@ const result = dotenv.config({ path: envPath });
 console.log(`[server]: Loading .env from ${envPath}`);
 if (result.error) {
   console.error('[server]: Dotenv parsing error:', result.error);
-} else {
-  console.log('[server]: Injected env keys:', Object.keys(result.parsed || {}));
 }
+
+// Fail fast if the JWT secret is missing or weak (fatal in production).
+assertJwtSecretAtBoot();
 
 const app: Express = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;

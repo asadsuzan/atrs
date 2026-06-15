@@ -40,8 +40,21 @@ export class ActivityRepository {
     return await Activity.find({ _id: { $in: ids }, ...scope });
   }
 
+  // Defense-in-depth: even though the service builds the update document, the
+  // repository refuses any update that uses an operator outside this allow-list.
+  private static readonly ALLOWED_BULK_OPERATORS = new Set(['$set', '$addToSet', '$pull']);
+
   async bulkUpdate(ids: string[], update: any, scope: Record<string, any> = {}): Promise<number> {
-    const result = await Activity.updateMany({ _id: { $in: ids }, ...scope }, update);
+    const keys = Object.keys(update || {});
+    const invalid = keys.filter((k) => !ActivityRepository.ALLOWED_BULK_OPERATORS.has(k));
+    if (keys.length === 0 || invalid.length > 0) {
+      throw new Error(`Disallowed bulk update operator(s): ${invalid.join(', ') || '(empty)'}`);
+    }
+    const result = await Activity.updateMany(
+      { _id: { $in: ids }, ...scope },
+      update,
+      { runValidators: true }
+    );
     return result.modifiedCount;
   }
 
