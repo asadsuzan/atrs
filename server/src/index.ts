@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
 import mongoose from 'mongoose';
-import morgan from 'morgan';
+import { customLogger } from './middlewares/logger';
 import connectDB from './config/db';
 import { errorHandler } from './middlewares/errorHandler';
 import { requireAuth, requireActive, requireAdmin, assertJwtSecretAtBoot } from './middlewares/auth';
@@ -43,7 +43,7 @@ app.use(helmet({
 // CORS allow-list. CLIENT_ORIGIN is a comma-separated list of allowed origins;
 // defaults to the vite dev origins. Requests with no Origin header (curl,
 // server-to-server, same-origin) are always allowed.
-const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', ' http://192.168.0.199:5173'];
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN
     ? process.env.CLIENT_ORIGIN.split(',')
@@ -76,7 +76,7 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 // HTTP request logging
-app.use(morgan('dev'));
+app.use(customLogger);
 
 // Body parsing. Uploads go through multer, so JSON/urlencoded stay small.
 app.use(express.json({ limit: '5mb' }));

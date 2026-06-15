@@ -6,6 +6,7 @@ export interface AuthUser {
   role: UserRole;
   isRoot: boolean;
   name?: string;
+  email?: string;
 }
 
 declare global {

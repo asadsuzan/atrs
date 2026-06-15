@@ -42,6 +42,8 @@ export class AuthService {
       id: user._id.toString(),
       role: user.role,
       isRoot: user.isRoot,
+      name: user.name,
+      email: user.email,
     });
     return { token, user: user.toJSON() };
   }

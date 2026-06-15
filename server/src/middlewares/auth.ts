@@ -7,6 +7,8 @@ export interface JwtPayload {
   sub: string;
   role: 'admin' | 'user';
   isRoot: boolean;
+  name?: string;
+  email?: string;
 }
 
 const MIN_SECRET_LENGTH = 32;
@@ -57,8 +59,14 @@ export const assertJwtSecretAtBoot = (): void => {
   }
 };
 
-export const signToken = (user: { id: string; role: 'admin' | 'user'; isRoot: boolean }): string => {
-  const payload: JwtPayload = { sub: user.id, role: user.role, isRoot: user.isRoot };
+export const signToken = (user: { id: string; role: 'admin' | 'user'; isRoot: boolean; name?: string; email?: string }): string => {
+  const payload: JwtPayload = {
+    sub: user.id,
+    role: user.role,
+    isRoot: user.isRoot,
+    name: user.name,
+    email: user.email,
+  };
   return jwt.sign(payload, getSecret(), {
     expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'],
   });
@@ -73,7 +81,13 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   const token = header.slice(7);
   try {
     const decoded = jwt.verify(token, getSecret()) as JwtPayload;
-    const user: AuthUser = { id: decoded.sub, role: decoded.role, isRoot: decoded.isRoot };
+    const user: AuthUser = {
+      id: decoded.sub,
+      role: decoded.role,
+      isRoot: decoded.isRoot,
+      name: decoded.name,
+      email: decoded.email,
+    };
     req.user = user;
     next();
   } catch {
@@ -85,15 +99,16 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 export const requireActive = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Authentication required' });
-    const account = await User.findById(req.user.id).select('name status role isRoot');
+    const account = await User.findById(req.user.id).select('name email status role isRoot');
     if (!account) return res.status(401).json({ message: 'Account no longer exists' });
     if (account.status !== 'active') {
       return res.status(403).json({ message: 'Account is not active' });
     }
-    // keep req.user in sync with the latest role/isRoot/name from DB
+    // keep req.user in sync with the latest role/isRoot/name/email from DB
     req.user.role = account.role;
     req.user.isRoot = account.isRoot;
     req.user.name = account.name;
+    req.user.email = account.email;
     next();
   } catch (error) {
     next(error);
