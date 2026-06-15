@@ -1,0 +1,145 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { useAuth } from './AuthContext';
+import { getToken } from '@/services/api';
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'user-activity' | 'access-change' | 'system';
+  createdAt: Date;
+  read: boolean;
+}
+
+interface NotificationContextValue {
+  notifications: Notification[];
+  unreadCount: number;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
+  clearNotifications: () => void;
+}
+
+const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
+
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { user, refreshMe } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
+    const token = getToken();
+    if (!token) return;
+
+    // Establish Server-Sent Events subscription connection
+    const eventSource = new EventSource(`/api/notifications/subscribe?token=${encodeURIComponent(token)}`);
+
+    // Handle handshake confirmation
+    eventSource.addEventListener('handshake', () => {
+      console.log('[SSE] Connection established successfully.');
+    });
+
+    // Handle user activity notifications (Root Admin only)
+    eventSource.addEventListener('user-activity', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newNotif: Notification = {
+          id: data.id || Math.random().toString(),
+          title: `User Activity: ${data.action} ${data.entityType}`,
+          message: `${data.userName} performed ${data.action} on ${data.entityName}`,
+          type: 'user-activity',
+          createdAt: new Date(data.createdAt || Date.now()),
+          read: false
+        };
+
+        setNotifications((prev) => [newNotif, ...prev]);
+
+        // Pop up sonner toast with beautiful formatting
+        toast.info(newNotif.title, {
+          description: newNotif.message,
+          duration: 5000,
+        });
+      } catch (err) {
+        console.error('[SSE] Failed to parse user-activity payload:', err);
+      }
+    });
+
+    // Handle role/access changes (User notifications)
+    eventSource.addEventListener('access-change', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newNotif: Notification = {
+          id: Math.random().toString(),
+          title: data.role ? 'Role Access Updated' : 'Account Status Updated',
+          message: data.message,
+          type: 'access-change',
+          createdAt: new Date(),
+          read: false
+        };
+
+        setNotifications((prev) => [newNotif, ...prev]);
+
+        // Show toast alert
+        toast.success(newNotif.title, {
+          description: newNotif.message,
+          duration: 6000,
+        });
+
+        // Trigger context refresh to update permissions / roles instantly
+        refreshMe();
+      } catch (err) {
+        console.error('[SSE] Failed to parse access-change payload:', err);
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      console.error('[SSE] EventSource encountered connection error. Reconnecting...', err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [user, refreshMe]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  return (
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        markAsRead,
+        markAllAsRead,
+        clearNotifications,
+      }}
+    >
+      {children}
+    </NotificationContext.Provider>
+  );
+}
+
+export function useNotifications() {
+  const ctx = useContext(NotificationContext);
+  if (!ctx) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return ctx;
+}

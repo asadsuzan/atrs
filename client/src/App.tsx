@@ -25,6 +25,8 @@ const Users = lazy(() => import('./pages/admin/Users'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationBell } from './components/layout/NotificationBell';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
@@ -143,22 +145,25 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 p-6 md:p-8 transition-all duration-300 ease-in-out w-full">
-        <div data-tour="search" className="absolute top-4 right-4 hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
-          <Search className="w-4 h-4" />
-          <span>Search</span>
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 ml-1">
-            <span className="text-xs">⌘</span>K
-          </kbd>
+        <div className="absolute top-4 right-4 flex items-center gap-3">
+          <div data-tour="search" className="hidden md:flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full border">
+            <Search className="w-4 h-4" />
+            <span>Search</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 ml-1">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </div>
+          {/* Mobile-visible command palette trigger (the ⌘K hint is desktop-only). */}
+          <button
+            type="button"
+            aria-label="Open command palette"
+            onClick={openCommandPalette}
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-full border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <NotificationBell />
         </div>
-        {/* Mobile-visible command palette trigger (the ⌘K hint is desktop-only). */}
-        <button
-          type="button"
-          aria-label="Open command palette"
-          onClick={openCommandPalette}
-          className="absolute top-4 right-4 md:hidden flex items-center justify-center w-9 h-9 rounded-full border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          <Search className="w-4 h-4" />
-        </button>
         <div className="max-w-6xl mx-auto w-full transition-all duration-300 mt-4 md:mt-0">
           {children}
         </div>
@@ -246,12 +251,14 @@ function App() {
       <ConfirmProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <SmoothScroll>
-              <BrowserRouter>
-                <AnimatedRoutes />
-              </BrowserRouter>
-            </SmoothScroll>
-            <Toaster />
+            <NotificationProvider>
+              <SmoothScroll>
+                <BrowserRouter>
+                  <AnimatedRoutes />
+                </BrowserRouter>
+              </SmoothScroll>
+              <Toaster />
+            </NotificationProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ConfirmProvider>

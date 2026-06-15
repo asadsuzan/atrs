@@ -1,4 +1,6 @@
 import AuditLog, { IAuditLog } from '../models/AuditLog';
+import { User } from '../models/User';
+import { notificationManager } from './NotificationManager';
 import { escapeRegex } from '../utils/sanitize';
 import type { AuthUser } from '../types/auth';
 
@@ -12,7 +14,7 @@ export class AuditLogService {
     actor?: { id: string; name?: string }
   ): Promise<void> {
     try {
-      await AuditLog.create({
+      const log = await AuditLog.create({
         action,
         entityType,
         entityId,
@@ -21,6 +23,27 @@ export class AuditLogService {
         userId: actor?.id,
         userName: actor?.name,
       });
+
+      // Query if the actor is root; default to false if no actor (e.g. system events)
+      let isRootActor = false;
+      if (actor?.id) {
+        const userDoc = await User.findById(actor.id).select('isRoot');
+        isRootActor = !!userDoc?.isRoot;
+      }
+
+      // Notify root admins of any activity by non-root actors
+      if (!isRootActor) {
+        notificationManager.sendToRootAdmins('user-activity', {
+          id: log._id.toString(),
+          action,
+          entityType,
+          entityName,
+          details,
+          userName: actor?.name || 'System / Guest',
+          userId: actor?.id,
+          createdAt: log.createdAt,
+        });
+      }
     } catch (error) {
       console.error('Failed to write audit log:', error);
     }

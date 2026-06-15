@@ -72,13 +72,21 @@ export const signToken = (user: { id: string; role: 'admin' | 'user'; isRoot: bo
   });
 };
 
-/** Verifies the Bearer token and attaches req.user. */
+/** Verifies the Bearer token and attaches req.user. Supports Authorization header or token query parameter. */
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  let token: string | undefined;
+
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
+  if (header && header.startsWith('Bearer ')) {
+    token = header.slice(7);
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({ message: 'Authentication required' });
   }
-  const token = header.slice(7);
+
   try {
     const decoded = jwt.verify(token, getSecret()) as JwtPayload;
     const user: AuthUser = {

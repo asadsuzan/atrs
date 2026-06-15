@@ -4,6 +4,7 @@ import { Activity } from '../models/Activity';
 import { Version } from '../models/Version';
 import { ProductMarketing } from '../models/ProductMarketing';
 import createHttpError from '../utils/httpError';
+import { notificationManager } from './NotificationManager';
 
 export class UserService {
   async listUsers(query: any) {
@@ -25,8 +26,20 @@ export class UserService {
 
   async setStatus(id: string, status: UserStatus) {
     const user = await this.getEditableUser(id);
+    const oldStatus = user.status;
     user.status = status;
     await user.save();
+
+    if (oldStatus !== status) {
+      notificationManager.sendToUser(id, 'access-change', {
+        userId: id,
+        status: status,
+        message: status === 'active'
+          ? 'Your registration has been approved and activated. You now have full access.'
+          : 'Your account access has been suspended by an administrator.',
+      });
+    }
+
     return user.toJSON();
   }
 
@@ -44,8 +57,18 @@ export class UserService {
 
   async setRole(id: string, role: UserRole) {
     const user = await this.getEditableUser(id);
+    const oldRole = user.role;
     user.role = role;
     await user.save();
+
+    if (oldRole !== role) {
+      notificationManager.sendToUser(id, 'access-change', {
+        userId: id,
+        role: role,
+        message: `Your account role has been updated to ${role} by an administrator.`,
+      });
+    }
+
     return user.toJSON();
   }
 

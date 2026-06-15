@@ -92,6 +92,7 @@ import configRoutes from './routes/configRoutes';
 import mediaRoutes from './routes/mediaRoutes';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 import { exportAllData } from './controllers/ExportController';
 
 // Static files for uploads
@@ -108,6 +109,7 @@ app.use('/api/upload', requireAuth, requireActive, uploadRoutes);
 app.use('/api/media', requireAuth, requireActive, mediaRoutes);
 app.use('/api/audit-logs', requireAuth, requireActive, auditLogRoutes);
 app.use('/api/versions', requireAuth, requireActive, versionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes
 app.use('/api/users', requireAuth, requireActive, requireAdmin, userRoutes);
