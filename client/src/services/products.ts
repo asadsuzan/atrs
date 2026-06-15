@@ -36,6 +36,6 @@ export const wpOrgPreview = async (username: string) => {
 };
 
 export const importFromWpOrg = async (username: string, slugs: string[]) => {
-  const { data } = await api.post('/products/import-from-wporg', { username, slugs });
+  const { data } = await api.post('/products/import-from-wporg', { username, slugs }, { timeout: 120000 });
   return data;
 };

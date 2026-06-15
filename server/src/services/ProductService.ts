@@ -177,49 +177,49 @@ export class ProductService {
       console.log(`[WP Import] ${slug}: Found ${tags.length} tags from SVN PROPFIND`);
       if (tags.length === 0) return [];
 
-      // 2. Fetch comments using SVN REPORT log-report from maxRevision down to minRevision
-      const revisions = tags.map(t => t.revision);
-      const minRev = Math.min(...revisions);
-      const maxRev = Math.max(...revisions);
-
+      // 2. Fetch comments for all tag revisions in parallel batches (bypasses slow range scans)
       const commentsMap = new Map<number, string>();
       try {
+        const uniqueRevisions = Array.from(new Set(tags.map(t => t.revision)));
         const reportUrl = `https://plugins.svn.wordpress.org/${encodeURIComponent(slug)}/`;
-        const reportBody = `<?xml version="1.0" encoding="utf-8"?>
+        const batchSize = 10;
+
+        for (let i = 0; i < uniqueRevisions.length; i += batchSize) {
+          const batch = uniqueRevisions.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map(async (rev) => {
+              try {
+                const reportBody = `<?xml version="1.0" encoding="utf-8"?>
 <S:log-report xmlns:S="svn:">
-  <S:start-revision>${maxRev}</S:start-revision>
-  <S:end-revision>${minRev}</S:end-revision>
-  <S:limit>1000</S:limit>
-  <S:path>tags</S:path>
+  <S:start-revision>${rev}</S:start-revision>
+  <S:end-revision>${rev}</S:end-revision>
+  <S:path></S:path>
 </S:log-report>`;
 
-        const reportRes = await fetch(reportUrl, {
-          method: 'REPORT',
-          headers: {
-            'Content-Type': 'text/xml',
-            'User-Agent': 'SVN/1.9.5 ATRS/1.0',
-          },
-          body: reportBody,
-        });
+                const reportRes = await fetch(reportUrl, {
+                  method: 'REPORT',
+                  headers: {
+                    'Content-Type': 'text/xml',
+                    'User-Agent': 'SVN/1.9.5 ATRS/1.0',
+                  },
+                  body: reportBody,
+                });
 
-        if (reportRes.ok) {
-          const reportText = await reportRes.text();
-          const itemRegex = /<S:log-item>([\s\S]*?)<\/S:log-item>/gi;
-          let itemMatch: RegExpExecArray | null;
-          while ((itemMatch = itemRegex.exec(reportText)) !== null) {
-            const block = itemMatch[1];
-            const revMatch = block.match(/<D:version-name>([^<]+)<\/D:version-name>/);
-            const commentMatch = block.match(/<D:comment>([\s\S]*?)<\/D:comment>/);
-            if (revMatch && commentMatch) {
-              const r = parseInt(revMatch[1], 10);
-              if (!isNaN(r)) {
-                commentsMap.set(r, commentMatch[1].trim());
+                if (reportRes.ok) {
+                  const reportText = await reportRes.text();
+                  const commentMatch = reportText.match(/<D:comment>([\s\S]*?)<\/D:comment>/);
+                  if (commentMatch) {
+                    commentsMap.set(rev, commentMatch[1].trim());
+                  }
+                }
+              } catch (err: any) {
+                console.warn(`[WP Import] ${slug}: Failed to fetch comment for revision ${rev}: ${err.message}`);
               }
-            }
-          }
+            })
+          );
         }
       } catch (err: any) {
-        console.warn(`[WP Import] ${slug}: SVN REPORT log query failed: ${err.message}`);
+        console.warn(`[WP Import] ${slug}: Parallel SVN comment queries failed: ${err.message}`);
       }
 
       // 3. Map everything into the final format
@@ -290,28 +290,28 @@ export class ProductService {
     const errors: string[] = [];
 
     for (const plugin of toImport) {
-      const tags: string[] = Object.keys(plugin.tags || {});
+      const tags = Object.keys(plugin.tags || {});
       const isBlock = tags.some(t =>
         ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
       );
 
-      // Build version data from SVN WebDAV, and fetch readme in parallel.
-      const [tracTags, readme] = await Promise.all([
-        this.fetchSvnVersionData(plugin.slug),
-        this.fetchSvnReadme(plugin.slug),
-      ]);
-
-      const wpData = {
-        name: plugin.name,
-        description: plugin.short_description || '',
-        category: (isBlock ? 'block' : 'plugin') as IProduct['category'],
-        wpOrgSlug: plugin.slug,
-        icon: plugin.icons?.['2x'] || plugin.icons?.['1x'] || '',
-        banner: plugin.banners?.high || plugin.banners?.low || '',
-        wpReadme: readme,
-      };
-
       try {
+        // Build version data from SVN WebDAV, and fetch readme in parallel.
+        const [tracTags, readme] = await Promise.all([
+          this.fetchSvnVersionData(plugin.slug),
+          this.fetchSvnReadme(plugin.slug),
+        ]);
+
+        const wpData = {
+          name: plugin.name,
+          description: plugin.short_description || '',
+          category: (isBlock ? 'block' : 'plugin') as IProduct['category'],
+          wpOrgSlug: plugin.slug,
+          icon: plugin.icons?.['2x'] || plugin.icons?.['1x'] || '',
+          banner: plugin.banners?.high || plugin.banners?.low || '',
+          wpReadme: readme,
+        };
+
         const existing = await Product.findOne({ ownerId: user.id, wpOrgSlug: plugin.slug });
         let product: any;
         if (existing) {
