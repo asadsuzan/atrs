@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities, bulkDeleteActivities } from '../services/activities';
 import { getProducts } from '../services/products';
+import { getUsers } from '../services/users';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -25,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Activities() {
   const { confirm } = useConfirm();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [productId, setProductId] = useLocalStorage<string>('atrs_activities_productId', 'all');
   const [type, setType] = useLocalStorage<string>('atrs_activities_type', 'all');
   const [tier, setTier] = useLocalStorage<string>('atrs_activities_tier', 'all');
@@ -35,6 +38,7 @@ export default function Activities() {
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_activities_endDate', '');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [ownerId, setOwnerId] = useState('all');
   const [sortBy, setSortBy] = useLocalStorage<string>('atrs_activities_sortBy', 'activityDate');
   const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_activities_sortOrder', 'desc');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -48,6 +52,7 @@ export default function Activities() {
   if (debouncedSearch) queryParams.search = debouncedSearch;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
+  if (ownerId !== 'all') queryParams.ownerId = ownerId;
 
   const { data: activitiesData, isLoading, isError } = useQuery({
     queryKey: ['activities', queryParams],
@@ -61,7 +66,7 @@ export default function Activities() {
   // actions can never operate on rows that are no longer visible.
   useEffect(() => {
     setSelectedIds([]);
-  }, [page, debouncedSearch, productId, type, tier, tagFilter, startDate, endDate, sortBy, sortOrder]);
+  }, [page, debouncedSearch, productId, type, tier, tagFilter, startDate, endDate, sortBy, sortOrder, ownerId]);
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -82,6 +87,13 @@ export default function Activities() {
     queryFn: () => getProducts(),
   });
   const products = productsData?.data || [];
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+    enabled: isAdmin,
+  });
+  const users = usersData || [];
 
   const createMutation = useMutation({
     mutationFn: createActivity,
@@ -228,6 +240,19 @@ export default function Activities() {
               <SelectItem value="unreleased">Unreleased</SelectItem>
             </SelectContent>
           </Select>
+          {isAdmin && (
+            <Select value={ownerId} onValueChange={(v) => { setOwnerId(v); setPage(1); }}>
+              <SelectTrigger className="h-9 w-[160px] flex-shrink-0">
+                <SelectValue placeholder="All Users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {users.map((u: any) => (
+                  <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Row 2: Date Range */}
@@ -280,6 +305,7 @@ export default function Activities() {
                 setType('all');
                 setTier('all');
                 setTagFilter('all');
+                setOwnerId('all');
                 setStartDate('');
                 setEndDate('');
                 setPage(1);

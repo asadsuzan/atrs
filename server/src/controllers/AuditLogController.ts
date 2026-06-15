@@ -6,7 +6,7 @@ const auditLogService = new AuditLogService();
 export const getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Support both simple (legacy) and filtered queries
-    if (req.query.page || req.query.entityType || req.query.action || req.query.startDate || req.query.search) {
+    if (req.query.page || req.query.entityType || req.query.action || req.query.startDate || req.query.search || req.query.userId) {
       const result = await auditLogService.getLogs(req.query, req.user!);
       return res.status(200).json(result);
     }

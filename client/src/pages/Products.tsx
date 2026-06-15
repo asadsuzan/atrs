@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, createProduct, deleteProduct, updateProduct, bulkDeleteProducts } from '../services/products';
+import { getUsers } from '../services/users';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,10 +25,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Products() {
   const { confirm } = useConfirm();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useLocalStorage('atrs_products_search', '');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [category, setCategory] = useLocalStorage('atrs_products_category', 'all');
   const [status, setStatus] = useLocalStorage('atrs_products_status', 'all');
+  const [ownerId, setOwnerId] = useState('all');
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -37,6 +41,7 @@ export default function Products() {
   if (debouncedSearch) queryParams.search = debouncedSearch;
   if (category && category !== 'all') queryParams.category = category;
   if (status && status !== 'all') queryParams.status = status;
+  if (ownerId !== 'all') queryParams.ownerId = ownerId;
 
   const { data: productsData, isLoading, isError } = useQuery({
     queryKey: ['products', queryParams],
@@ -46,8 +51,15 @@ export default function Products() {
   const products = productsData?.data || [];
   const totalPages = productsData?.totalPages || 1;
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+    enabled: isAdmin,
+  });
+  const users = usersData || [];
+
   // Clear selection when page or filters change
-  useEffect(() => { setSelectedIds(new Set()); }, [page, debouncedSearch, category, status]);
+  useEffect(() => { setSelectedIds(new Set()); }, [page, debouncedSearch, category, status, ownerId]);
 
   const allOnPageSelected = products.length > 0 && products.every((p: any) => selectedIds.has(p._id));
   const someOnPageSelected = products.some((p: any) => selectedIds.has(p._id));
@@ -182,6 +194,19 @@ export default function Products() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
+        {isAdmin && (
+          <Select value={ownerId} onValueChange={(v) => { setOwnerId(v); setPage(1); }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Users" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              {users.map((u: any) => (
+                <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {selectedIds.size > 0 && (

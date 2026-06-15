@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAuditLogs } from '../services/auditLogs';
 import { getProducts } from '../services/products';
+import { getUsers } from '../services/users';
+import { useAuth } from '../contexts/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,9 +17,11 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PageTransition from '../components/layout/PageTransition';
 
 export default function AuditLogs() {
+  const { isAdmin } = useAuth();
   const [page, setPage] = useState(1);
   const [entityType, setEntityType] = useState<string>('all');
   const [action, setAction] = useState<string>('all');
+  const [userId, setUserId] = useState<string>('all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [startDate, setStartDate] = useState('');
@@ -26,6 +30,7 @@ export default function AuditLogs() {
   const queryParams: any = { page, limit: 15 };
   if (entityType !== 'all') queryParams.entityType = entityType;
   if (action !== 'all') queryParams.action = action;
+  if (userId !== 'all') queryParams.userId = userId;
   if (debouncedSearch) queryParams.search = debouncedSearch;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
@@ -40,9 +45,16 @@ export default function AuditLogs() {
     queryFn: () => getProducts(),
   });
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+    enabled: isAdmin,
+  });
+
   const logs = response?.data || [];
   const totalPages = response?.totalPages || 1;
   const products = productsData?.data || [];
+  const users = usersData || [];
 
   const getProductName = (entityId: string) => {
     const prod = products.find((p: any) => p._id === entityId);
@@ -52,6 +64,7 @@ export default function AuditLogs() {
   const clearFilters = () => {
     setEntityType('all');
     setAction('all');
+    setUserId('all');
     setSearch('');
     setStartDate('');
     setEndDate('');
@@ -90,6 +103,7 @@ export default function AuditLogs() {
               <SelectItem value="PRODUCT">Product</SelectItem>
               <SelectItem value="ACTIVITY">Activity</SelectItem>
               <SelectItem value="VERSION">Version</SelectItem>
+              <SelectItem value="MARKETING">Marketing</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -106,6 +120,21 @@ export default function AuditLogs() {
             </SelectContent>
           </Select>
         </div>
+        {isAdmin && (
+          <div className="w-[160px]">
+            <Select value={userId} onValueChange={(v) => { setUserId(v); setPage(1); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="User" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {users.map((u: any) => (
+                  <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
           <DatePicker
@@ -128,7 +157,7 @@ export default function AuditLogs() {
             className="w-[160px]"
           />
         </div>
-        {(search || entityType !== 'all' || action !== 'all' || startDate || endDate) && (
+        {(search || entityType !== 'all' || action !== 'all' || userId !== 'all' || startDate || endDate) && (
           <Button variant="ghost" onClick={clearFilters} className="px-3">
             <X className="w-4 h-4 mr-2" /> Clear
           </Button>
@@ -140,6 +169,7 @@ export default function AuditLogs() {
           <TableHeader>
             <TableRow>
               <TableHead>Date & Time</TableHead>
+              <TableHead>User</TableHead>
               <TableHead>Action</TableHead>
               <TableHead>Entity Type</TableHead>
               <TableHead>Entity Name</TableHead>
@@ -148,16 +178,19 @@ export default function AuditLogs() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10">Loading logs...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-10">Loading logs...</TableCell></TableRow>
             ) : isError ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10 text-destructive">Failed to load audit logs. Please try again.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-10 text-destructive">Failed to load audit logs. Please try again.</TableCell></TableRow>
             ) : logs.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No audit logs found matching criteria.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No audit logs found matching criteria.</TableCell></TableRow>
             ) : (
               logs.map((log: any) => (
                 <TableRow key={log._id}>
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {format(new Date(log.createdAt), 'MMM d, yyyy HH:mm:ss')}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {log.userId?.name || log.userName || <span className="text-muted-foreground italic">System</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={`text-[10px] uppercase ${log.action === 'CREATE' ? 'text-emerald-500 border-emerald-200 bg-emerald-50 dark:bg-emerald-500/10 dark:border-emerald-500/20' : log.action === 'DELETE' ? 'text-red-500 border-red-200 bg-red-50 dark:bg-red-500/10 dark:border-red-500/20' : 'text-blue-500 border-blue-200 bg-blue-50 dark:bg-blue-500/10 dark:border-blue-500/20'}`}>

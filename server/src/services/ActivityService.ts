@@ -22,7 +22,7 @@ export class ActivityService {
     const product = await Product.findById(data.productId);
     assertOwner(product, user);
     const activity = await this.repository.create({ ...data, ownerId: product!.ownerId });
-    await auditLogService.logEvent('CREATE', 'ACTIVITY', activity._id.toString(), activity.title, `Logged a new ${activity.type}`, { id: user.id });
+    await auditLogService.logEvent('CREATE', 'ACTIVITY', activity._id.toString(), activity.title, `Logged a new ${activity.type}`, { id: user.id, name: user.name });
     return activity;
   }
 
@@ -34,6 +34,9 @@ export class ActivityService {
     if (query.tags) filter.tags = query.tags;
     if (query.priority) filter.priority = query.priority;
     if (query.versionId) filter.versionId = query.versionId;
+    if (query.ownerId && user.role === 'admin') {
+      filter.ownerId = query.ownerId;
+    }
     if (query.search) {
       filter.title = { $regex: escapeRegex(query.search), $options: 'i' };
     }
@@ -70,7 +73,7 @@ export class ActivityService {
     const activity = await this.repository.update(id, data);
 
     if (activity) {
-      await auditLogService.logEvent('UPDATE', 'ACTIVITY', activity._id.toString(), activity.title, `Updated ${activity.type}`, { id: user.id });
+      await auditLogService.logEvent('UPDATE', 'ACTIVITY', activity._id.toString(), activity.title, `Updated ${activity.type}`, { id: user.id, name: user.name });
 
       if (oldActivity) {
         const getMediaUrls = (act: any) => {
@@ -102,7 +105,7 @@ export class ActivityService {
     assertOwner(existing, user);
     const activity = await this.repository.delete(id);
     if (activity) {
-      await auditLogService.logEvent('DELETE', 'ACTIVITY', activity._id.toString(), activity.title, `Deleted ${activity.type}`, { id: user.id });
+      await auditLogService.logEvent('DELETE', 'ACTIVITY', activity._id.toString(), activity.title, `Deleted ${activity.type}`, { id: user.id, name: user.name });
 
       const mediaUrls: (string | undefined)[] = [
         activity.mediaUrl,

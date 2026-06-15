@@ -85,14 +85,15 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 export const requireActive = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!req.user) return res.status(401).json({ message: 'Authentication required' });
-    const account = await User.findById(req.user.id).select('status role isRoot');
+    const account = await User.findById(req.user.id).select('name status role isRoot');
     if (!account) return res.status(401).json({ message: 'Account no longer exists' });
     if (account.status !== 'active') {
       return res.status(403).json({ message: 'Account is not active' });
     }
-    // keep req.user in sync with the latest role/isRoot from DB
+    // keep req.user in sync with the latest role/isRoot/name from DB
     req.user.role = account.role;
     req.user.isRoot = account.isRoot;
+    req.user.name = account.name;
     next();
   } catch (error) {
     next(error);

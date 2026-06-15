@@ -12,7 +12,7 @@ export class VersionService {
     assertOwner(product, user);
     const version = new Version({ ...data, ownerId: product!.ownerId });
     await version.save();
-    await auditLogService.logEvent('CREATE', 'VERSION', version._id.toString(), version.label, `Created version ${version.label}`, { id: user.id });
+    await auditLogService.logEvent('CREATE', 'VERSION', version._id.toString(), version.label, `Created version ${version.label}`, { id: user.id, name: user.name });
     return version;
   }
 
@@ -33,7 +33,7 @@ export class VersionService {
     delete data.ownerId;
     const version = await Version.findByIdAndUpdate(id, data, { new: true, runValidators: true });
     if (version) {
-      await auditLogService.logEvent('UPDATE', 'VERSION', version._id.toString(), version.label, `Updated version ${version.label}`, { id: user.id });
+      await auditLogService.logEvent('UPDATE', 'VERSION', version._id.toString(), version.label, `Updated version ${version.label}`, { id: user.id, name: user.name });
     }
     return version;
   }
@@ -43,7 +43,7 @@ export class VersionService {
     assertOwner(existing, user);
     const version = await Version.findByIdAndDelete(id);
     if (version) {
-      await auditLogService.logEvent('DELETE', 'VERSION', version._id.toString(), version.label, `Deleted version ${version.label}`, { id: user.id });
+      await auditLogService.logEvent('DELETE', 'VERSION', version._id.toString(), version.label, `Deleted version ${version.label}`, { id: user.id, name: user.name });
     }
     return version;
   }

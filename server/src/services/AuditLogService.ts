@@ -44,6 +44,10 @@ export class AuditLogService {
     const filter: any = { ...this.scope(user) };
     if (query.entityType) filter.entityType = query.entityType;
     if (query.action) filter.action = query.action;
+    // Admin-only: filter by a specific user's actions.
+    if (query.userId && user?.role === 'admin') {
+      filter.userId = query.userId;
+    }
     if (query.startDate || query.endDate) {
       filter.createdAt = {};
       if (query.startDate) filter.createdAt.$gte = new Date(query.startDate);

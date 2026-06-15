@@ -37,7 +37,7 @@ export class ProductService {
   async createProduct(data: any, user: AuthUser): Promise<IProduct> {
     const slug = await this.uniqueSlugForOwner(data.name, user.id);
     const product = await this.repository.create({ ...data, slug, ownerId: user.id });
-    await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id });
+    await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id, name: user.name });
     return product;
   }
 
@@ -77,7 +77,7 @@ export class ProductService {
     }
     const product = await this.repository.update(id, data);
     if (product) {
-      await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product details', { id: user.id });
+      await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product details', { id: user.id, name: user.name });
     }
     return product;
   }
@@ -161,7 +161,7 @@ export class ProductService {
         if (existing) {
           const product = await this.repository.update(existing._id.toString(), wpData);
           if (product) {
-            await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product from WordPress.org import', { id: user.id });
+            await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product from WordPress.org import', { id: user.id, name: user.name });
             updated.push(product);
           }
         } else {
@@ -274,7 +274,7 @@ export class ProductService {
 
     const product = await this.repository.delete(id);
     if (product) {
-      await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id });
+      await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id, name: user.name });
       deleteMediaFiles([product.icon, product.banner]);
     }
     return product;
@@ -282,7 +282,7 @@ export class ProductService {
 
   /** Audit log + product media cleanup after a transactional cascade commit. */
   private async afterDeleteCleanup(id: string, product: IProduct, user: AuthUser): Promise<void> {
-    await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id });
+    await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id, name: user.name });
     // Product icon/banner files.
     deleteMediaFiles([product.icon, product.banner]);
     // Best-effort cleanup of media referenced by the now-deleted marketing doc

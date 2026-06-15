@@ -35,7 +35,7 @@ export class ProductMarketingService {
     delete clean.ownerId;
     delete clean.productId;
     const result = await this.repository.upsertByProductId(productId, { ...clean, ownerId: product.ownerId });
-    await auditLogService.logEvent('UPDATE', 'MARKETING', productId, product.name, 'Updated marketing hub', { id: user.id });
+    await auditLogService.logEvent('UPDATE', 'MARKETING', productId, product.name, 'Updated marketing hub', { id: user.id, name: user.name });
     return result;
   }
 
@@ -56,7 +56,7 @@ export class ProductMarketingService {
     }
     const deleted = await this.repository.deleteByProductId(productId);
     if (deleted) {
-      await auditLogService.logEvent('DELETE', 'MARKETING', productId, product.name, 'Deleted marketing hub', { id: user.id });
+      await auditLogService.logEvent('DELETE', 'MARKETING', productId, product.name, 'Deleted marketing hub', { id: user.id, name: user.name });
     }
     return deleted;
   }
