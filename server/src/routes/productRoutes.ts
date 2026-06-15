@@ -2,6 +2,8 @@ import { Router } from 'express';
 import * as ProductController from '../controllers/ProductController';
 import { validate } from '../middlewares/validate';
 import { createProductSchema, updateProductSchema } from '../schemas/product.schema';
+import { upsertMarketingSchema } from '../schemas/marketing.schema';
+import { idParamSchema } from '../schemas/common.schema';
 import { ProductMarketingController } from '../controllers/ProductMarketingController';
 
 const marketingController = new ProductMarketingController();
@@ -13,13 +15,13 @@ router.get('/', ProductController.getProducts);
 router.delete('/bulk', ProductController.bulkDeleteProducts);
 router.get('/wporg-preview', ProductController.wpOrgPreview);
 router.post('/import-from-wporg', ProductController.importFromWpOrg);
-router.get('/:id', ProductController.getProductById);
+router.get('/:id', validate(idParamSchema), ProductController.getProductById);
 router.patch('/:id', validate(updateProductSchema), ProductController.updateProduct);
-router.delete('/:id', ProductController.deleteProduct);
+router.delete('/:id', validate(idParamSchema), ProductController.deleteProduct);
 
 // Marketing routes
-router.get('/:id/marketing', marketingController.getMarketingData);
-router.put('/:id/marketing', marketingController.upsertMarketingData);
-router.delete('/:id/marketing', marketingController.deleteMarketingData);
+router.get('/:id/marketing', validate(idParamSchema), marketingController.getMarketingData);
+router.put('/:id/marketing', validate(upsertMarketingSchema), marketingController.upsertMarketingData);
+router.delete('/:id/marketing', validate(idParamSchema), marketingController.deleteMarketingData);
 
 export default router;

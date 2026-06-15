@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, FileVideo, Loader2, X, FolderOpen } from 'lucide-react';
 import { uploadFile } from '../../services/api';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { MediaLibraryDialog } from '../media/MediaLibraryDialog';
@@ -93,25 +94,45 @@ export function MediaUploader({
     try {
       setIsUploading(true);
       onUploadStart?.();
-      
-      const uploadPromises = files.map(file => uploadFile(file));
-      const urls = await Promise.all(uploadPromises);
-      
-      if (multiple) {
-        const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
-        onChange([...currentUrls, ...urls]);
-        onUploadComplete?.(urls, files);
-      } else {
-        onChange(urls[0]);
-        onUploadComplete?.(urls[0], files[0]);
+
+      // Use allSettled so a single failed upload doesn't discard the others.
+      const results = await Promise.allSettled(files.map(file => uploadFile(file)));
+
+      const uploadedUrls: string[] = [];
+      const uploadedFiles: File[] = [];
+      const failures: { file: File; reason: any }[] = [];
+
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          uploadedUrls.push(result.value);
+          uploadedFiles.push(files[idx]);
+        } else {
+          failures.push({ file: files[idx], reason: result.reason });
+        }
+      });
+
+      // Report failures per-file.
+      failures.forEach(({ file, reason }) => {
+        console.error('Upload failed:', file.name, reason);
+        toast.error(`Failed to upload ${file.name}`);
+        onUploadError?.(reason instanceof Error ? reason : new Error(String(reason)));
+      });
+
+      // Keep any successful uploads.
+      if (uploadedUrls.length > 0) {
+        if (multiple) {
+          const currentUrls = Array.isArray(value) ? value : (value ? [value] : []);
+          onChange([...currentUrls, ...uploadedUrls]);
+          onUploadComplete?.(uploadedUrls, uploadedFiles);
+        } else {
+          onChange(uploadedUrls[0]);
+          onUploadComplete?.(uploadedUrls[0], uploadedFiles[0]);
+        }
       }
-      
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error: any) {
-      console.error('Upload failed:', error);
-      onUploadError?.(error);
     } finally {
       setIsUploading(false);
     }

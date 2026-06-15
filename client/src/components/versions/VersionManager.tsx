@@ -8,6 +8,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Edit2, Trash2, Plus } from 'lucide-react';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
@@ -67,7 +68,7 @@ export function VersionManager({ productId }: { productId: string }) {
     setFormData({
       label: version.label,
       notes: version.notes || '',
-      releasedAt: version.releasedAt ? new Date(version.releasedAt).toISOString().split('T')[0] : ''
+      releasedAt: version.releasedAt ? format(new Date(version.releasedAt), 'yyyy-MM-dd') : ''
     });
     setEditingVersion(version);
   };

@@ -19,33 +19,43 @@ export default function Dashboard() {
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
 
-  const { data: report, isLoading: isReportLoading } = useQuery({
+  const { data: report, isLoading: isReportLoading, isError: isReportError } = useQuery({
     queryKey: ['dashboardReport', currentMonth, currentYear],
     queryFn: () => getMonthlyReport({ month: currentMonth, year: currentYear }),
   });
 
-  const { data: productsData, isLoading: isProductsLoading } = useQuery({
+  const { data: productsData, isLoading: isProductsLoading, isError: isProductsError } = useQuery({
     queryKey: ['dashboardProducts'],
     queryFn: () => getProducts(),
   });
 
-  const { data: activitiesData, isLoading: isActivitiesLoading } = useQuery({
+  const { data: activitiesData, isLoading: isActivitiesLoading, isError: isActivitiesError } = useQuery({
     queryKey: ['dashboardActivities'],
     queryFn: () => getActivities({ limit: -1 }),
   });
 
-  const { data: auditLogsData, isLoading: isAuditLogsLoading } = useQuery({
+  const { data: auditLogsData, isLoading: isAuditLogsLoading, isError: isAuditLogsError } = useQuery({
     queryKey: ['dashboardAuditLogs'],
     queryFn: () => getAuditLogs(),
   });
 
-  const { data: trendData, isLoading: isTrendLoading } = useQuery({
+  const { data: trendData, isLoading: isTrendLoading, isError: isTrendError } = useQuery({
     queryKey: ['dashboardTrend'],
     queryFn: () => getTrendData({ months: 6 }),
   });
 
   if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading || isTrendLoading) {
     return <DashboardSkeleton />;
+  }
+
+  if (isReportError || isProductsError || isActivitiesError || isAuditLogsError || isTrendError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <ServerOff className="w-10 h-10 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold">Couldn't load your dashboard</h2>
+        <p className="text-muted-foreground mt-2">Something went wrong fetching your data. Please try again.</p>
+      </div>
+    );
   }
 
   const summary = report?.summary || {

@@ -13,6 +13,7 @@ import { WpOrgImportDialog } from '../components/products/WpOrgImportDialog';
 import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { motion } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -22,9 +23,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Products() {
   const { confirm } = useConfirm();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useLocalStorage('atrs_filter_search', '');
-  const [category, setCategory] = useLocalStorage('atrs_filter_category', 'all');
-  const [status, setStatus] = useLocalStorage('atrs_filter_status', 'all');
+  const [search, setSearch] = useLocalStorage('atrs_products_search', '');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [category, setCategory] = useLocalStorage('atrs_products_category', 'all');
+  const [status, setStatus] = useLocalStorage('atrs_products_status', 'all');
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -32,11 +34,11 @@ export default function Products() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const queryParams: any = { page, limit: 10 };
-  if (search) queryParams.search = search;
+  if (debouncedSearch) queryParams.search = debouncedSearch;
   if (category && category !== 'all') queryParams.category = category;
   if (status && status !== 'all') queryParams.status = status;
 
-  const { data: productsData, isLoading } = useQuery({
+  const { data: productsData, isLoading, isError } = useQuery({
     queryKey: ['products', queryParams],
     queryFn: () => getProducts(queryParams),
   });
@@ -45,7 +47,7 @@ export default function Products() {
   const totalPages = productsData?.totalPages || 1;
 
   // Clear selection when page or filters change
-  useEffect(() => { setSelectedIds(new Set()); }, [page, search, category, status]);
+  useEffect(() => { setSelectedIds(new Set()); }, [page, debouncedSearch, category, status]);
 
   const allOnPageSelected = products.length > 0 && products.every((p: any) => selectedIds.has(p._id));
   const someOnPageSelected = products.some((p: any) => selectedIds.has(p._id));
@@ -231,6 +233,12 @@ export default function Products() {
                   <TableCell className="text-right"><div className="flex justify-end gap-2"><Skeleton className="h-8 w-8 rounded-md" /><Skeleton className="h-8 w-8 rounded-md" /></div></TableCell>
                 </TableRow>
               ))
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center h-24 text-destructive">
+                  Failed to load products. Please try again.
+                </TableCell>
+              </TableRow>
             ) : products?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-24">No products found.</TableCell>
@@ -284,10 +292,10 @@ export default function Products() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)}>
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${product.name}`} onClick={() => setEditingProduct(product)}>
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={async () => {
+                    <Button variant="ghost" size="icon" aria-label={`Delete ${product.name}`} onClick={async () => {
                       if (await confirm({
                         title: 'Delete Product',
                         description: 'Are you sure you want to permanently delete this product? This will also delete all associated activities, versions, marketing data, and media files. This action cannot be undone.'

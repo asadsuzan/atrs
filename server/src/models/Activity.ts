@@ -90,4 +90,11 @@ const ActivitySchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Indexes for report/filter queries.
+ActivitySchema.index({ activityDate: -1 });
+ActivitySchema.index({ productId: 1 });
+ActivitySchema.index({ type: 1 });
+// Compound index supporting owner-scoped trend/annual aggregations.
+ActivitySchema.index({ ownerId: 1, activityDate: 1, type: 1 });
+
 export const Activity = mongoose.model<IActivity>('Activity', ActivitySchema);

@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search, Image as ImageIcon, Users as UsersIcon, LogOut, HelpCircle } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import { startTour, hasSeenTour } from './lib/tour';
 
-// Placeholders for Pages
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import ProductDetails from './pages/ProductDetails';
-import Activities from './pages/Activities';
-import Reports from './pages/Reports';
-import AuditLogs from './pages/AuditLogs';
-import Settings from './pages/Settings';
-import MediaManager from './pages/MediaManager';
-import Help from './pages/Help';
+// Auth pages stay eager (small, hit before the heavy app shell loads).
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Users from './pages/admin/Users';
+
+// Lazy-load page routes so heavy deps (jspdf, html2canvas, pptxgenjs, etc.)
+// only load when their route is visited, shrinking the initial bundle.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Products = lazy(() => import('./pages/Products'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const Activities = lazy(() => import('./pages/Activities'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const Settings = lazy(() => import('./pages/Settings'));
+const MediaManager = lazy(() => import('./pages/MediaManager'));
+const Help = lazy(() => import('./pages/Help'));
+const Users = lazy(() => import('./pages/admin/Users'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -27,8 +31,15 @@ import SmoothScroll from './components/layout/SmoothScroll';
 
 const queryClient = new QueryClient();
 
+/** Toggles the command palette by dispatching the same shortcut it listens for. */
+function openCommandPalette() {
+  document.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true })
+  );
+}
+
 function Layout({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useLocalStorage<boolean>('atrs_sidebar_collapsed', false);
   const location = useLocation();
   const { user, isAdmin, logout } = useAuth();
 
@@ -139,6 +150,15 @@ function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-xs">⌘</span>K
           </kbd>
         </div>
+        {/* Mobile-visible command palette trigger (the ⌘K hint is desktop-only). */}
+        <button
+          type="button"
+          aria-label="Open command palette"
+          onClick={openCommandPalette}
+          className="absolute top-4 right-4 md:hidden flex items-center justify-center w-9 h-9 rounded-full border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <Search className="w-4 h-4" />
+        </button>
         <div className="max-w-6xl mx-auto w-full transition-all duration-300 mt-4 md:mt-0">
           {children}
         </div>
@@ -174,7 +194,9 @@ function ProtectedLayout() {
   return (
     <Layout>
       <CommandPalette />
-      <Outlet />
+      <Suspense fallback={<FullScreenLoader />}>
+        <Outlet />
+      </Suspense>
     </Layout>
   );
 }

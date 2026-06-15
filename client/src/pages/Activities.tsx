@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities, bulkDeleteActivities } from '../services/activities';
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -23,17 +25,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Activities() {
   const { confirm } = useConfirm();
   const queryClient = useQueryClient();
-  const [productId, setProductId] = useLocalStorage<string>('atrs_filter_productId', 'all');
-  const [type, setType] = useLocalStorage<string>('atrs_filter_type', 'all');
-  const [tier, setTier] = useLocalStorage<string>('atrs_filter_tier', 'all');
-  const [tagFilter, setTagFilter] = useLocalStorage<string>('atrs_filter_tag', 'all');
-  const [search, setSearch] = useLocalStorage<string>('atrs_filter_search', '');
-  const [startDate, setStartDate] = useLocalStorage<string>('atrs_filter_startDate', '');
-  const [endDate, setEndDate] = useLocalStorage<string>('atrs_filter_endDate', '');
+  const [productId, setProductId] = useLocalStorage<string>('atrs_activities_productId', 'all');
+  const [type, setType] = useLocalStorage<string>('atrs_activities_type', 'all');
+  const [tier, setTier] = useLocalStorage<string>('atrs_activities_tier', 'all');
+  const [tagFilter, setTagFilter] = useLocalStorage<string>('atrs_activities_tag', 'all');
+  const [search, setSearch] = useLocalStorage<string>('atrs_activities_search', '');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [startDate, setStartDate] = useLocalStorage<string>('atrs_activities_startDate', '');
+  const [endDate, setEndDate] = useLocalStorage<string>('atrs_activities_endDate', '');
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useLocalStorage<string>('atrs_filter_sortBy', 'activityDate');
-  const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_filter_sortOrder', 'desc');
+  const [sortBy, setSortBy] = useLocalStorage<string>('atrs_activities_sortBy', 'activityDate');
+  const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_activities_sortOrder', 'desc');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
 
@@ -42,17 +45,23 @@ export default function Activities() {
   if (type && type !== 'all') queryParams.type = type;
   if (type === 'feature' && tier && tier !== 'all') queryParams.tier = tier;
   if (tagFilter && tagFilter !== 'all') queryParams.tags = tagFilter;
-  if (search) queryParams.search = search;
+  if (debouncedSearch) queryParams.search = debouncedSearch;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
 
-  const { data: activitiesData, isLoading } = useQuery({
+  const { data: activitiesData, isLoading, isError } = useQuery({
     queryKey: ['activities', queryParams],
     queryFn: () => getActivities(queryParams),
   });
 
   const activities = activitiesData?.data || [];
   const totalPages = activitiesData?.totalPages || 1;
+
+  // Clear bulk selection whenever the page or any filter changes so bulk
+  // actions can never operate on rows that are no longer visible.
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page, debouncedSearch, productId, type, tier, tagFilter, startDate, endDate, sortBy, sortOrder]);
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -293,15 +302,21 @@ export default function Activities() {
                   aria-label="Select all"
                 />
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('activityDate')}>
-                <div className="flex items-center">Date <SortIcon field="activityDate" /></div>
+              <TableHead aria-sort={sortBy === 'activityDate' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" className="flex items-center w-full hover:opacity-80 transition-opacity" onClick={() => handleSort('activityDate')} aria-label="Sort by date">
+                  Date <SortIcon field="activityDate" />
+                </button>
               </TableHead>
               <TableHead>Product</TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('type')}>
-                <div className="flex items-center">Type <SortIcon field="type" /></div>
+              <TableHead aria-sort={sortBy === 'type' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" className="flex items-center w-full hover:opacity-80 transition-opacity" onClick={() => handleSort('type')} aria-label="Sort by type">
+                  Type <SortIcon field="type" />
+                </button>
               </TableHead>
-              <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('title')}>
-                <div className="flex items-center">Title <SortIcon field="title" /></div>
+              <TableHead aria-sort={sortBy === 'title' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" className="flex items-center w-full hover:opacity-80 transition-opacity" onClick={() => handleSort('title')} aria-label="Sort by title">
+                  Title <SortIcon field="title" />
+                </button>
               </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -328,6 +343,12 @@ export default function Activities() {
                   </TableCell>
                 </TableRow>
               ))
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center h-24 text-destructive">
+                  Failed to load activities. Please try again.
+                </TableCell>
+              </TableRow>
             ) : activities.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center h-24">No activities found.</TableCell>
@@ -379,15 +400,15 @@ export default function Activities() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingActivity({
+                    <Button variant="ghost" size="icon" aria-label={`Edit ${activity.title}`} onClick={() => setEditingActivity({
                       ...activity,
                       productId: activity.productId?._id,
-                      activityDate: new Date(activity.activityDate).toISOString().split('T')[0],
+                      activityDate: format(new Date(activity.activityDate), 'yyyy-MM-dd'),
                       tags: activity.tags || []
                     })}>
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={async () => {
+                    <Button variant="ghost" size="icon" aria-label={`Delete ${activity.title}`} onClick={async () => {
                       if (await confirm({ title: 'Delete Activity', description: 'Are you sure you want to permanently delete this activity?' })) {
                         deleteMutation.mutate(activity._id);
                       }

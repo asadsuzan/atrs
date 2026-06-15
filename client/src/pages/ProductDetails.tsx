@@ -12,6 +12,7 @@ import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/ui/skeletons';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -33,13 +34,13 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
       onClick={onClick}
     >
       <div className={cn(
-        "bg-white border rounded-[12px] p-6 h-full flex flex-col group relative transition-all duration-300",
-        isActive 
-          ? "border-primary ring-2 ring-primary ring-offset-2 shadow-xl shadow-primary/10" 
-          : "border-gray-200 shadow-sm hover:shadow-md"
+        "bg-card text-card-foreground border rounded-[12px] p-6 h-full flex flex-col group relative transition-all duration-300",
+        isActive
+          ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-xl shadow-primary/10"
+          : "border-border shadow-sm hover:shadow-md"
       )}>
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700 p-1 bg-gray-50 rounded-md border">
+           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 bg-muted rounded-md border">
              <GripVertical className="w-4 h-4" />
            </div>
         </div>
@@ -58,24 +59,24 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
         {/* Typography & Hierarchy */}
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2 pr-8">
-            <h4 className="font-semibold text-[18px] text-gray-900 leading-tight">{act.title}</h4>
+            <h4 className="font-semibold text-[18px] text-foreground leading-tight">{act.title}</h4>
             {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
             {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
             {act.tags?.includes('unreleased') && <span className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">UNRELEASED</span>}
           </div>
           
-          <p className="text-[14px] text-[#6B7280] uppercase tracking-wider font-medium mb-3">
+          <p className="text-[14px] text-muted-foreground uppercase tracking-wider font-medium mb-3">
             {new Date(act.activityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
-          
-          <p className="text-[14px] text-[#4B5563] leading-[1.6]">{act.shortDescription}</p>
+
+          <p className="text-[14px] text-muted-foreground leading-[1.6]">{act.shortDescription}</p>
 
           {/* Sub-items */}
           {act.items && act.items.length > 0 && (
             <div className="mt-8 space-y-4">
-              <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Included Items</h5>
+              <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Included Items</h5>
               {act.items.map((item: any, idx: number) => (
-                <div key={idx} className="bg-gray-50/80 border border-gray-100 rounded-xl p-4 transition-colors hover:bg-gray-50">
+                <div key={idx} className="bg-muted/50 border border-border rounded-xl p-4 transition-colors hover:bg-muted">
                   {(() => {
                     const itemUrls = item.mediaUrls?.length ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : []);
                     if (itemUrls.length === 0) return null;
@@ -85,8 +86,8 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
                       </div>
                     );
                   })()}
-                  <h6 className="font-semibold text-[15px] text-gray-900">{item.title}</h6>
-                  {item.description && <p className="text-[14px] text-[#4B5563] leading-[1.6] mt-1.5">{item.description}</p>}
+                  <h6 className="font-semibold text-[15px] text-foreground">{item.title}</h6>
+                  {item.description && <p className="text-[14px] text-muted-foreground leading-[1.6] mt-1.5">{item.description}</p>}
                 </div>
               ))}
             </div>
@@ -107,7 +108,7 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <ChevronDown className="w-5 h-5 shrink-0" /> : <ChevronRight className="w-5 h-5 shrink-0" />} 
-        {title} <span className="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-medium ml-1">{typeActs.length}</span>
+        {title} <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium ml-1">{typeActs.length}</span>
       </h3>
       <AnimatePresence>
         {isOpen && (
@@ -197,14 +198,27 @@ export default function ProductDetails() {
 
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
-    if (active.id !== over.id) {
-      const act = activitiesData?.data.find((a: any) => a._id === active.id);
-      const targetIndex = activitiesData?.data.findIndex((a: any) => a._id === over.id);
-      if (act && targetIndex !== undefined) {
-        // Just set the displayOrder to match the target index as a quick reorder
-        await reorderActivity(act._id, targetIndex);
-        queryClient.invalidateQueries({ queryKey: ['activities', id] });
-      }
+    // Dropping outside any sortable target -> no-op (over is null).
+    if (!over || active.id === over.id) return;
+
+    const list: any[] = activitiesData?.data || [];
+    const act = list.find((a: any) => a._id === active.id);
+    const overAct = list.find((a: any) => a._id === over.id);
+    if (!act || !overAct) return;
+
+    // Cards are rendered grouped by type. Reorder only within the active card's
+    // type group so it lands where it was dropped (computing against the global
+    // mixed list would land it at the wrong position).
+    const group = list.filter((a: any) => a.type === act.type);
+    const targetIndex = group.findIndex((a: any) => a._id === over.id);
+    if (targetIndex === -1) return;
+
+    try {
+      await reorderActivity(act._id, targetIndex);
+      queryClient.invalidateQueries({ queryKey: ['activities', id] });
+    } catch (err) {
+      console.error('Failed to reorder activity:', err);
+      toast.error('Failed to reorder activity');
     }
   };
 
@@ -244,7 +258,7 @@ export default function ProductDetails() {
         </Link>
       </Button>
 
-      <div className="bg-white border rounded-lg overflow-hidden mb-8 shadow-sm">
+      <div className="bg-card text-card-foreground border rounded-lg overflow-hidden mb-8 shadow-sm">
         {product.banner ? (
           <div className="w-full h-[375px] bg-muted relative">
             <img src={product.banner} alt={`${product.name} Banner`} className="w-full h-full object-cover" />
@@ -266,11 +280,11 @@ export default function ProductDetails() {
           )}
           
           <div className="flex-1 space-y-1">
-            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+            <h1 className="text-2xl font-bold text-foreground leading-tight">
                {wpData && wpData.name ? wpData.name : product.name.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
             </h1>
-            <p className="text-sm text-gray-500">
-               By <span className="text-blue-600 font-medium hover:underline cursor-pointer">{wpData && wpData.author ? wpData.author.replace(/(<([^>]+)>)/gi, "") : 'bPlugins'}</span>
+            <p className="text-sm text-muted-foreground">
+               By <span className="text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer">{wpData && wpData.author ? wpData.author.replace(/(<([^>]+)>)/gi, "") : 'bPlugins'}</span>
             </p>
             {product.description && <p className="text-muted-foreground text-sm mt-2">{product.description}</p>}
             

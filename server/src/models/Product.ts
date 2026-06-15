@@ -39,4 +39,8 @@ const ProductSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Indexes for filter queries.
+ProductSchema.index({ status: 1 });
+ProductSchema.index({ category: 1 });
+
 export const Product = mongoose.model<IProduct>('Product', ProductSchema);

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, History, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PageTransition from '../components/layout/PageTransition';
 
 export default function AuditLogs() {
@@ -18,17 +19,18 @@ export default function AuditLogs() {
   const [entityType, setEntityType] = useState<string>('all');
   const [action, setAction] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const queryParams: any = { page, limit: 15 };
   if (entityType !== 'all') queryParams.entityType = entityType;
   if (action !== 'all') queryParams.action = action;
-  if (search) queryParams.search = search;
+  if (debouncedSearch) queryParams.search = debouncedSearch;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
 
-  const { data: response, isLoading } = useQuery({
+  const { data: response, isLoading, isError } = useQuery({
     queryKey: ['auditLogs', queryParams],
     queryFn: () => getAuditLogs(queryParams),
   });
@@ -147,6 +149,8 @@ export default function AuditLogs() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-10">Loading logs...</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-10 text-destructive">Failed to load audit logs. Please try again.</TableCell></TableRow>
             ) : logs.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No audit logs found matching criteria.</TableCell></TableRow>
             ) : (

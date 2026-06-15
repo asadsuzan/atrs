@@ -9,6 +9,7 @@ import { ActivityService } from './ActivityService';
 import { ProductMarketingService } from './ProductMarketingService';
 import { Activity } from '../models/Activity';
 import { Version } from '../models/Version';
+import { ProductMarketing } from '../models/ProductMarketing';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
@@ -137,7 +138,7 @@ export class ProductService {
       const wpData = {
         name: plugin.name,
         description: plugin.short_description || '',
-        category: isBlock ? 'block' : 'plugin',
+        category: (isBlock ? 'block' : 'plugin') as IProduct['category'],
         wpOrgSlug: plugin.slug,
         icon: plugin.icons?.['2x'] || plugin.icons?.['1x'] || '',
         banner: plugin.banners?.high || plugin.banners?.low || '',
@@ -169,31 +170,110 @@ export class ProductService {
   async deleteProduct(id: string, user: AuthUser): Promise<IProduct | null> {
     const existing = await this.repository.findById(id);
     assertOwner(existing, user);
+
+    // Try a transactional cascade first. On a standalone mongod (no replica
+    // set) transactions are unsupported and Mongo throws — in that case we fall
+    // back to a non-transactional sequential cascade. Either way, errors are
+    // surfaced (not silently swallowed) so a half-completed delete is visible.
+    try {
+      return await this.deleteProductTransactional(id, existing!, user);
+    } catch (err: any) {
+      if (this.isTransactionUnsupported(err)) {
+        console.warn('[ProductService]: transactions unsupported (standalone mongod); falling back to sequential cascade delete.');
+        return await this.deleteProductSequential(id, user);
+      }
+      throw err;
+    }
+  }
+
+  /** Returns true when the error indicates transactions aren't supported (standalone mongod). */
+  private isTransactionUnsupported(err: any): boolean {
+    const message: string = err?.message || '';
+    const code = err?.code;
+    return (
+      err?.codeName === 'IllegalOperation' ||
+      code === 20 ||
+      code === 263 ||
+      /Transaction numbers are only allowed on a replica set member or mongos/i.test(message) ||
+      /transactions are not supported/i.test(message) ||
+      /replica set/i.test(message)
+    );
+  }
+
+  /** Cascade delete inside a Mongoose transaction (requires a replica set). */
+  private async deleteProductTransactional(id: string, product: IProduct, user: AuthUser): Promise<IProduct | null> {
+    const session = await Product.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Activity.deleteMany({ productId: id }, { session });
+        await Version.deleteMany({ productId: id }, { session });
+        await ProductMarketing.deleteMany({ productId: id }, { session });
+        await Product.deleteOne({ _id: id }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    // DB rows are gone and committed; now log + clean up files (best-effort,
+    // outside the transaction since the filesystem can't participate in it).
+    await this.afterDeleteCleanup(id, product, user);
+    return product;
+  }
+
+  /**
+   * Non-transactional cascade for standalone mongod. Deletes related entities
+   * via their services (so media files are cleaned up) in a safe order, then
+   * the product. Any failure is surfaced rather than swallowed.
+   */
+  private async deleteProductSequential(id: string, user: AuthUser): Promise<IProduct | null> {
+    const errors: string[] = [];
+
+    // Delete children first so a failure leaves the product (and its known
+    // children) rather than orphaning children under a deleted product.
+    try {
+      const activities = await Activity.find({ productId: id });
+      if (activities.length > 0) {
+        const activityService = new ActivityService();
+        await activityService.bulkDeleteActivities(activities.map(a => a._id.toString()), user);
+      }
+    } catch (err: any) {
+      errors.push(`activities: ${err?.message || err}`);
+    }
+
+    try {
+      const marketingService = new ProductMarketingService();
+      await marketingService.deleteMarketingData(id, user);
+    } catch (err: any) {
+      errors.push(`marketing: ${err?.message || err}`);
+    }
+
+    try {
+      await Version.deleteMany({ productId: id });
+    } catch (err: any) {
+      errors.push(`versions: ${err?.message || err}`);
+    }
+
+    if (errors.length > 0) {
+      // Surface the cascade failure; the product is intentionally not deleted
+      // so the operation is not left half-done silently.
+      throw new Error(`Failed to delete related entities for product ${id}: ${errors.join('; ')}`);
+    }
+
     const product = await this.repository.delete(id);
     if (product) {
       await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id });
-
       deleteMediaFiles([product.icon, product.banner]);
-
-      try {
-        const activities = await Activity.find({ productId: id });
-        if (activities.length > 0) {
-          const activityService = new ActivityService();
-          await activityService.bulkDeleteActivities(activities.map(a => a._id.toString()), user);
-        }
-      } catch (err) {
-        console.error('Error deleting related activities', err);
-      }
-
-      try {
-        const marketingService = new ProductMarketingService();
-        await marketingService.deleteMarketingData(id, user).catch(() => {});
-      } catch (err) {}
-
-      try {
-        await Version.deleteMany({ productId: id });
-      } catch (err) {}
     }
     return product;
+  }
+
+  /** Audit log + product media cleanup after a transactional cascade commit. */
+  private async afterDeleteCleanup(id: string, product: IProduct, user: AuthUser): Promise<void> {
+    await auditLogService.logEvent('DELETE', 'PRODUCT', product._id.toString(), product.name, 'Deleted a product', { id: user.id });
+    // Product icon/banner files.
+    deleteMediaFiles([product.icon, product.banner]);
+    // Best-effort cleanup of media referenced by the now-deleted marketing doc
+    // is skipped here because the doc is already removed in the transaction;
+    // file orphans are tolerable and never block the delete.
   }
 }

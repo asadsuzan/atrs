@@ -59,7 +59,7 @@ export const ConfirmProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialog open={open} onOpenChange={(next) => { if (!next) handleCancel(); else setOpen(true); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{options.title}</AlertDialogTitle>

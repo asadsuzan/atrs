@@ -14,6 +14,7 @@ import { getProducts } from '../../services/products';
 import { getVersions } from '../../services/versions';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
@@ -74,7 +75,7 @@ export function ActivityForm({
       mediaType: '',
       mediaUrls: [],
       tags: [],
-      activityDate: new Date().toISOString().split('T')[0],
+      activityDate: format(new Date(), 'yyyy-MM-dd'),
       items: [],
     },
   });

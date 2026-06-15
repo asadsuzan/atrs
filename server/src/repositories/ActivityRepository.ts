@@ -29,7 +29,7 @@ export class ActivityRepository {
   }
 
   async update(id: string, data: Partial<IActivity>): Promise<IActivity | null> {
-    return await Activity.findByIdAndUpdate(id, { $set: data }, { new: true });
+    return await Activity.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true });
   }
 
   async delete(id: string): Promise<IActivity | null> {

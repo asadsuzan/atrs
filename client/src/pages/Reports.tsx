@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import pptxgen from 'pptxgenjs';
+import { toast } from 'sonner';
 
 import { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,24 +28,161 @@ import {
 import { ReportsSkeleton } from '@/components/ui/skeletons';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 
+const months = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+// --- Module-scope card components -------------------------------------------
+// These live at module scope (not inside the Reports component) so they keep a
+// stable identity across parent re-renders. Defining them inside the component
+// body remounted them on every keystroke (e.g. typing in the year input),
+// wiping their local expand/collapse state.
+
+const ReportActivityCard = ({ act, forceExpanded }: { act: any; forceExpanded?: boolean }) => {
+  const [isOpenLocal, setIsOpen] = useState(false);
+  const isOpen = forceExpanded || isOpenLocal;
+  return (
+    <Card className="bg-card overflow-hidden">
+      <CardHeader
+        className="p-4 pb-2 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setIsOpen(!isOpenLocal)}
+      >
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{act.title}</CardTitle>
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <CalendarIcon className="w-3 h-3" />
+                {new Date(act.activityDate).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="shrink-0 -mr-2 -mt-2" aria-label={isOpen ? 'Collapse' : 'Expand'}>
+            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </div>
+      </CardHeader>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+            <CardContent className="p-4 pt-2 space-y-3">
+              {(() => {
+                const urls = act.mediaUrls?.length ? act.mediaUrls : (act.mediaUrl ? [act.mediaUrl] : []);
+                if (urls.length === 0) return null;
+                return (
+                  <div className="mb-4">
+                    <MediaCarousel urls={urls} title={act.title} />
+                  </div>
+                );
+              })()}
+              <p className="text-sm text-muted-foreground">{act.shortDescription}</p>
+
+              {act.items && act.items.length > 0 && (
+                <div className="mt-6 space-y-3 border-t pt-4">
+                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Included Items</h5>
+                  {act.items.map((item: any, idx: number) => (
+                    <div key={idx} className="bg-muted/20 border border-border/40 rounded-lg p-3">
+                      {(() => {
+                        const itemUrls = item.mediaUrls?.length ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : []);
+                        if (itemUrls.length === 0) return null;
+                        return (
+                          <div className="mb-3">
+                            <MediaCarousel urls={itemUrls} title={item.title} />
+                          </div>
+                        );
+                      })()}
+                      <h6 className="font-medium text-sm text-foreground">{item.title}</h6>
+                      {item.description && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Card>
+  );
+};
+
+const ReportActivitySection = ({ type, activities, forceExpanded }: { type: string; activities: any[]; forceExpanded?: boolean }) => {
+  const typeActs = activities.filter((a: any) => a.type === type);
+  if (typeActs.length === 0) return null;
+  const titleColor = type === 'feature' ? 'text-blue-600' : type === 'improvement' ? 'text-purple-600' : 'text-red-600';
+  return (
+    <div className="space-y-3">
+      <h4 className={`font-semibold capitalize flex items-center gap-2 ${titleColor}`}>
+        {type.replace('-', ' ')} <Badge variant="secondary" className="ml-1">{typeActs.length}</Badge>
+      </h4>
+      <div className="grid gap-4 md:grid-cols-2 pl-6 border-l-2 ml-2 border-muted pb-1 mt-3">
+        {typeActs.map((act: any) => (
+          <ReportActivityCard key={act._id} act={act} forceExpanded={forceExpanded} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ProductReportCard = ({ pData, forceExpanded }: { pData: any; forceExpanded?: boolean }) => {
+  const [expandedLocal, setExpanded] = useState(false);
+  const expanded = forceExpanded || expandedLocal;
+  const { product, activities, counts } = pData;
+  return (
+    <Card className="overflow-visible relative">
+      <div className="sticky top-0 lg:top-[185px] z-20 p-4 flex items-center justify-between bg-card/95 backdrop-blur-md hover:bg-accent cursor-pointer transition-colors shadow-sm rounded-t-lg border-b" onClick={() => setExpanded(!expandedLocal)}>
+        <div className="flex items-center gap-4">
+          {product.icon ? <img src={product.icon} className="w-10 h-10 rounded bg-muted" /> : <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs">No Icon</div>}
+          <div>
+            <h3 className="font-semibold text-lg">{product.name}</h3>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Badge variant="outline" className="capitalize">{product.category}</Badge>
+              {activities.length} activities
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="hidden sm:flex gap-4 text-sm">
+            <div className="flex flex-col items-center"><span className="text-blue-500 font-bold">{counts.features}</span><span className="text-xs text-muted-foreground">Features</span></div>
+            <div className="flex flex-col items-center"><span className="text-purple-500 font-bold">{counts.improvements}</span><span className="text-xs text-muted-foreground">Improvements</span></div>
+            <div className="flex flex-col items-center"><span className="text-red-500 font-bold">{counts.bugFixes}</span><span className="text-xs text-muted-foreground">Bug Fixes</span></div>
+          </div>
+          <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+            <div className="border-t bg-muted/30 p-4 space-y-6">
+              {['feature', 'improvement', 'bug-fix'].map(type => (
+                <ReportActivitySection key={type} type={type} activities={activities} forceExpanded={forceExpanded} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Card>
+  );
+};
+
 export default function Reports() {
   const currentDate = new Date();
   const [activeTab, setActiveTab] = useState<'monthly' | 'annual'>('monthly');
 
   // Monthly Report State
-  const [month, setMonth] = useLocalStorage<string>('atrs_filter_month', (currentDate.getMonth() + 1).toString());
-  const [year, setYear] = useLocalStorage<string>('atrs_filter_year', currentDate.getFullYear().toString());
-  const [productId, setProductId] = useLocalStorage<string>('atrs_filter_productId', 'all');
-  const [startDate, setStartDate] = useLocalStorage<string>('atrs_report_startDate', '');
-  const [endDate, setEndDate] = useLocalStorage<string>('atrs_report_endDate', '');
+  const [month, setMonth] = useLocalStorage<string>('atrs_reports_month', (currentDate.getMonth() + 1).toString());
+  const [year, setYear] = useLocalStorage<string>('atrs_reports_year', currentDate.getFullYear().toString());
+  const [productId, setProductId] = useLocalStorage<string>('atrs_reports_productId', 'all');
+  const [startDate, setStartDate] = useLocalStorage<string>('atrs_reports_startDate', '');
+  const [endDate, setEndDate] = useLocalStorage<string>('atrs_reports_endDate', '');
   const [useCustomRange, setUseCustomRange] = useState(false);
 
   // Annual Report State
   const [annualYear, setAnnualYear] = useState(currentDate.getFullYear().toString());
 
-  const [monthlyQueryArgs, setMonthlyQueryArgs] = useState({ 
-    month: parseInt(month, 10), 
-    year: parseInt(year, 10), 
+  const [monthlyQueryArgs, setMonthlyQueryArgs] = useState({
+    month: parseInt(month, 10),
+    year: parseInt(year, 10),
     productId,
     startDate: '',
     endDate: ''
@@ -53,13 +192,16 @@ export default function Reports() {
     year: parseInt(annualYear, 10),
     productId
   });
-  
+
+  // When true, all report cards render expanded (used while capturing the PDF).
+  const [forceExpand, setForceExpand] = useState(false);
+
   const reportRef = useRef<HTMLDivElement>(null);
 
   const { data: productsData } = useQuery({ queryKey: ['products'], queryFn: () => getProducts() });
   const products = productsData?.data || [];
 
-  const { data: monthlyReport, isLoading: isLoadingMonthly } = useQuery({
+  const { data: monthlyReport, isLoading: isLoadingMonthly, isError: isMonthlyError } = useQuery({
     queryKey: ['report-monthly', monthlyQueryArgs],
     queryFn: () => getMonthlyReport({
       month: monthlyQueryArgs.startDate ? undefined : monthlyQueryArgs.month,
@@ -70,7 +212,7 @@ export default function Reports() {
     }),
   });
 
-  const { data: annualReport, isLoading: isLoadingAnnual } = useQuery({
+  const { data: annualReport, isLoading: isLoadingAnnual, isError: isAnnualError } = useQuery({
     queryKey: ['report-annual', annualQueryArgs],
     queryFn: () => getAnnualReport({
       year: annualQueryArgs.year,
@@ -95,13 +237,12 @@ export default function Reports() {
     });
   };
 
-  const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
   const exportMonthlyPDF = async () => {
     if (!reportRef.current) return;
+    // Expand every card first so the captured DOM contains the full report
+    // instead of collapsed headers, then wait a tick for layout to settle.
+    setForceExpand(true);
+    await new Promise((resolve) => setTimeout(resolve, 350));
     try {
       const canvas = await html2canvas(reportRef.current, { scale: 2 });
       const imgData = canvas.toDataURL('image/png');
@@ -114,144 +255,118 @@ export default function Reports() {
       pdf.save(`Monthly_Report_${months[monthlyQueryArgs.month - 1]}_${monthlyQueryArgs.year}.pdf`);
     } catch (err) {
       console.error('Failed to export PDF:', err);
+      toast.error('Failed to export PDF');
+    } finally {
+      setForceExpand(false);
     }
   };
 
-  // Simplified export functions for demonstration
   const handleExportJSON = () => {
     const data = activeTab === 'monthly' ? monthlyReport : annualReport;
-    if (!data) return;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const a = document.createElement('a');
-    a.href = dataStr;
-    a.download = `${activeTab}_Report.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (!data) {
+      toast.error('Nothing to export yet');
+      return;
+    }
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `${activeTab}_Report.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Failed to export JSON:', err);
+      toast.error('Failed to export JSON');
+    }
   };
 
-  const ReportActivityCard = ({ act }: { act: any }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    return (
-      <Card className="bg-card overflow-hidden">
-        <CardHeader 
-          className="p-4 pb-2 cursor-pointer hover:bg-muted/30 transition-colors"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">{act.title}</CardTitle>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CalendarIcon className="w-3 h-3" />
-                  {new Date(act.activityDate).toLocaleDateString()}
-                </div>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" className="shrink-0 -mr-2 -mt-2">
-              <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </div>
-        </CardHeader>
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-              <CardContent className="p-4 pt-2 space-y-3">
-                {(() => {
-                  const urls = act.mediaUrls?.length ? act.mediaUrls : (act.mediaUrl ? [act.mediaUrl] : []);
-                  if (urls.length === 0) return null;
-                  return (
-                    <div className="mb-4">
-                      <MediaCarousel urls={urls} title={act.title} />
-                    </div>
-                  );
-                })()}
-                <p className="text-sm text-muted-foreground">{act.shortDescription}</p>
-                
-                {act.items && act.items.length > 0 && (
-                  <div className="mt-6 space-y-3 border-t pt-4">
-                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Included Items</h5>
-                    {act.items.map((item: any, idx: number) => (
-                      <div key={idx} className="bg-muted/20 border border-border/40 rounded-lg p-3">
-                        {(() => {
-                          const itemUrls = item.mediaUrls?.length ? item.mediaUrls : (item.mediaUrl ? [item.mediaUrl] : []);
-                          if (itemUrls.length === 0) return null;
-                          return (
-                            <div className="mb-3">
-                              <MediaCarousel urls={itemUrls} title={item.title} />
-                            </div>
-                          );
-                        })()}
-                        <h6 className="font-medium text-sm text-foreground">{item.title}</h6>
-                        {item.description && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.description}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </Card>
-    );
+  const escapeCsv = (value: any) => {
+    const str = value == null ? '' : String(value);
+    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+    return str;
   };
 
-  const ReportActivitySection = ({ type, activities }: { type: string, activities: any[] }) => {
-    const typeActs = activities.filter((a: any) => a.type === type);
-    if (typeActs.length === 0) return null;
-    const titleColor = type === 'feature' ? 'text-blue-600' : type === 'improvement' ? 'text-purple-600' : 'text-red-600';
-    return (
-      <div className="space-y-3">
-        <h4 className={`font-semibold capitalize flex items-center gap-2 ${titleColor}`}>
-          {type.replace('-', ' ')} <Badge variant="secondary" className="ml-1">{typeActs.length}</Badge>
-        </h4>
-        <div className="grid gap-4 md:grid-cols-2 pl-6 border-l-2 ml-2 border-muted pb-1 mt-3">
-          {typeActs.map((act: any) => (
-            <ReportActivityCard key={act._id} act={act} />
-          ))}
-        </div>
-      </div>
-    );
+  const handleExportCSV = () => {
+    if (!monthlyReport) {
+      toast.error('Generate a report first');
+      return;
+    }
+    try {
+      const rows: string[] = [];
+      rows.push(['Product', 'Category', 'Type', 'Title', 'Date', 'Description'].map(escapeCsv).join(','));
+      (monthlyReport.products || []).forEach((pData: any) => {
+        (pData.activities || []).forEach((act: any) => {
+          rows.push([
+            pData.product?.name,
+            pData.product?.category,
+            (act.type || '').replace('-', ' '),
+            act.title,
+            act.activityDate ? new Date(act.activityDate).toLocaleDateString() : '',
+            act.shortDescription,
+          ].map(escapeCsv).join(','));
+        });
+      });
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Monthly_Report_${months[monthlyQueryArgs.month - 1]}_${monthlyQueryArgs.year}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+      toast.error('Failed to export CSV');
+    }
   };
 
-  const ProductReportCard = ({ pData }: { pData: any }) => {
-    const [expanded, setExpanded] = useState(false);
-    const { product, activities, counts } = pData;
-    return (
-      <Card className="overflow-visible relative">
-        <div className="sticky top-0 lg:top-[185px] z-20 p-4 flex items-center justify-between bg-card/95 backdrop-blur-md hover:bg-accent cursor-pointer transition-colors shadow-sm rounded-t-lg border-b" onClick={() => setExpanded(!expanded)}>
-          <div className="flex items-center gap-4">
-            {product.icon ? <img src={product.icon} className="w-10 h-10 rounded bg-muted" /> : <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs">No Icon</div>}
-            <div>
-              <h3 className="font-semibold text-lg">{product.name}</h3>
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Badge variant="outline" className="capitalize">{product.category}</Badge>
-                {activities.length} activities
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden sm:flex gap-4 text-sm">
-              <div className="flex flex-col items-center"><span className="text-blue-500 font-bold">{counts.features}</span><span className="text-xs text-muted-foreground">Features</span></div>
-              <div className="flex flex-col items-center"><span className="text-purple-500 font-bold">{counts.improvements}</span><span className="text-xs text-muted-foreground">Improvements</span></div>
-              <div className="flex flex-col items-center"><span className="text-red-500 font-bold">{counts.bugFixes}</span><span className="text-xs text-muted-foreground">Bug Fixes</span></div>
-            </div>
-            <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </div>
-        </div>
-        <AnimatePresence>
-          {expanded && (
-            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-              <div className="border-t bg-muted/30 p-4 space-y-6">
-                {['feature', 'improvement', 'bug-fix'].map(type => (
-                  <ReportActivitySection key={type} type={type} activities={activities} />
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </Card>
-    );
+  const handleExportPPTX = () => {
+    if (!monthlyReport) {
+      toast.error('Generate a report first');
+      return;
+    }
+    try {
+      const pres = new pptxgen();
+      const periodLabel = monthlyQueryArgs.startDate
+        ? `${monthlyQueryArgs.startDate} – ${monthlyQueryArgs.endDate}`
+        : `${months[monthlyQueryArgs.month - 1]} ${monthlyQueryArgs.year}`;
+
+      // Title + summary slide
+      const title = pres.addSlide();
+      title.addText('Monthly Report', { x: 0.5, y: 1.2, w: '90%', h: 1, fontSize: 36, bold: true, align: 'center' });
+      title.addText(periodLabel, { x: 0.5, y: 2.4, w: '90%', h: 0.6, fontSize: 20, align: 'center', color: '666666' });
+      const s = monthlyReport.summary || {};
+      title.addText(
+        [
+          { text: `Products updated: ${s.products ?? 0}`, options: { bullet: true } },
+          { text: `Features: ${s.features ?? 0}`, options: { bullet: true } },
+          { text: `Improvements: ${s.improvements ?? 0}`, options: { bullet: true } },
+          { text: `Bug fixes: ${s.bugFixes ?? 0}`, options: { bullet: true } },
+        ],
+        { x: 1, y: 3.4, w: '80%', h: 2, fontSize: 16 }
+      );
+
+      // One slide per product
+      (monthlyReport.products || []).forEach((pData: any) => {
+        const slide = pres.addSlide();
+        slide.addText(pData.product?.name || 'Product', { x: 0.5, y: 0.4, w: '90%', h: 0.7, fontSize: 24, bold: true });
+        const bullets = (pData.activities || []).slice(0, 12).map((act: any) => ({
+          text: `[${(act.type || '').replace('-', ' ')}] ${act.title}`,
+          options: { bullet: true, fontSize: 14 },
+        }));
+        if (bullets.length === 0) {
+          slide.addText('No activities for this period.', { x: 0.5, y: 1.4, w: '90%', fontSize: 14, color: '999999' });
+        } else {
+          slide.addText(bullets, { x: 0.5, y: 1.4, w: '90%', h: 4.5 });
+        }
+      });
+
+      pres.writeFile({ fileName: `Monthly_Report_${months[monthlyQueryArgs.month - 1]}_${monthlyQueryArgs.year}.pptx` });
+    } catch (err) {
+      console.error('Failed to export PPTX:', err);
+      toast.error('Failed to export PowerPoint');
+    }
   };
 
   return (
@@ -261,13 +376,13 @@ export default function Reports() {
       </div>
 
       <div className="flex space-x-4 border-b">
-        <button 
+        <button
           className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'monthly' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           onClick={() => setActiveTab('monthly')}
         >
           Detailed Report
         </button>
-        <button 
+        <button
           className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'annual' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           onClick={() => setActiveTab('annual')}
         >
@@ -318,7 +433,7 @@ export default function Reports() {
                 </div>
               </>
             )}
-            
+
             <div className="space-y-1 flex-1">
               <label className="text-sm font-medium">Product</label>
               <Select value={productId} onValueChange={setProductId}>
@@ -329,7 +444,7 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-2 mt-4 lg:mt-0 items-end">
               <Button variant="outline" onClick={() => setUseCustomRange(!useCustomRange)}>
                 {useCustomRange ? 'Use Month/Year' : 'Use Custom Range'}
@@ -343,6 +458,8 @@ export default function Reports() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={exportMonthlyPDF}>Export as PDF</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPPTX}>Export as PowerPoint (.pptx)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportCSV}>Export as CSV</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportJSON}>Export as JSON</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -351,6 +468,8 @@ export default function Reports() {
 
           {isLoadingMonthly ? (
             <ReportsSkeleton />
+          ) : isMonthlyError ? (
+            <div className="text-destructive py-10 text-center">Failed to load the report. Please try again.</div>
           ) : monthlyReport ? (
             <div ref={reportRef} className="space-y-6">
               <div className="lg:sticky lg:top-4 z-30 bg-background/80 lg:backdrop-blur-md pb-4 pt-2 -mt-2">
@@ -367,7 +486,7 @@ export default function Reports() {
                 {monthlyReport.products.length === 0 ? (
                   <div className="text-muted-foreground">No activities found for the selected period.</div>
                 ) : (
-                  monthlyReport.products.map((pData: any) => <ProductReportCard key={pData.product._id} pData={pData} />)
+                  monthlyReport.products.map((pData: any) => <ProductReportCard key={pData.product._id} pData={pData} forceExpanded={forceExpand} />)
                 )}
               </div>
             </div>
@@ -398,6 +517,8 @@ export default function Reports() {
 
           {isLoadingAnnual ? (
             <ReportsSkeleton />
+          ) : isAnnualError ? (
+            <div className="text-destructive py-10 text-center">Failed to load the annual summary. Please try again.</div>
           ) : annualReport ? (
             <div className="space-y-6">
               <div className="lg:sticky lg:top-4 z-30 bg-background/80 lg:backdrop-blur-md pb-4 pt-2 -mt-2">

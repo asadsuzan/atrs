@@ -1,3 +1,35 @@
+/**
+ * Safely parse a loose JS-array/object literal (unquoted keys, single quotes,
+ * trailing commas) into a value by normalizing it into valid JSON and using
+ * JSON.parse. This never executes the input as code. Returns [] on failure.
+ */
+const safeParseLooseArray = (input: string): any[] => {
+  try {
+    // 1) Strip JS comments.
+    let s = input.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n\r]*/g, '$1');
+
+    // 2) Convert single-quoted strings to double-quoted, escaping any embedded
+    //    double quotes so the result stays valid JSON.
+    s = s.replace(/'((?:[^'\\]|\\.)*)'/g, (_m, inner: string) => {
+      const unescaped = inner.replace(/\\'/g, "'");
+      const escaped = unescaped.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      return `"${escaped}"`;
+    });
+
+    // 3) Quote unquoted object keys: { key: ... } -> { "key": ... }
+    s = s.replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)(\s*):/g, '$1"$2"$3:');
+
+    // 4) Remove trailing commas before } or ].
+    s = s.replace(/,(\s*[}\]])/g, '$1');
+
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Failed to parse demos array', e);
+    return [];
+  }
+};
+
 export const parseMarketingText = (text: string) => {
   const data: any = {
     pluginName: '',
@@ -111,14 +143,11 @@ export const parseMarketingText = (text: string) => {
     // JSON Layout extraction
     const jsonMatch = text.match(/Demos\s*(\[\s*\{[\s\S]*?\}\s*,?\s*\])/i);
     if (jsonMatch) {
-      try {
-        // Use Function constructor to parse loose JS object notation (unquoted keys)
-        const parsedArray = new Function(`return ${jsonMatch[1]}`)();
-        if (Array.isArray(parsedArray)) {
-          data.demos = parsedArray;
-        }
-      } catch (e) {
-        console.error("Failed to parse JSON for demos", e);
+      // Normalize the loose JS-array literal into valid JSON and parse it.
+      // This never executes the pasted text as code.
+      const parsedArray = safeParseLooseArray(jsonMatch[1]);
+      if (parsedArray.length > 0) {
+        data.demos = parsedArray;
       }
     }
 

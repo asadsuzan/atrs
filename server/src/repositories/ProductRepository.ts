@@ -29,7 +29,7 @@ export class ProductRepository {
   }
 
   async update(id: string, data: Partial<IProduct>): Promise<IProduct | null> {
-    return await Product.findByIdAndUpdate(id, data, { new: true });
+    return await Product.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   }
 
   async delete(id: string): Promise<IProduct | null> {

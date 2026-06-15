@@ -5,6 +5,24 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>client</title>
+    <script>
+      // FOUC-free theme bootstrap: apply the saved theme + dark class to <html>
+      // before first paint. Keys must match ThemeProvider (contexts/ThemeProvider.tsx).
+      (function () {
+        try {
+          var root = document.documentElement;
+          var theme = localStorage.getItem('vite-ui-theme') || 'todoist';
+          root.classList.add('theme-' + theme);
+
+          var autoDark = localStorage.getItem('vite-ui-auto-dark') === 'true';
+          var stored = localStorage.getItem('vite-ui-dark-mode');
+          var isDark = autoDark
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            : stored === 'true';
+          if (isDark) root.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

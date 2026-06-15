@@ -25,4 +25,7 @@ const VersionSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Index for productId lookups.
+VersionSchema.index({ productId: 1 });
+
 export const Version = mongoose.model<IVersion>('Version', VersionSchema);

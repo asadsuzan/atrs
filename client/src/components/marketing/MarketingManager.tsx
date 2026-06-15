@@ -147,19 +147,29 @@ ${(formData.faqs || []).map((f: any) => `Q: ${f.question}\n${f.answer}`).join('\
     URL.revokeObjectURL(url);
   };
 
+  const escapeHtml = (value: any): string => {
+    const str = value == null ? '' : String(value);
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   const generateHTMLContent = () => {
     const html = `
       <html>
-        <head><title>${formData.pluginName} - Landing Page Data</title></head>
+        <head><title>${escapeHtml(formData.pluginName)} - Landing Page Data</title></head>
         <body style="font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem;">
-          <h1>${formData.pluginName}</h1>
-          <p><strong>Hero:</strong> ${formData.heroDescription}</p>
+          <h1>${escapeHtml(formData.pluginName)}</h1>
+          <p><strong>Hero:</strong> ${escapeHtml(formData.heroDescription)}</p>
           <h2>Features</h2>
-          <ul>${formData.allFeatures?.map((f: any) => `<li><strong>${f.title}</strong>: ${f.description}</li>`).join('')}</ul>
+          <ul>${formData.allFeatures?.map((f: any) => `<li><strong>${escapeHtml(f.title)}</strong>: ${escapeHtml(f.description)}</li>`).join('')}</ul>
           <h2>Demos</h2>
-          <ul>${formData.demos?.map((l: any) => `<li><strong>${l.title}</strong>: ${l.description}</li>`).join('')}</ul>
+          <ul>${formData.demos?.map((l: any) => `<li><strong>${escapeHtml(l.title)}</strong>: ${escapeHtml(l.description)}</li>`).join('')}</ul>
           <h2>FAQs</h2>
-          <dl>${formData.faqs?.map((faq: any) => `<dt><strong>Q: ${faq.question}</strong></dt><dd>A: ${faq.answer}</dd>`).join('')}</dl>
+          <dl>${formData.faqs?.map((faq: any) => `<dt><strong>Q: ${escapeHtml(faq.question)}</strong></dt><dd>A: ${escapeHtml(faq.answer)}</dd>`).join('')}</dl>
         </body>
       </html>
     `;
