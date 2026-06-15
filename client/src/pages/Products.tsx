@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts, createProduct, deleteProduct, updateProduct, bulkDeleteProducts } from '../services/products';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
+import { playSound } from '@/lib/sound';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -91,41 +92,61 @@ export default function Products() {
   const createMutation = useMutation({
     mutationFn: createProduct,
     onSuccess: () => {
+      playSound('success');
       toast.success("Product created successfully");
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setIsAddOpen(false);
     },
-    onError: () => toast.error("Failed to create product")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to create product");
+    }
   });
 
   const updateMutation = useMutation({
     mutationFn: updateProduct,
     onSuccess: () => {
+      playSound('success');
       toast.success("Product updated successfully");
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setEditingProduct(null);
     },
-    onError: () => toast.error("Failed to update product")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to update product");
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteProduct,
     onSuccess: () => {
+      playSound('delete');
       toast.success("Product deleted successfully");
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
-    onError: () => toast.error("Failed to delete product")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to delete product");
+    }
   });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => bulkDeleteProducts(ids),
     onSuccess: (result) => {
+      if (result.errors.length) {
+        playSound('error');
+        toast.error(`${result.errors.length} deletion(s) failed`);
+      } else {
+        playSound('delete');
+      }
       toast.success(`${result.deleted} product${result.deleted !== 1 ? 's' : ''} deleted`);
-      if (result.errors.length) toast.error(`${result.errors.length} deletion(s) failed`);
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
-    onError: () => toast.error("Bulk delete failed")
+    onError: () => {
+      playSound('error');
+      toast.error("Bulk delete failed");
+    }
   });
 
   const handleBulkDelete = async () => {

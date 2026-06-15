@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Download, Globe, RefreshCw } from 'lucide-react';
+import { playSound } from '@/lib/sound';
 
 interface WpPlugin {
   slug: string;
@@ -38,13 +39,18 @@ export function WpOrgImportDialog({ open, onOpenChange }: Props) {
       setSelected(new Set(data.map(p => p.slug)));
       setFetched(true);
       if (data.length === 0) toast.info('No plugins found for that username.');
+      else playSound('success');
     },
-    onError: () => toast.error('Failed to fetch plugins from WordPress.org'),
+    onError: () => {
+      playSound('error');
+      toast.error('Failed to fetch plugins from WordPress.org');
+    },
   });
 
   const importMutation = useMutation({
     mutationFn: () => importFromWpOrg(username.trim(), Array.from(selected)),
     onSuccess: (result) => {
+      playSound('success');
       const parts: string[] = [];
       if (result.created.length) parts.push(`${result.created.length} created`);
       if (result.updated.length) parts.push(`${result.updated.length} updated`);
@@ -53,7 +59,10 @@ export function WpOrgImportDialog({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       handleClose();
     },
-    onError: () => toast.error('Import failed'),
+    onError: () => {
+      playSound('error');
+      toast.error('Import failed');
+    },
   });
 
   const handleClose = () => {

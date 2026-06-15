@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { ShieldCheck, UserCheck, UserX, Trash2, Crown } from 'lucide-react';
+import { playSound } from '@/lib/sound';
 
 const statusVariant: Record<string, string> = {
   active: 'bg-green-500/15 text-green-600 dark:text-green-400',
@@ -31,13 +32,17 @@ export default function Users() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
 
-  const run = (fn: () => Promise<unknown>, success: string) =>
+  const run = (fn: () => Promise<unknown>, success: string, sound: 'success' | 'delete' = 'success') =>
     fn()
       .then(() => {
+        playSound(sound);
         toast.success(success);
         invalidate();
       })
-      .catch((err: any) => toast.error(err?.response?.data?.message || 'Action failed'));
+      .catch((err: any) => {
+        playSound('error');
+        toast.error(err?.response?.data?.message || 'Action failed');
+      });
 
   const approve = useMutation({ mutationFn: approveUser });
   const suspend = useMutation({ mutationFn: suspendUser });
@@ -55,7 +60,7 @@ export default function Users() {
         'This permanently removes the user account. Their products and activities are NOT deleted — reassign them first if needed.',
       confirmText: 'Delete user',
     });
-    if (ok) run(() => remove.mutateAsync(u._id), 'User deleted');
+    if (ok) run(() => remove.mutateAsync(u._id), 'User deleted', 'delete');
   };
 
   const Row = ({ u }: { u: AuthUser }) => (

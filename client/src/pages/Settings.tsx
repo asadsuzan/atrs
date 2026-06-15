@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportAllData } from '../services/export';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '../contexts/AuthContext';
+import { isUserMuted, setUserMute, playSound, getSoundConfig, setCachedSoundConfig } from '../lib/sound';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -25,11 +26,18 @@ export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
   const { isAdmin } = useAuth();
 
-  const [configForm, setConfigForm] = useState({
-    serverPort: '',
-    mongodbUri: ''
-  });
+  const [isMuted, setIsMuted] = useState(isUserMuted());
+  const [configForm, setConfigForm] = useState({ serverPort: '5000', mongodbUri: '' });
   const [isRestarting, setIsRestarting] = useState(false);
+  const [soundsForm, setSoundsForm] = useState({
+    enabled: true,
+    successSound: 'synth-success',
+    deleteSound: 'synth-delete',
+    errorSound: 'synth-error',
+    notificationSound: 'synth-notification',
+    clickSound: 'synth-click',
+    volume: 0.5
+  });
 
   const { data: configData, isLoading: configLoading, refetch } = useQuery({
     queryKey: ['appConfig'],
@@ -41,7 +49,9 @@ export default function Settings() {
   const handleExport = async () => {
     try {
       await exportAllData();
+      playSound('success');
     } catch (err: any) {
+      playSound('error');
       toast.error(err?.response?.data?.message || 'Export failed');
     }
   };
@@ -52,12 +62,31 @@ export default function Settings() {
         serverPort: String(configData.server?.port || 5000),
         mongodbUri: configData.server?.mongodbUri || ''
       });
+      if (configData.sounds) {
+        setSoundsForm({
+          enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
+          successSound: configData.sounds.successSound || 'synth-success',
+          deleteSound: configData.sounds.deleteSound || 'synth-delete',
+          errorSound: configData.sounds.errorSound || 'synth-error',
+          notificationSound: configData.sounds.notificationSound || 'synth-notification',
+          clickSound: configData.sounds.clickSound || 'synth-click',
+          volume: typeof configData.sounds.volume === 'number' ? configData.sounds.volume : 0.5
+        });
+      }
     }
   }, [configData]);
 
   const saveMutation = useMutation({
     mutationFn: updateAppConfig,
-    onSuccess: (res) => {
+    onSuccess: (res, variables) => {
+      // If we modified sounds configuration, cache it locally in client
+      if (variables.sounds) {
+        setCachedSoundConfig(variables.sounds);
+        toast.success("Sound configuration saved successfully!");
+        refetch();
+        return;
+      }
+
       toast.success(res.message || "Configuration saved. Restarting server...");
       setIsRestarting(true);
       
@@ -100,6 +129,24 @@ export default function Settings() {
         mongodbUri: configForm.mongodbUri
       }
     });
+  };
+
+  const handleSaveSounds = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate({
+      sounds: soundsForm
+    });
+  };
+
+  const handleToggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    setUserMute(newMuted);
+    if (!newMuted) playSound('click');
+  };
+
+  const previewSound = (event: 'success' | 'delete' | 'error' | 'notification' | 'click') => {
+    playSound(event);
   };
 
   return (
@@ -201,6 +248,41 @@ export default function Settings() {
         </motion.div>
       </div>
 
+      {/* Sound Preferences */}
+      <div className="pt-2 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">Sound</h3>
+        <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-lg flex items-center gap-2">
+                {isMuted ? <VolumeX className="w-5 h-5 text-muted-foreground" /> : <Volume2 className="w-5 h-5 text-primary" />}
+                Sound Effects
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">Play audio feedback for actions like creating, deleting, and notifications.</p>
+            </div>
+            <button
+              onClick={handleToggleMute}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${!isMuted ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${!isMuted ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {!isMuted && (
+            <div className="border-t pt-4 space-y-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Preview Sounds</p>
+              <div className="flex flex-wrap gap-2">
+                {(['success', 'delete', 'error', 'notification', 'click'] as const).map(evt => (
+                  <Button key={evt} variant="outline" size="sm" onClick={() => previewSound(evt)} className="capitalize gap-1.5">
+                    <Play className="w-3 h-3" /> {evt}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {isAdmin && (
       <div className="pt-8 border-b pb-8">
         <h3 className="text-xl font-bold mb-4">System Configuration</h3>
@@ -249,6 +331,63 @@ export default function Settings() {
               </div>
             </form>
           )}
+        </div>
+      </div>
+      )}
+
+      {/* Admin Sound Configuration */}
+      {isAdmin && (
+      <div className="pt-8 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">Global Sound Configuration</h3>
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <p className="text-sm text-muted-foreground">Configure system-wide sound settings. These apply to all users. Individual users can still mute sounds from their personal settings.</p>
+          <form onSubmit={handleSaveSounds} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Global Sounds Enabled</label>
+                <p className="text-xs text-muted-foreground">Master toggle — disabling removes sounds for everyone.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSoundsForm({...soundsForm, enabled: !soundsForm.enabled})}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${soundsForm.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soundsForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Volume ({Math.round(soundsForm.volume * 100)}%)</label>
+              <input type="range" min="0" max="1" step="0.05" value={soundsForm.volume} onChange={e => setSoundsForm({...soundsForm, volume: parseFloat(e.target.value)})} className="w-full accent-primary" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Success Sound</label>
+                <Input value={soundsForm.successSound} onChange={e => setSoundsForm({...soundsForm, successSound: e.target.value})} placeholder="synth-success or URL" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Delete Sound</label>
+                <Input value={soundsForm.deleteSound} onChange={e => setSoundsForm({...soundsForm, deleteSound: e.target.value})} placeholder="synth-delete or URL" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Error Sound</label>
+                <Input value={soundsForm.errorSound} onChange={e => setSoundsForm({...soundsForm, errorSound: e.target.value})} placeholder="synth-error or URL" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Notification Sound</label>
+                <Input value={soundsForm.notificationSound} onChange={e => setSoundsForm({...soundsForm, notificationSound: e.target.value})} placeholder="synth-notification or URL" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Click Sound</label>
+                <Input value={soundsForm.clickSound} onChange={e => setSoundsForm({...soundsForm, clickSound: e.target.value})} placeholder="synth-click or URL" />
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" disabled={saveMutation.isPending}>
+                <Save className="w-4 h-4 mr-2" />
+                {saveMutation.isPending ? 'Saving...' : 'Save Sound Settings'}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
       )}

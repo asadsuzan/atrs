@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
+import { playSound } from '@/lib/sound';
 
 export default function Register() {
   const { register } = useAuth();
@@ -20,8 +21,10 @@ export default function Register() {
     setSubmitting(true);
     try {
       await register(name, email, password);
+      playSound('success');
       setDone(true);
     } catch (err: any) {
+      playSound('error');
       toast.error(err?.response?.data?.message || 'Registration failed');
     } finally {
       setSubmitting(false);

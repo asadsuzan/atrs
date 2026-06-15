@@ -35,4 +35,44 @@ router.get('/subscribe', requireAuth, requireActive, (req: Request, res: Respons
   });
 });
 
+/**
+ * Public-authenticated endpoint for retrieving current sound settings.
+ */
+router.get('/sounds', requireAuth, requireActive, (req: Request, res: Response) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const configPath = path.resolve(__dirname, '../../../app.config.json');
+
+    let soundsConfig = {
+      enabled: true,
+      successSound: 'synth-success',
+      deleteSound: 'synth-delete',
+      errorSound: 'synth-error',
+      notificationSound: 'synth-notification',
+      clickSound: 'synth-click',
+      volume: 0.5
+    };
+
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (data.sounds) {
+        soundsConfig = { ...soundsConfig, ...data.sounds };
+      }
+    }
+
+    res.status(200).json(soundsConfig);
+  } catch (error) {
+    res.status(200).json({
+      enabled: true,
+      successSound: 'synth-success',
+      deleteSound: 'synth-delete',
+      errorSound: 'synth-error',
+      notificationSound: 'synth-notification',
+      clickSound: 'synth-click',
+      volume: 0.5
+    });
+  }
+});
+
 export default router;

@@ -5,6 +5,7 @@ import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpda
 import { getProducts } from '../services/products';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
+import { playSound } from '@/lib/sound';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -98,50 +99,70 @@ export default function Activities() {
   const createMutation = useMutation({
     mutationFn: createActivity,
     onSuccess: () => {
+      playSound('success');
       toast.success("Changelog entry created successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       setIsAddOpen(false);
     },
-    onError: () => toast.error("Failed to create changelog entry")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to create changelog entry");
+    }
   });
 
   const updateMutation = useMutation({
     mutationFn: updateActivity,
     onSuccess: () => {
+      playSound('success');
       toast.success("Changelog entry updated successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
       setEditingActivity(null);
     },
-    onError: () => toast.error("Failed to update changelog entry")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to update changelog entry");
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteActivity,
     onSuccess: () => {
+      playSound('delete');
       toast.success("Changelog entry deleted successfully");
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to delete changelog entry")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to delete changelog entry");
+    }
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: ({ ids, update }: { ids: string[], update: any }) => bulkUpdateActivities(ids, update),
     onSuccess: () => {
+      playSound('success');
       toast.success("Changelog entries updated");
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to update changelog entries")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to update changelog entries");
+    }
   });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: bulkDeleteActivities,
     onSuccess: () => {
+      playSound('delete');
       toast.success("Changelog entries deleted");
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
-    onError: () => toast.error("Failed to delete changelog entries")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to delete changelog entries");
+    }
   });
 
   const handleSelectAll = (checked: boolean) => {

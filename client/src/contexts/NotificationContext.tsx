@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
-import { getToken } from '@/services/api';
+import { getToken, api } from '@/services/api';
+import { playSound, setCachedSoundConfig } from '@/lib/sound';
 
 export interface Notification {
   id: string;
@@ -35,6 +36,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const token = getToken();
     if (!token) return;
 
+    // Fetch system-wide sound configuration to cache it locally
+    api.get('/notifications/sounds')
+      .then(({ data }) => {
+        setCachedSoundConfig(data);
+      })
+      .catch((err) => {
+        console.warn('[Sound] Failed to load sound configurations from server:', err);
+      });
+
     // Establish Server-Sent Events subscription connection
     const eventSource = new EventSource(`/api/notifications/subscribe?token=${encodeURIComponent(token)}`);
 
@@ -57,6 +67,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
 
         setNotifications((prev) => [newNotif, ...prev]);
+
+        // Play real-time notification alert sound
+        playSound('notification');
 
         // Pop up sonner toast with beautiful formatting
         toast.info(newNotif.title, {
@@ -82,6 +95,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
 
         setNotifications((prev) => [newNotif, ...prev]);
+
+        // Play real-time notification alert sound
+        playSound('notification');
 
         // Show toast alert
         toast.success(newNotif.title, {

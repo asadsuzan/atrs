@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
+import { playSound } from '@/lib/sound';
 
 export default function MediaManager() {
   const queryClient = useQueryClient();
@@ -43,12 +44,14 @@ export default function MediaManager() {
   const deleteMutation = useMutation({
     mutationFn: ({ filename, force }: { filename: string; force: boolean }) => deleteMedia(filename, force),
     onSuccess: (_, variables) => {
+      playSound('delete');
       toast.success(`Deleted file ${variables.filename}`);
       queryClient.invalidateQueries({ queryKey: ['mediaList'] });
       setDeleteTarget(null);
       setSelectedMedia(null);
     },
     onError: (err: any) => {
+      playSound('error');
       const errMsg = err.response?.data?.message || err.message || 'Failed to delete file';
       toast.error(errMsg);
     }
@@ -58,11 +61,13 @@ export default function MediaManager() {
   const purgeMutation = useMutation({
     mutationFn: purgeOrphanedMedia,
     onSuccess: (data) => {
+      playSound('success');
       toast.success(`Successfully purged ${data.count} unused files`);
       queryClient.invalidateQueries({ queryKey: ['mediaList'] });
       setIsPurging(false);
     },
     onError: (err: any) => {
+      playSound('error');
       toast.error(err.message || 'Failed to purge unused files');
     }
   });
@@ -71,6 +76,7 @@ export default function MediaManager() {
   const handleCopyUrl = (url: string, filename: string) => {
     const fullUrl = `${window.location.origin}${url}`;
     navigator.clipboard.writeText(fullUrl).then(() => {
+      playSound('click');
       setCopiedFilename(filename);
       toast.success('Copied URL to clipboard');
       setTimeout(() => setCopiedFilename(null), 2000);

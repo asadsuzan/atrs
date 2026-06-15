@@ -13,6 +13,7 @@ import jsPDF from 'jspdf';
 import pptxgen from 'pptxgenjs';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { toast } from 'sonner';
+import { playSound } from '@/lib/sound';
 
 export function MarketingManager({ productId }: { productId: string }) {
   const { confirm } = useConfirm();
@@ -35,19 +36,27 @@ export function MarketingManager({ productId }: { productId: string }) {
   const mutation = useMutation({
     mutationFn: updateMarketingData,
     onSuccess: () => {
+      playSound('success');
       toast.success("Marketing Hub saved successfully");
       queryClient.invalidateQueries({ queryKey: ['marketing', productId] });
     },
-    onError: () => toast.error("Failed to save Marketing Hub")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to save Marketing Hub");
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteMarketingData,
     onSuccess: () => {
+      playSound('delete');
       toast.success("Marketing data cleared from database");
       queryClient.invalidateQueries({ queryKey: ['marketing', productId] });
     },
-    onError: () => toast.error("Failed to clear database")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to clear database");
+    }
   });
 
   const handleSave = () => {
@@ -66,8 +75,10 @@ export function MarketingManager({ productId }: { productId: string }) {
       setFormData({ ...formData, ...parsed });
       setIsImportOpen(false);
       setImportText('');
+      playSound('success');
       toast.success("Template parsed successfully!");
     } catch(e) {
+      playSound('error');
       toast.error("Failed to parse template");
     }
   };

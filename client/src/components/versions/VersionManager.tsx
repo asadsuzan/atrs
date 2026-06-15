@@ -11,6 +11,7 @@ import { Edit2, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { playSound } from '@/lib/sound';
 
 export function VersionManager({ productId }: { productId: string }) {
   const queryClient = useQueryClient();
@@ -28,31 +29,43 @@ export function VersionManager({ productId }: { productId: string }) {
   const createMutation = useMutation({
     mutationFn: createVersion,
     onSuccess: () => {
+      playSound('success');
       toast.success("Version created");
       queryClient.invalidateQueries({ queryKey: ['versions', productId] });
       setIsOpen(false);
       setFormData({ label: '', notes: '', releasedAt: '', author: '' });
     },
-    onError: () => toast.error("Failed to create version")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to create version");
+    }
   });
 
   const updateMutation = useMutation({
     mutationFn: updateVersion,
     onSuccess: () => {
+      playSound('success');
       toast.success("Version updated");
       queryClient.invalidateQueries({ queryKey: ['versions', productId] });
       setEditingVersion(null);
     },
-    onError: () => toast.error("Failed to update version")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to update version");
+    }
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteVersion,
     onSuccess: () => {
+      playSound('delete');
       toast.success("Version deleted");
       queryClient.invalidateQueries({ queryKey: ['versions', productId] });
     },
-    onError: () => toast.error("Failed to delete version")
+    onError: () => {
+      playSound('error');
+      toast.error("Failed to delete version");
+    }
   });
 
   const handleSubmit = (e: React.FormEvent) => {

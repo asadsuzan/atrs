@@ -2,5 +2,14 @@
   "server": {
     "port": 3000,
     "mongodbUri": "mongodb://localhost:27017/atrs?retryWrites=true"
+  },
+  "sounds": {
+    "enabled": true,
+    "successSound": "synth-success",
+    "deleteSound": "synth-delete",
+    "errorSound": "synth-error",
+    "notificationSound": "synth-notification",
+    "clickSound": "synth-click",
+    "volume": 1
   }
 }

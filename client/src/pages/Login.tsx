@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { playSound } from '@/lib/sound';
 
 export default function Login() {
   const { login } = useAuth();
@@ -21,8 +22,10 @@ export default function Login() {
     setSubmitting(true);
     try {
       await login(email, password);
+      playSound('success');
       navigate(from, { replace: true });
     } catch (err: any) {
+      playSound('error');
       toast.error(err?.response?.data?.message || 'Login failed');
     } finally {
       setSubmitting(false);
