@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,33 +9,69 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '@/components/ui/textarea';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 
-const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  githubUrl: z.string().url('Must be a valid URL'),
-  description: z.string().optional(),
-  category: z.enum(['plugin', 'block', 'theme', 'standalone']),
-  status: z.enum(['active', 'inactive']),
-  icon: z.string().optional(),
-  banner: z.string().optional(),
-  wpOrgSlug: z.string().optional(),
-});
+/**
+ * - `wp`: manual WordPress/CMS product — Plugin/Block/Theme category, WP.org
+ *   slug shown, repo URL required.
+ * - `standalone`: non-WP app — category fixed to "standalone", no WP.org slug,
+ *   repo/website URL optional.
+ * - `full`: everything (used when editing an existing product of any kind).
+ */
+export type ProductFormVariant = 'wp' | 'standalone' | 'full';
 
-type FormValues = z.infer<typeof formSchema>;
+const buildSchema = (variant: ProductFormVariant) =>
+  z.object({
+    name: z.string().min(1, 'Name is required'),
+    githubUrl:
+      variant === 'standalone'
+        ? z.string().url('Must be a valid URL').optional().or(z.literal(''))
+        : z.string().url('Must be a valid URL'),
+    description: z.string().optional(),
+    category: z.enum(['plugin', 'block', 'theme', 'standalone']),
+    status: z.enum(['active', 'inactive']),
+    icon: z.string().optional(),
+    banner: z.string().optional(),
+    wpOrgSlug: z.string().optional(),
+  });
+
+type FormValues = z.infer<ReturnType<typeof buildSchema>>;
+
+const CATEGORY_OPTIONS: Record<ProductFormVariant, { value: FormValues['category']; label: string }[]> = {
+  wp: [
+    { value: 'plugin', label: 'Plugin' },
+    { value: 'block', label: 'Block' },
+    { value: 'theme', label: 'Theme' },
+  ],
+  standalone: [{ value: 'standalone', label: 'Standalone App' }],
+  full: [
+    { value: 'plugin', label: 'Plugin' },
+    { value: 'block', label: 'Block' },
+    { value: 'theme', label: 'Theme' },
+    { value: 'standalone', label: 'Standalone App' },
+  ],
+};
 
 export function ProductForm({
   initialData,
   onSubmit,
+  variant = 'full',
 }: {
   initialData?: any;
   onSubmit: (data: FormValues) => void;
+  variant?: ProductFormVariant;
 }) {
+  const isStandalone = variant === 'standalone';
+  const schema = useMemo(() => buildSchema(variant), [variant]);
+
+  const defaultCategory: FormValues['category'] =
+    variant === 'standalone' ? 'standalone' : variant === 'wp' ? 'plugin' : 'plugin';
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(schema),
     defaultValues: initialData || {
       name: '',
       githubUrl: '',
       description: '',
-      category: 'plugin',
+      category: defaultCategory,
       status: 'active',
       icon: '',
       banner: '',
@@ -52,7 +89,7 @@ export function ProductForm({
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Test Plugin" {...field} />
+                <Input placeholder={isStandalone ? 'e.g. My Desktop App' : 'e.g. Test Plugin'} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -78,7 +115,7 @@ export function ProductForm({
           name="githubUrl"
           render={({ field }: any) => (
             <FormItem>
-              <FormLabel>GitHub URL</FormLabel>
+              <FormLabel>{isStandalone ? 'GitHub / Website URL (optional)' : 'GitHub URL'}</FormLabel>
               <FormControl>
                 <Input placeholder="https://github.com/..." {...field} />
               </FormControl>
@@ -87,44 +124,49 @@ export function ProductForm({
           )}
         />
 
-        <FormField
-          control={form.control as any}
-          name="wpOrgSlug"
-          render={({ field }: any) => (
-            <FormItem>
-              <FormLabel>WP.org Slug (optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. test-plugin" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+        {/* WP.org slug is meaningless for standalone apps. */}
+        {!isStandalone && (
           <FormField
             control={form.control as any}
-            name="category"
+            name="wpOrgSlug"
             render={({ field }: any) => (
               <FormItem>
-                <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="plugin">Plugin</SelectItem>
-                    <SelectItem value="block">Block</SelectItem>
-                    <SelectItem value="theme">Theme</SelectItem>
-                    <SelectItem value="standalone">Standalone App</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormLabel>WP.org Slug (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g. test-plugin" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Standalone has a fixed category, so the select is hidden. */}
+          {!isStandalone && (
+            <FormField
+              control={form.control as any}
+              name="category"
+              render={({ field }: any) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CATEGORY_OPTIONS[variant].map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control as any}

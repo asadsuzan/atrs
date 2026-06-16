@@ -3,7 +3,8 @@ import { z } from 'zod';
 export const createProductSchema = z.object({
   body: z.object({
     name: z.string(),
-    githubUrl: z.string().url('Invalid URL format'),
+    // Optional: standalone products may omit a repo URL. Allow empty string too.
+    githubUrl: z.string().url('Invalid URL format').optional().or(z.literal('')),
     description: z.string().optional(),
     category: z.enum(['plugin', 'block', 'theme', 'standalone']),
     status: z.enum(['active', 'inactive']).optional(),

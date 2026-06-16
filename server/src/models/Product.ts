@@ -5,7 +5,7 @@ export interface IProduct extends Document {
   name: string;
   slug: string;
   description?: string;
-  githubUrl: string;
+  githubUrl?: string;
   banner?: string;
   icon?: string;
   wpOrgSlug?: string;
@@ -24,7 +24,8 @@ const ProductSchema: Schema = new Schema(
     // different owners may each have a product that slugifies to the same value.
     slug: { type: String, required: true },
     description: { type: String, default: '' },
-    githubUrl: { type: String, required: true },
+    // Optional: standalone (non-WP) products may have no public repo URL.
+    githubUrl: { type: String, default: '' },
     banner: { type: String, default: '' },
     icon: { type: String, default: '' },
     wpOrgSlug: { type: String, default: '' },

@@ -8,13 +8,15 @@ import { playSound } from '@/lib/sound';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductForm } from '../components/products/ProductForm';
+import { AddProductDialog } from '../components/products/AddProductDialog';
+import { ProductsEmptyState } from '../components/products/ProductsEmptyState';
 import { useWpImport } from '../contexts/WpImportContext';
 import { useJobStream } from '../contexts/JobStreamContext';
-import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -155,24 +157,18 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Products</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={openWpImport}>
-            <Download className="w-4 h-4 mr-2" /> Import from WP.org
+          <Button onClick={() => setIsAddOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Add Product
           </Button>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" /> Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-              </DialogHeader>
-              <ProductForm onSubmit={(data: any) => createMutation.mutate(data)} />
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
+
+      <AddProductDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        onImport={openWpImport}
+        onCreate={(data: any) => createMutation.mutate(data)}
+      />
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
         <div className="relative flex-1">
@@ -236,6 +232,10 @@ export default function Products() {
         </div>
       )}
 
+      {!isLoading && !isError && products.length === 0 ? (
+        <ProductsEmptyState onAdd={() => setIsAddOpen(true)} onImport={openWpImport} />
+      ) : (
+      <>
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
@@ -373,6 +373,8 @@ export default function Products() {
           </Button>
         </div>
       </div>
+      </>
+      )}
 
       <Dialog open={!!editingProduct} onOpenChange={(open: boolean) => !open && setEditingProduct(null)}>
         <DialogContent>
@@ -382,6 +384,7 @@ export default function Products() {
           {editingProduct && (
             <ProductForm
               initialData={editingProduct}
+              variant={editingProduct.category === 'standalone' ? 'standalone' : 'full'}
               onSubmit={(data: any) => updateMutation.mutate({ id: editingProduct._id, ...data })}
             />
           )}

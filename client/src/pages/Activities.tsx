@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities } from '../services/activities';
-import { getProducts } from '../services/products';
+import { getProducts, createProduct } from '../services/products';
+import { AddProductDialog } from '../components/products/AddProductDialog';
+import { useWpImport } from '../contexts/WpImportContext';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
 import { playSound } from '@/lib/sound';
@@ -11,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ActivityForm } from '../components/activities/ActivityForm';
-import { Plus, Edit2, Trash2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, ArrowUpDown, ChevronLeft, ChevronRight, PackageOpen, ArrowRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -45,7 +47,9 @@ export default function Activities() {
   const [sortBy, setSortBy] = useLocalStorage<string>('atrs_activities_sortBy', 'activityDate');
   const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_activities_sortOrder', 'desc');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
+  const { open: openWpImport } = useWpImport();
 
   const queryParams: any = { page, limit: 10, sortBy, sortOrder };
   if (productId && productId !== 'all') queryParams.productId = productId;
@@ -85,11 +89,27 @@ export default function Activities() {
     return <ArrowUpDown className={`w-4 h-4 ml-1 ${sortBy === field ? 'opacity-100' : 'opacity-30'}`} />;
   };
 
-  const { data: productsData } = useQuery({
+  const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => getProducts(),
   });
   const products = productsData?.data || [];
+  const hasProducts = products.length > 0;
+
+  // Lets the user create their first product without leaving the Changelogs page.
+  const createProductMutation = useMutation({
+    mutationFn: createProduct,
+    onSuccess: () => {
+      playSound('success');
+      toast.success('Product created — you can now add changelog entries');
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      setIsAddProductOpen(false);
+    },
+    onError: () => {
+      playSound('error');
+      toast.error('Failed to create product');
+    },
+  });
 
   const { data: usersData } = useQuery({
     queryKey: ['users'],
@@ -197,16 +217,45 @@ export default function Activities() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Add New Changelog Entry</DialogTitle>
+              <DialogTitle>{hasProducts ? 'Add New Changelog Entry' : 'Add a product first'}</DialogTitle>
             </DialogHeader>
-            <ActivityForm onSubmit={(data: any) => {
-              if(!data.mediaType) data.mediaType = null;
-              if(!data.mediaUrl) data.mediaUrl = null;
-              createMutation.mutate(data);
-            }} />
+            {productsLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading products…</p>
+            ) : hasProducts ? (
+              <ActivityForm onSubmit={(data: any) => {
+                if(!data.mediaType) data.mediaType = null;
+                if(!data.mediaUrl) data.mediaUrl = null;
+                createMutation.mutate(data);
+              }} />
+            ) : (
+              <div className="flex flex-col items-center text-center py-6 px-2">
+                <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-4">
+                  <PackageOpen className="w-8 h-8" />
+                </div>
+                <h3 className="font-semibold text-lg">You need a product first</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Changelog entries always belong to a product. Add your first product and you'll be
+                  able to log changes, releases, and notes against it.
+                </p>
+                <Button
+                  className="mt-5"
+                  onClick={() => { setIsAddOpen(false); setIsAddProductOpen(true); }}
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Add a product
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
+
+      <AddProductDialog
+        open={isAddProductOpen}
+        onOpenChange={setIsAddProductOpen}
+        onImport={openWpImport}
+        onCreate={(data: any) => createProductMutation.mutate(data)}
+      />
 
       <div className="bg-card rounded-lg border overflow-hidden">
         {/* Row 1: Search + Dropdowns */}
