@@ -15,6 +15,15 @@ import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
 import type { AuthUser } from '../types/auth';
 
+export type ImportProgress = {
+  type: 'info' | 'success' | 'warn' | 'error';
+  slug?: string;
+  step: string;
+  message: string;
+  pluginIndex?: number;
+  totalPlugins?: number;
+};
+
 export class ProductService {
   private repository: ProductRepository;
 
@@ -278,18 +287,36 @@ export class ProductService {
     });
   }
 
-  async importFromWpOrg(username: string, slugs: string[], user: AuthUser): Promise<any> {
+  async importFromWpOrg(
+    username: string,
+    slugs: string[],
+    user: AuthUser,
+    onProgress?: (event: ImportProgress) => void,
+    isCancelled?: () => boolean
+  ): Promise<any> {
+    const emit = (e: ImportProgress) => { if (onProgress) onProgress(e); };
+    const cancelled = () => (isCancelled ? isCancelled() : false);
+
+    emit({ type: 'info', step: 'fetch-api', message: `Fetching plugins from WordPress.org for user "${username}"...` });
     console.log(`[WP Import] importFromWpOrg called: username=${username}, slugs=${JSON.stringify(slugs)}`);
     const plugins = await this.fetchWpOrgPlugins(username);
     console.log(`[WP Import] WP API returned ${plugins.length} plugins`);
     const toImport = plugins.filter((p: any) => slugs.includes(p.slug));
+    emit({ type: 'info', step: 'fetch-api', message: `WordPress.org API returned ${plugins.length} plugins, ${toImport.length} selected for import` });
     console.log(`[WP Import] ${toImport.length} plugins to import: ${toImport.map((p: any) => p.slug).join(', ')}`);
 
     const created: any[] = [];
     const updated: any[] = [];
     const errors: string[] = [];
 
-    for (const plugin of toImport) {
+    let wasCancelled = false;
+    for (let idx = 0; idx < toImport.length; idx++) {
+      // Cancellation is checked between plugins; the in-flight plugin (if any)
+      // always finishes so we never leave a half-written product behind.
+      if (cancelled()) { wasCancelled = true; break; }
+
+      const plugin = toImport[idx];
+      const pctx = { slug: plugin.slug, pluginIndex: idx + 1, totalPlugins: toImport.length };
       const tags = Object.keys(plugin.tags || {});
       const isBlock = tags.some(t =>
         ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
@@ -297,10 +324,12 @@ export class ProductService {
 
       try {
         // Build version data from SVN WebDAV, and fetch readme in parallel.
+        emit({ ...pctx, type: 'info', step: 'fetch-svn', message: `Fetching SVN version tags & readme.txt...` });
         const [tracTags, readme] = await Promise.all([
           this.fetchSvnVersionData(plugin.slug),
           this.fetchSvnReadme(plugin.slug),
         ]);
+        emit({ ...pctx, type: 'info', step: 'fetch-svn', message: `Found ${tracTags.length} version tags, readme ${readme ? `fetched (${(readme.length / 1024).toFixed(1)} KB)` : 'not found'}` });
 
         const wpData = {
           name: plugin.name,
@@ -315,22 +344,27 @@ export class ProductService {
         const existing = await Product.findOne({ ownerId: user.id, wpOrgSlug: plugin.slug });
         let product: any;
         if (existing) {
+          emit({ ...pctx, type: 'info', step: 'db-sync', message: `Updating existing product in database...` });
           product = await this.repository.update(existing._id.toString(), wpData);
           if (product) {
             await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product from WordPress.org import', { id: user.id, name: user.name });
             updated.push(product);
+            emit({ ...pctx, type: 'success', step: 'db-sync', message: `Product updated successfully` });
           }
         } else {
+          emit({ ...pctx, type: 'info', step: 'db-sync', message: `Creating new product in database...` });
           product = await this.createProduct({
             ...wpData,
             githubUrl: `https://wordpress.org/plugins/${plugin.slug}`,
           }, user);
           created.push(product);
+          emit({ ...pctx, type: 'success', step: 'db-sync', message: `Product created successfully` });
         }
 
         // Sync Version records from Trac tags: create new ones, update existing
         // ones that are missing releasedAt / notes metadata.
         if (product && tracTags.length > 0) {
+          emit({ ...pctx, type: 'info', step: 'version-sync', message: `Syncing ${tracTags.length} versions...` });
           const existingVersions = await Version.find({ productId: product._id }).lean();
           const existingByLabel = new Map(existingVersions.map((v: any) => [v.label, v]));
           console.log(`[WP Import] ${plugin.slug}: ${tracTags.length} trac tags, ${existingVersions.length} existing versions`);
@@ -376,15 +410,56 @@ export class ProductService {
             await Version.bulkWrite(bulkOps);
             console.log(`[WP Import] ${plugin.slug}: updated ${bulkOps.length} versions`);
           }
+          emit({ ...pctx, type: 'success', step: 'version-sync', message: `Versions synced: ${toInsert.length} inserted, ${bulkOps.length} updated` });
         } else {
+          emit({ ...pctx, type: 'info', step: 'version-sync', message: `No version tags to sync` });
           console.log(`[WP Import] ${plugin.slug}: skipping version sync (product=${!!product}, tracTags=${tracTags.length})`);
         }
+
+        emit({ ...pctx, type: 'success', step: 'done', message: `✓ Import complete` });
       } catch (err: any) {
         errors.push(`${plugin.slug}: ${err.message}`);
+        emit({ ...pctx, type: 'error', step: 'error', message: `✗ Failed: ${err.message}` });
       }
     }
 
-    return { created, updated, errors };
+    // If the import was cancelled, roll back every product created in this
+    // session (cascading their versions). Products that already existed and
+    // were merely *updated* are left untouched — only new rows are removed.
+    let rolledBack = 0;
+    if (wasCancelled) {
+      emit({
+        type: 'warn',
+        step: 'cancel',
+        message: created.length
+          ? `Import cancelled — rolling back ${created.length} newly created product(s)...`
+          : `Import cancelled — nothing to roll back.`,
+      });
+
+      for (let i = 0; i < created.length; i++) {
+        const p = created[i];
+        const rctx = { slug: p.wpOrgSlug, pluginIndex: i + 1, totalPlugins: created.length };
+        emit({ ...rctx, type: 'info', step: 'rollback', message: `Removing created product "${p.name}"...` });
+        try {
+          await this.deleteProduct(p._id.toString(), user);
+          rolledBack++;
+          emit({ ...rctx, type: 'success', step: 'rollback', message: `Removed "${p.name}"` });
+        } catch (err: any) {
+          errors.push(`rollback ${p.wpOrgSlug}: ${err.message}`);
+          emit({ ...rctx, type: 'error', step: 'rollback', message: `Failed to remove "${p.name}": ${err.message}` });
+        }
+      }
+
+      const cancelSummary = `Import cancelled: rolled back ${rolledBack} created, kept ${updated.length} updated, ${errors.length} error(s)`;
+      emit({ type: 'warn', step: 'summary', message: cancelSummary });
+      // Created rows no longer exist — report them as rolled back, not created.
+      return { created: [], updated, errors, cancelled: true, rolledBack };
+    }
+
+    const summary = `Import finished: ${created.length} created, ${updated.length} updated, ${errors.length} error(s)`;
+    emit({ type: errors.length > 0 ? 'warn' : 'success', step: 'summary', message: summary });
+
+    return { created, updated, errors, cancelled: false, rolledBack: 0 };
   }
 
   async deleteProduct(id: string, user: AuthUser): Promise<IProduct | null> {

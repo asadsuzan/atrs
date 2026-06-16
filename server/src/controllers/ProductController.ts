@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import { ProductService } from '../services/ProductService';
+import { importSessionManager } from '../services/ImportSessionManager';
 
 const productService = new ProductService();
 
@@ -80,16 +82,83 @@ export const wpOrgPreview = async (req: Request, res: Response, next: NextFuncti
 };
 
 export const importFromWpOrg = async (req: Request, res: Response, next: NextFunction) => {
+  console.log('[WP Import Controller] POST /import-from-wporg hit, body:', JSON.stringify(req.body));
+  const { username, slugs } = req.body;
+  if (!username) return res.status(400).json({ message: 'username is required' });
+  if (!Array.isArray(slugs) || slugs.length === 0) return res.status(400).json({ message: 'slugs must be a non-empty array' });
+
+  // Stream import progress to the client as Server-Sent Events.
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Disable output buffering in Nginx / proxy layers
+  });
+  // Flush headers immediately so the client's reader starts receiving.
+  res.write(': ok\n\n');
+  req.socket.setKeepAlive(true);
+  req.socket.setTimeout(0);
+
+  // Register a cancellable session and tell the client its id up front so it
+  // can hit the cancel endpoint without tearing down this stream.
+  const sessionId = randomUUID();
+  importSessionManager.create(sessionId, req.user!.id);
+
+  // If the client disconnects abruptly (closes the dialog / tab) rather than
+  // cancelling gracefully, treat it as a cancel so the import loop stops and
+  // rolls back its created products. We can't stream those events to a dead
+  // socket, but the DB is still cleaned up.
+  let clientGone = false;
+  req.on('close', () => {
+    clientGone = true;
+    importSessionManager.cancel(sessionId, req.user!.id);
+  });
+
+  const send = (event: string, data: unknown) => {
+    if (clientGone || res.writableEnded) return;
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  send('session', { sessionId });
+
   try {
-    console.log('[WP Import Controller] POST /import-from-wporg hit, body:', JSON.stringify(req.body));
-    const { username, slugs } = req.body;
-    if (!username) return res.status(400).json({ message: 'username is required' });
-    if (!Array.isArray(slugs) || slugs.length === 0) return res.status(400).json({ message: 'slugs must be a non-empty array' });
-    const result = await productService.importFromWpOrg(username, slugs, req.user!);
-    console.log('[WP Import Controller] import result:', JSON.stringify({ created: result.created.length, updated: result.updated.length, errors: result.errors }));
-    res.status(200).json(result);
-  } catch (error) {
+    const result = await productService.importFromWpOrg(
+      username,
+      slugs,
+      req.user!,
+      (progress) => send('progress', progress),
+      () => importSessionManager.isCancelled(sessionId),
+    );
+    console.log('[WP Import Controller] import result:', JSON.stringify({ created: result.created.length, updated: result.updated.length, errors: result.errors, cancelled: result.cancelled, rolledBack: result.rolledBack }));
+    send('complete', {
+      created: result.created.length,
+      updated: result.updated.length,
+      errors: result.errors,
+      cancelled: result.cancelled,
+      rolledBack: result.rolledBack,
+    });
+  } catch (error: any) {
     console.error('[WP Import Controller] error:', error);
+    send('error', { message: error?.message || 'Import failed' });
+  } finally {
+    importSessionManager.delete(sessionId);
+    if (!res.writableEnded) res.end();
+  }
+};
+
+export const cancelWpOrgImport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sessionId } = req.body;
+    if (!sessionId || typeof sessionId !== 'string') {
+      return res.status(400).json({ message: 'sessionId is required' });
+    }
+    const found = importSessionManager.cancel(sessionId, req.user!.id);
+    if (!found) {
+      // Session already finished or never existed — nothing to cancel.
+      return res.status(404).json({ message: 'Import session not found' });
+    }
+    res.status(200).json({ message: 'Cancellation requested' });
+  } catch (error) {
     next(error);
   }
 };
