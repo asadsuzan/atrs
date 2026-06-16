@@ -4,11 +4,12 @@ import {
   LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon,
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
-  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone,
+  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User,
 } from 'lucide-react';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
 import { getActivities } from '../../services/activities';
+import { getUsers } from '../../services/users';
 import { getNavSettings } from '../../services/config';
 import { useAddProduct } from '../../contexts/AddProductContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -191,6 +192,31 @@ function ChangelogProductItem({ product, pathname, hash }: { product: any; pathn
   );
 }
 
+/**
+ * Collapsible per-owner group used in the admin sidebar to bucket nested items
+ * (products / changelogs) by the user they belong to. Module-scope so each
+ * group's open state survives the parent's re-renders on navigation.
+ */
+function UserNavGroup({ name, count, defaultOpen, children }: { name: string; count: number; defaultOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex items-center gap-2 w-full py-1.5 pl-6 pr-3 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
+      >
+        <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+        <User className="w-3.5 h-3.5 shrink-0" />
+        <span className="truncate flex-1 text-left">{name}</span>
+        <span className="text-xs text-muted-foreground/70 shrink-0">{count}</span>
+      </button>
+      {open && <div className="flex flex-col gap-0.5">{children}</div>}
+    </div>
+  );
+}
+
 interface Props {
   isCollapsed: boolean;
   isAdmin: boolean;
@@ -208,6 +234,23 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
     queryFn: () => getProducts({ limit: 100 }),
   });
   const products: any[] = productsData?.data || [];
+
+  // Admins see every owner's products, so we group the nested items by user.
+  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });
+  const userNameMap = useMemo(() => new Map((users as any[]).map((u) => [u._id, u.name])), [users]);
+  const ownerId = (p: any) => (p.ownerId && typeof p.ownerId === 'object' ? (p.ownerId._id || String(p.ownerId)) : String(p.ownerId));
+  const productGroups = useMemo(() => {
+    if (!isAdmin) return [] as [string, any[]][];
+    const map = new Map<string, any[]>();
+    for (const p of products) {
+      const oid = ownerId(p);
+      if (!map.has(oid)) map.set(oid, []);
+      map.get(oid)!.push(p);
+    }
+    return Array.from(map.entries()).sort((a, b) =>
+      (userNameMap.get(a[0]) || '').localeCompare(userNameMap.get(b[0]) || '')
+    );
+  }, [products, isAdmin, userNameMap]);
 
   // Admin-configured nested-navigation mode (expanded | collapsed | disabled).
   const { data: navSettings } = useQuery({ queryKey: ['nav-settings'], queryFn: getNavSettings });
@@ -340,6 +383,14 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
                 Array.from({ length: 4 }).map((_, i) => <ChildSkeleton key={i} />)
               ) : products.length === 0 ? (
                 <EmptyAction label="Add product" onClick={openAddProduct} />
+              ) : isAdmin ? (
+                productGroups.map(([oid, ps]) => (
+                  <UserNavGroup key={oid} name={userNameMap.get(oid) || 'Unknown user'} count={ps.length} defaultOpen={navMode !== 'collapsed'}>
+                    {ps.map((p) => (
+                      <ProductTabsItem key={p._id} product={p} pathname={location.pathname} search={location.search} />
+                    ))}
+                  </UserNavGroup>
+                ))
               ) : (
                 products.map((p) => (
                   <ProductTabsItem key={p._id} product={p} pathname={location.pathname} search={location.search} />
@@ -362,6 +413,14 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
                 Array.from({ length: 4 }).map((_, i) => <ChildSkeleton key={i} />)
               ) : products.length === 0 ? (
                 <EmptyAction label="Add changelog" onClick={openAddProductFirst} />
+              ) : isAdmin ? (
+                productGroups.map(([oid, ps]) => (
+                  <UserNavGroup key={oid} name={userNameMap.get(oid) || 'Unknown user'} count={ps.length} defaultOpen={navMode !== 'collapsed'}>
+                    {ps.map((p) => (
+                      <ChangelogProductItem key={p._id} product={p} pathname={location.pathname} hash={location.hash} />
+                    ))}
+                  </UserNavGroup>
+                ))
               ) : (
                 products.map((p) => (
                   <ChangelogProductItem key={p._id} product={p} pathname={location.pathname} hash={location.hash} />

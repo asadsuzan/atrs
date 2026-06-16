@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Package, Activity, FileText, Settings, History, Calendar } from 'lucide-react';
+import { LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon, Users as UsersIcon, HelpCircle, Settings } from 'lucide-react';
 import { getProducts } from '../../services/products';
 import { getActivities } from '../../services/activities';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -21,7 +23,7 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  const { data: productsData } = useQuery({ queryKey: ['products'], queryFn: () => getProducts() });
+  const { data: productsData } = useQuery({ queryKey: ['products', 'palette'], queryFn: () => getProducts({ limit: 100 }) });
   const { data: activitiesData } = useQuery({ queryKey: ['activities'], queryFn: () => getActivities({ limit: -1 }) });
 
   const products = productsData?.data || [];
@@ -40,19 +42,30 @@ export function CommandPalette() {
         
         <CommandGroup heading="Navigation">
           <CommandItem onSelect={() => runCommand(() => navigate('/'))}>
-            <Calendar className="mr-2 h-4 w-4" /> Dashboard
+            <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/products'))}>
             <Package className="mr-2 h-4 w-4" /> Products
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/activities'))}>
-            <Activity className="mr-2 h-4 w-4" /> Activities
+            <Activity className="mr-2 h-4 w-4" /> Changelogs
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => navigate('/media'))}>
+            <ImageIcon className="mr-2 h-4 w-4" /> Media Library
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/reports'))}>
-            <FileText className="mr-2 h-4 w-4" /> Reports
+            <BarChart2 className="mr-2 h-4 w-4" /> Reports
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/audit-logs'))}>
             <History className="mr-2 h-4 w-4" /> Audit Logs
+          </CommandItem>
+          {isAdmin && (
+            <CommandItem onSelect={() => runCommand(() => navigate('/users'))}>
+              <UsersIcon className="mr-2 h-4 w-4" /> Users
+            </CommandItem>
+          )}
+          <CommandItem onSelect={() => runCommand(() => navigate('/help'))}>
+            <HelpCircle className="mr-2 h-4 w-4" /> Help &amp; Demos
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/settings'))}>
             <Settings className="mr-2 h-4 w-4" /> Settings
