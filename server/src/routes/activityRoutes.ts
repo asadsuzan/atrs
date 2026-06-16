@@ -10,6 +10,7 @@ const router = Router();
 
 router.post('/bulk-update', validate(bulkUpdateActivitiesSchema), ActivityController.bulkUpdateActivities);
 router.delete('/bulk-delete', validate(bulkDeleteActivitiesSchema), ActivityController.bulkDeleteActivities);
+router.post('/bulk-delete-stream', ActivityController.bulkDeleteActivitiesStream);
 router.post('/', validate(createActivitySchema), ActivityController.createActivity);
 router.get('/', ActivityController.getActivities);
 router.get('/:id', validate(idParamSchema), ActivityController.getActivityById);

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { ProductService } from '../services/ProductService';
 import { importSessionManager } from '../services/ImportSessionManager';
+import { runStreamJob } from '../utils/sseStream';
 
 const productService = new ProductService();
 
@@ -68,6 +69,48 @@ export const bulkDeleteProducts = async (req: Request, res: Response, next: Next
   } catch (error) {
     next(error);
   }
+};
+
+export const bulkDeleteProductsStream = async (req: Request, res: Response) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'ids must be a non-empty array' });
+  }
+
+  await runStreamJob(req, res, async ({ emit, isCancelled }) => {
+    emit({ type: 'info', step: 'start', message: `Deleting ${ids.length} product${ids.length !== 1 ? 's' : ''} and all their data...` });
+    let deleted = 0;
+    const errors: string[] = [];
+    let cancelled = false;
+
+    for (let i = 0; i < ids.length; i++) {
+      if (isCancelled()) { cancelled = true; break; }
+      const id = ids[i];
+      const ctx = { itemIndex: i + 1, totalItems: ids.length };
+      try {
+        const counts = await productService.getCascadeCounts(id);
+        emit({ ...ctx, type: 'info', step: 'delete', message: `Removing product + ${counts.activities} activities, ${counts.versions} versions, ${counts.marketing} marketing & assets...` });
+        const product = await productService.deleteProduct(id, req.user!);
+        if (product) {
+          deleted++;
+          emit({ ...ctx, type: 'success', step: 'delete', label: product.name, message: `✓ Deleted "${product.name}"` });
+        } else {
+          errors.push(`${id}: not found`);
+          emit({ ...ctx, type: 'warn', step: 'delete', message: `Product not found` });
+        }
+      } catch (err: any) {
+        errors.push(`${id}: ${err.message}`);
+        emit({ ...ctx, type: 'error', step: 'delete', message: `✗ Failed: ${err.message}` });
+      }
+    }
+
+    emit({
+      type: errors.length ? 'warn' : 'success',
+      step: 'summary',
+      message: `${cancelled ? 'Stopped' : 'Done'}: ${deleted} deleted, ${errors.length} error(s)`,
+    });
+    return { deleted, errors, cancelled, total: ids.length };
+  });
 };
 
 export const wpOrgPreview = async (req: Request, res: Response, next: NextFunction) => {

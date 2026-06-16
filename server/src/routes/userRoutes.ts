@@ -10,6 +10,7 @@ router.patch('/:id/suspend', UserController.suspendUser);
 router.patch('/:id/reactivate', UserController.reactivateUser);
 router.patch('/:id/role', UserController.setUserRole);
 router.post('/:id/reassign', UserController.reassignOwnership);
+router.post('/:id/delete-stream', UserController.deleteUserStream);
 router.delete('/:id', UserController.deleteUser);
 
 export default router;

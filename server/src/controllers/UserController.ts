@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/UserService';
+import { User } from '../models/User';
+import { runStreamJob } from '../utils/sseStream';
 
 const userService = new UserService();
 
@@ -55,6 +57,16 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
   } catch (error) {
     next(error);
   }
+};
+
+export const deleteUserStream = async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  // Pre-flight checks return clean JSON before the SSE stream opens.
+  const target = await User.findById(id);
+  if (!target) return res.status(404).json({ message: 'User not found' });
+  if (target.isRoot) return res.status(403).json({ message: 'The root administrator account cannot be deleted' });
+
+  await runStreamJob(req, res, (ctx) => userService.deleteUserCascade(id, req.user!, ctx));
 };
 
 export const reassignOwnership = async (req: Request, res: Response, next: NextFunction) => {

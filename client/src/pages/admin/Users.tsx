@@ -5,13 +5,13 @@ import {
   suspendUser,
   reactivateUser,
   setUserRole,
-  deleteUser,
 } from '@/services/users';
 import type { AuthUser } from '@/services/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useConfirm } from '@/contexts/ConfirmContext';
+import { useJobStream } from '@/contexts/JobStreamContext';
 import { ShieldCheck, UserCheck, UserX, Trash2, Crown } from 'lucide-react';
 import { playSound } from '@/lib/sound';
 
@@ -24,6 +24,7 @@ const statusVariant: Record<string, string> = {
 export default function Users() {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
+  const { runJob } = useJobStream();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
@@ -48,7 +49,6 @@ export default function Users() {
   const suspend = useMutation({ mutationFn: suspendUser });
   const reactivate = useMutation({ mutationFn: reactivateUser });
   const role = useMutation({ mutationFn: ({ id, r }: { id: string; r: 'admin' | 'user' }) => setUserRole(id, r) });
-  const remove = useMutation({ mutationFn: (id: string) => deleteUser(id) });
 
   const pending = users.filter((u) => u.status === 'pending');
   const others = users.filter((u) => u.status !== 'pending');
@@ -57,10 +57,19 @@ export default function Users() {
     const ok = await confirm({
       title: `Delete ${u.name}?`,
       description:
-        'This permanently removes the user account. Their products and activities are NOT deleted — reassign them first if needed.',
-      confirmText: 'Delete user',
+        'This permanently removes the user AND all of their products, changelogs, versions, marketing data and uploaded files. This action cannot be undone.',
+      confirmText: 'Delete user & data',
     });
-    if (ok) run(() => remove.mutateAsync(u._id), 'User deleted', 'delete');
+    if (!ok) return;
+    runJob({
+      title: `Deleting ${u.name}`,
+      url: `/users/${u._id}/delete-stream`,
+      noun: 'product',
+      onDone: () => {
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+      },
+    });
   };
 
   const Row = ({ u }: { u: AuthUser }) => (

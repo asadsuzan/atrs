@@ -1,41 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  wpOrgPreview,
-  importFromWpOrgStream,
-  cancelImportSession,
-  type ImportProgress,
-  type ImportSummary,
-} from '../../services/products';
+import { useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
-import { Loader2, Download, Globe, RefreshCw, Terminal } from 'lucide-react';
-import { playSound } from '@/lib/sound';
-
-interface WpPlugin {
-  slug: string;
-  name: string;
-  shortDescription: string;
-  icon: string;
-  category: 'plugin' | 'block';
-  alreadyImported: boolean;
-}
-
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-type LogLine = {
-  type: ImportProgress['type'];
-  message: string;
-  slug?: string;
-  timestamp: string;
-};
+import { Loader2, Download, Globe, RefreshCw, Terminal, Minus } from 'lucide-react';
+import { useWpImport } from '../../contexts/WpImportContext';
+import { type ImportProgress } from '../../services/products';
 
 const LOG_STYLES: Record<ImportProgress['type'], { color: string; icon: string }> = {
   info: { color: 'text-slate-400', icon: 'ℹ' },
@@ -44,174 +15,54 @@ const LOG_STYLES: Record<ImportProgress['type'], { color: string; icon: string }
   error: { color: 'text-red-400', icon: '✗' },
 };
 
-export function WpOrgImportDialog({ open, onOpenChange }: Props) {
-  const queryClient = useQueryClient();
-  const [username, setUsername] = useState('');
-  const [plugins, setPlugins] = useState<WpPlugin[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [fetched, setFetched] = useState(false);
+export function WpOrgImportDialog() {
+  const {
+    isOpen, close, minimize,
+    username, setUsername, plugins, selected, fetched, previewLoading, fetchPlugins,
+    toggle, toggleAll,
+    isImporting, isCancelling, logs, progress, summary, startImport, requestCancel,
+  } = useWpImport();
 
-  // Live-import state
-  const [isImporting, setIsImporting] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [logs, setLogs] = useState<LogLine[]>([]);
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
-  const [summary, setSummary] = useState<ImportSummary | null>(null);
-
-  const abortRef = useRef<AbortController | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll the console to the bottom as new lines arrive.
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [logs]);
-
-  // Abort any in-flight import if the component unmounts.
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  const previewMutation = useMutation({
-    mutationFn: () => wpOrgPreview(username.trim()),
-    onSuccess: (data: WpPlugin[]) => {
-      setPlugins(data);
-      // Pre-select all (new and existing), since existing will now be updated
-      setSelected(new Set(data.map(p => p.slug)));
-      setFetched(true);
-      if (data.length === 0) toast.info('No plugins found for that username.');
-      else playSound('success');
-    },
-    onError: () => {
-      playSound('error');
-      toast.error('Failed to fetch plugins from WordPress.org');
-    },
-  });
-
-  const startImport = async () => {
-    setIsImporting(true);
-    setIsCancelling(false);
-    setLogs([]);
-    setSummary(null);
-    setProgress(null);
-    sessionIdRef.current = null;
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const pushLog = (line: Omit<LogLine, 'timestamp'>) => {
-      const timestamp = new Date().toLocaleTimeString([], { hour12: false });
-      setLogs(prev => [...prev, { ...line, timestamp }]);
-    };
-
-    try {
-      await importFromWpOrgStream(
-        username.trim(),
-        Array.from(selected),
-        {
-          onSession: (id) => { sessionIdRef.current = id; },
-          onProgress: (e) => {
-            if (e.pluginIndex && e.totalPlugins) {
-              setProgress({ current: e.pluginIndex, total: e.totalPlugins });
-            }
-            pushLog({ type: e.type, message: e.message, slug: e.slug });
-          },
-          onComplete: (result) => {
-            setSummary(result);
-            playSound(result.errors.length ? 'error' : 'success');
-            if (result.cancelled) {
-              toast.info(`Import cancelled — rolled back ${result.rolledBack ?? 0} product(s)`);
-            } else {
-              const parts: string[] = [];
-              if (result.created) parts.push(`${result.created} created`);
-              if (result.updated) parts.push(`${result.updated} updated`);
-              toast.success(parts.length ? parts.join(', ') : 'Import complete');
-              if (result.errors.length) toast.error(`${result.errors.length} error(s) during import`);
-            }
-            // Created products may have been added then rolled back — refresh either way.
-            queryClient.invalidateQueries({ queryKey: ['products'] });
-          },
-          onError: (message) => {
-            playSound('error');
-            pushLog({ type: 'error', message });
-            toast.error(message);
-          },
-        },
-        controller.signal,
-      );
-    } catch (err: any) {
-      // AbortError fires when the user hard-closes the dialog mid-import — ignore it.
-      if (err?.name !== 'AbortError') {
-        playSound('error');
-        pushLog({ type: 'error', message: err?.message || 'Import failed' });
-        toast.error('Import failed');
-      }
-    } finally {
-      setIsImporting(false);
-      setIsCancelling(false);
-      abortRef.current = null;
-    }
-  };
-
-  // Graceful cancel: signal the server to stop and roll back, but keep the
-  // stream open so rollback progress streams into the console. The stream ends
-  // on its own once rollback finishes (onComplete with cancelled: true).
-  const requestCancel = async () => {
-    const sessionId = sessionIdRef.current;
-    if (!sessionId) {
-      // Stream hasn't reported its session yet — fall back to a hard abort.
-      abortRef.current?.abort();
-      return;
-    }
-    setIsCancelling(true);
-    try {
-      await cancelImportSession(sessionId);
-    } catch {
-      toast.error('Failed to request cancellation');
-      setIsCancelling(false);
-    }
-  };
-
-  const handleClose = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    sessionIdRef.current = null;
-    setUsername('');
-    setPlugins([]);
-    setSelected(new Set());
-    setFetched(false);
-    setIsImporting(false);
-    setIsCancelling(false);
-    setLogs([]);
-    setProgress(null);
-    setSummary(null);
-    onOpenChange(false);
-  };
-
-  const toggleAll = () => {
-    if (plugins.every(p => selected.has(p.slug))) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(plugins.map(p => p.slug)));
-    }
-  };
-
-  const toggle = (slug: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(slug) ? next.delete(slug) : next.add(slug);
-      return next;
-    });
-  };
+  }, [logs, isOpen]);
 
   const allSelected = plugins.length > 0 && plugins.every(p => selected.has(p.slug));
   const toUpdate = Array.from(selected).filter(s => plugins.find(p => p.slug === s)?.alreadyImported).length;
   const toCreate = selected.size - toUpdate;
 
-  // Console view (during/after import)
+  // Console view is shown during and after an import.
   const showConsole = isImporting || logs.length > 0;
 
+  // Closing the window (X / Escape / outside click) keeps a running import
+  // alive by minimizing it; otherwise it fully resets.
+  const handleOpenChange = (next: boolean) => {
+    if (next) return;
+    if (isImporting) minimize();
+    else close();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        {/* Minimize button — only meaningful once an import is running/finished;
+            sits to the left of the built-in close (X). */}
+        {showConsole && (
+          <button
+            type="button"
+            onClick={minimize}
+            aria-label="Minimize"
+            title="Minimize to floating window"
+            className="absolute right-12 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <Minus className="h-4 w-4" />
+            <span className="sr-only">Minimize</span>
+          </button>
+        )}
+
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {showConsole ? <Terminal className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
@@ -299,7 +150,7 @@ export function WpOrgImportDialog({ open, onOpenChange }: Props) {
                   ) : 'Cancel & roll back'}
                 </Button>
               ) : (
-                <Button onClick={handleClose}>Close</Button>
+                <Button onClick={close}>Close</Button>
               )}
             </div>
           </>
@@ -309,14 +160,14 @@ export function WpOrgImportDialog({ open, onOpenChange }: Props) {
               <Input
                 placeholder="WordPress.org username (e.g. bplugins)"
                 value={username}
-                onChange={e => { setUsername(e.target.value); setFetched(false); setPlugins([]); }}
-                onKeyDown={e => e.key === 'Enter' && username.trim() && previewMutation.mutate()}
+                onChange={e => setUsername(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && username.trim() && fetchPlugins()}
               />
               <Button
-                onClick={() => previewMutation.mutate()}
-                disabled={!username.trim() || previewMutation.isPending}
+                onClick={fetchPlugins}
+                disabled={!username.trim() || previewLoading}
               >
-                {previewMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
+                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
               </Button>
             </div>
 
@@ -382,7 +233,7 @@ export function WpOrgImportDialog({ open, onOpenChange }: Props) {
                     </p>
                   ) : <span />}
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleClose}>Cancel</Button>
+                    <Button variant="outline" onClick={close}>Cancel</Button>
                     <Button
                       onClick={startImport}
                       disabled={selected.size === 0}

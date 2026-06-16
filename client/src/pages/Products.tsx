@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, deleteProduct, updateProduct, bulkDeleteProducts } from '../services/products';
+import { getProducts, createProduct, deleteProduct, updateProduct } from '../services/products';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
 import { playSound } from '@/lib/sound';
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductForm } from '../components/products/ProductForm';
-import { WpOrgImportDialog } from '../components/products/WpOrgImportDialog';
+import { useWpImport } from '../contexts/WpImportContext';
+import { useJobStream } from '../contexts/JobStreamContext';
 import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -34,7 +35,8 @@ export default function Products() {
   const [ownerId, setOwnerId] = useState('all');
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
+  const { open: openWpImport } = useWpImport();
+  const { runJob, isRunning: isJobRunning } = useJobStream();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -130,32 +132,22 @@ export default function Products() {
     }
   });
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: (ids: string[]) => bulkDeleteProducts(ids),
-    onSuccess: (result) => {
-      if (result.errors.length) {
-        playSound('error');
-        toast.error(`${result.errors.length} deletion(s) failed`);
-      } else {
-        playSound('delete');
-      }
-      toast.success(`${result.deleted} product${result.deleted !== 1 ? 's' : ''} deleted`);
-      setSelectedIds(new Set());
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-    },
-    onError: () => {
-      playSound('error');
-      toast.error("Bulk delete failed");
-    }
-  });
-
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
     if (!await confirm({
       title: `Delete ${ids.length} product${ids.length !== 1 ? 's' : ''}`,
       description: `This will permanently delete ${ids.length} product${ids.length !== 1 ? 's' : ''} along with all their activities, versions, marketing data, and media files. This action cannot be undone.`,
     })) return;
-    bulkDeleteMutation.mutate(ids);
+    runJob({
+      title: `Deleting ${ids.length} product${ids.length !== 1 ? 's' : ''}`,
+      url: '/products/bulk-delete-stream',
+      body: { ids },
+      noun: 'product',
+      onDone: () => {
+        setSelectedIds(new Set());
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+      },
+    });
   };
 
   return (
@@ -163,7 +155,7 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Products</h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+          <Button variant="outline" onClick={openWpImport}>
             <Download className="w-4 h-4 mr-2" /> Import from WP.org
           </Button>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -180,7 +172,6 @@ export default function Products() {
             </DialogContent>
           </Dialog>
         </div>
-        <WpOrgImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
@@ -237,10 +228,10 @@ export default function Products() {
             variant="destructive"
             size="sm"
             onClick={handleBulkDelete}
-            disabled={bulkDeleteMutation.isPending}
+            disabled={isJobRunning}
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            {bulkDeleteMutation.isPending ? 'Deleting…' : `Delete ${selectedIds.size}`}
+            Delete {selectedIds.size}
           </Button>
         </div>
       )}

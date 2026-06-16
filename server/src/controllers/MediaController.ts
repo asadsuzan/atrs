@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { MediaService } from '../services/MediaService';
+import { runStreamJob } from '../utils/sseStream';
 
 const mediaService = new MediaService();
 
@@ -33,4 +34,38 @@ export const purgeOrphaned = async (req: Request, res: Response, next: NextFunct
   } catch (error) {
     next(error);
   }
+};
+
+export const purgeOrphanedStream = async (req: Request, res: Response) => {
+  await runStreamJob(req, res, async ({ emit, isCancelled }) => {
+    emit({ type: 'info', step: 'scan', message: 'Scanning uploads for unused files...' });
+    const all = await mediaService.getAllMedia();
+    const orphans = all.filter((m) => m.isOrphaned);
+    emit({ type: 'info', step: 'scan', message: `Found ${orphans.length} unused file${orphans.length !== 1 ? 's' : ''}` });
+
+    let deleted = 0;
+    const errors: string[] = [];
+    let cancelled = false;
+
+    for (let i = 0; i < orphans.length; i++) {
+      if (isCancelled()) { cancelled = true; break; }
+      const file = orphans[i];
+      const ctx = { itemIndex: i + 1, totalItems: orphans.length };
+      try {
+        await mediaService.deleteMedia(file.filename, true);
+        deleted++;
+        emit({ ...ctx, type: 'success', step: 'delete', label: file.filename, message: `✓ Removed ${file.filename} (${(file.size / 1024).toFixed(1)} KB)` });
+      } catch (err: any) {
+        errors.push(`${file.filename}: ${err.message}`);
+        emit({ ...ctx, type: 'error', step: 'delete', message: `✗ Failed ${file.filename}: ${err.message}` });
+      }
+    }
+
+    emit({
+      type: errors.length ? 'warn' : 'success',
+      step: 'summary',
+      message: `${cancelled ? 'Stopped' : 'Done'}: purged ${deleted} file(s), ${errors.length} error(s)`,
+    });
+    return { deleted, errors, cancelled, total: orphans.length };
+  });
 };

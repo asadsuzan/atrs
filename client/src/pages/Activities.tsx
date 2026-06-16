@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities, bulkDeleteActivities } from '../services/activities';
+import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities } from '../services/activities';
 import { getProducts } from '../services/products';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,11 +22,13 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { useJobStream } from '../contexts/JobStreamContext';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Activities() {
   const { confirm } = useConfirm();
+  const { runJob } = useJobStream();
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const [productId, setProductId] = useLocalStorage<string>('atrs_activities_productId', 'all');
@@ -151,19 +153,18 @@ export default function Activities() {
     }
   });
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: bulkDeleteActivities,
-    onSuccess: () => {
-      playSound('delete');
-      toast.success("Changelog entries deleted");
-      setSelectedIds([]);
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-    },
-    onError: () => {
-      playSound('error');
-      toast.error("Failed to delete changelog entries");
-    }
-  });
+  const runBulkDelete = (ids: string[]) => {
+    runJob({
+      title: `Deleting ${ids.length} changelog ${ids.length !== 1 ? 'entries' : 'entry'}`,
+      url: '/activities/bulk-delete-stream',
+      body: { ids },
+      noun: 'entry',
+      onDone: () => {
+        setSelectedIds([]);
+        queryClient.invalidateQueries({ queryKey: ['activities'] });
+      },
+    });
+  };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) setSelectedIds(activities.map((a: any) => a._id));
@@ -501,8 +502,8 @@ export default function Activities() {
             Mark Unreleased
           </Button>
           <Button variant="destructive" size="sm" onClick={async () => {
-            if (await confirm({ title: 'Delete Changelog Entries', description: `Are you sure you want to delete ${selectedIds.length} changelog entries?` })) {
-              bulkDeleteMutation.mutate(selectedIds);
+            if (await confirm({ title: 'Delete Changelog Entries', description: `Are you sure you want to delete ${selectedIds.length} changelog entries? Their media files will also be removed.` })) {
+              runBulkDelete(selectedIds);
             }
           }}>
             Delete

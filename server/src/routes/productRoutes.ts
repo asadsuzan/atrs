@@ -13,6 +13,7 @@ const router = Router();
 router.post('/', validate(createProductSchema), ProductController.createProduct);
 router.get('/', ProductController.getProducts);
 router.delete('/bulk', ProductController.bulkDeleteProducts);
+router.post('/bulk-delete-stream', ProductController.bulkDeleteProductsStream);
 router.get('/wporg-preview', ProductController.wpOrgPreview);
 router.post('/import-from-wporg', ProductController.importFromWpOrg);
 router.post('/import-from-wporg/cancel', ProductController.cancelWpOrgImport);

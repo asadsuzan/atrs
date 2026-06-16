@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMediaList, deleteMedia, purgeOrphanedMedia, type IMediaFile } from '../services/media';
+import { getMediaList, deleteMedia, type IMediaFile } from '../services/media';
+import { useJobStream } from '../contexts/JobStreamContext';
 import { getProducts } from '../services/products';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,7 @@ import { playSound } from '@/lib/sound';
 
 export default function MediaManager() {
   const queryClient = useQueryClient();
+  const { runJob } = useJobStream();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'image' | 'video' | 'gif'>('all');
   const [usageFilter, setUsageFilter] = useState<'all' | 'in-use' | 'orphaned'>('all');
@@ -57,20 +59,16 @@ export default function MediaManager() {
     }
   });
 
-  // Purge Mutation
-  const purgeMutation = useMutation({
-    mutationFn: purgeOrphanedMedia,
-    onSuccess: (data) => {
-      playSound('success');
-      toast.success(`Successfully purged ${data.count} unused files`);
-      queryClient.invalidateQueries({ queryKey: ['mediaList'] });
-      setIsPurging(false);
-    },
-    onError: (err: any) => {
-      playSound('error');
-      toast.error(err.message || 'Failed to purge unused files');
-    }
-  });
+  // Streamed bulk purge of unused (orphaned) media.
+  const startPurge = () => {
+    setIsPurging(false);
+    runJob({
+      title: 'Purging unused media',
+      url: '/media/purge-orphaned-stream',
+      noun: 'file',
+      onDone: () => queryClient.invalidateQueries({ queryKey: ['mediaList'] }),
+    });
+  };
 
   // Copy URL to Clipboard
   const handleCopyUrl = (url: string, filename: string) => {
@@ -554,10 +552,9 @@ export default function MediaManager() {
             </DialogClose>
             <Button
               variant="destructive"
-              disabled={purgeMutation.isPending}
-              onClick={() => purgeMutation.mutate()}
+              onClick={startPurge}
             >
-              {purgeMutation.isPending ? 'Purging...' : 'Confirm Purge'}
+              Confirm Purge
             </Button>
           </DialogFooter>
         </DialogContent>

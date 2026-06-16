@@ -498,6 +498,11 @@ export class ProductService {
 
   /** Cascade delete inside a Mongoose transaction (requires a replica set). */
   private async deleteProductTransactional(id: string, product: IProduct, user: AuthUser): Promise<IProduct | null> {
+    // Collect child media URLs BEFORE the cascade removes the docs, so the
+    // files can be cleaned up after the commit (the transaction can't include
+    // the filesystem).
+    const childMedia = await this.collectChildMediaUrls(id);
+
     const session = await Product.startSession();
     try {
       await session.withTransaction(async () => {
@@ -513,7 +518,44 @@ export class ProductService {
     // DB rows are gone and committed; now log + clean up files (best-effort,
     // outside the transaction since the filesystem can't participate in it).
     await this.afterDeleteCleanup(id, product, user);
+    deleteMediaFiles(childMedia);
     return product;
+  }
+
+  /** Public cascade counts for progress reporting (activities/versions/marketing). */
+  async getCascadeCounts(productId: string): Promise<{ activities: number; versions: number; marketing: number }> {
+    const [activities, versions, marketing] = await Promise.all([
+      Activity.countDocuments({ productId }),
+      Version.countDocuments({ productId }),
+      ProductMarketing.countDocuments({ productId }),
+    ]);
+    return { activities, versions, marketing };
+  }
+
+  /** Gathers every uploaded-media URL referenced by a product's activities and marketing doc. */
+  private async collectChildMediaUrls(productId: string): Promise<string[]> {
+    const urls: (string | undefined)[] = [];
+
+    const activities = await Activity.find({ productId }, 'mediaUrl mediaUrls items').lean();
+    for (const act of activities as any[]) {
+      urls.push(act.mediaUrl, ...(act.mediaUrls || []));
+      act.items?.forEach((item: any) => {
+        urls.push(item.mediaUrl, ...(item.mediaUrls || []));
+      });
+    }
+
+    const marketing = await ProductMarketing.find(
+      { productId },
+      'trailerVideo tutorialVideo thumbnailImage keyFeatures screenshots demos'
+    ).lean();
+    for (const mkt of marketing as any[]) {
+      urls.push(mkt.trailerVideo, mkt.tutorialVideo, mkt.thumbnailImage);
+      mkt.keyFeatures?.forEach((kf: any) => urls.push(kf.mediaUrl));
+      mkt.screenshots?.forEach((ss: any) => urls.push(ss.url));
+      mkt.demos?.forEach((d: any) => urls.push(d.icon));
+    }
+
+    return urls.filter(Boolean) as string[];
   }
 
   /**

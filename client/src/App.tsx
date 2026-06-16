@@ -26,6 +26,12 @@ import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { WpImportProvider } from './contexts/WpImportContext';
+import { WpOrgImportDialog } from './components/products/WpOrgImportDialog';
+import { WpImportMiniPlayer } from './components/products/WpImportMiniPlayer';
+import { JobStreamProvider } from './contexts/JobStreamContext';
+import { JobStreamDialog } from './components/jobs/JobStreamDialog';
+import { JobStreamMiniPlayer } from './components/jobs/JobStreamMiniPlayer';
 import { NotificationBell } from './components/layout/NotificationBell';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
@@ -252,12 +258,22 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <NotificationProvider>
-              <SmoothScroll>
-                <BrowserRouter>
-                  <AnimatedRoutes />
-                </BrowserRouter>
-              </SmoothScroll>
-              <Toaster />
+              <WpImportProvider>
+                <JobStreamProvider>
+                  <SmoothScroll>
+                    <BrowserRouter>
+                      <AnimatedRoutes />
+                    </BrowserRouter>
+                  </SmoothScroll>
+                  {/* Global streaming surfaces — persist across route changes so a
+                      minimized import/job keeps streaming from any page. */}
+                  <WpOrgImportDialog />
+                  <WpImportMiniPlayer />
+                  <JobStreamDialog />
+                  <JobStreamMiniPlayer />
+                  <Toaster />
+                </JobStreamProvider>
+              </WpImportProvider>
             </NotificationProvider>
           </AuthProvider>
         </QueryClientProvider>
