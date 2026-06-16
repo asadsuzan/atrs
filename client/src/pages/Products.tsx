@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, deleteProduct, updateProduct } from '../services/products';
+import { getProducts, deleteProduct, updateProduct } from '../services/products';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
 import { playSound } from '@/lib/sound';
@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductForm } from '../components/products/ProductForm';
-import { AddProductDialog } from '../components/products/AddProductDialog';
 import { ProductsEmptyState } from '../components/products/ProductsEmptyState';
+import { Pagination } from '@/components/ui/Pagination';
 import { useWpImport } from '../contexts/WpImportContext';
+import { useAddProduct } from '../contexts/AddProductContext';
 import { useJobStream } from '../contexts/JobStreamContext';
-import { Plus, Search, Edit2, Trash2, GitBranch, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, GitBranch, Globe } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -36,13 +37,14 @@ export default function Products() {
   const [status, setStatus] = useLocalStorage('atrs_products_status', 'all');
   const [ownerId, setOwnerId] = useState('all');
   const [page, setPage] = useState(1);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [limit, setLimit] = useLocalStorage('atrs_products_limit', 10);
   const { open: openWpImport } = useWpImport();
+  const { openAddProduct } = useAddProduct();
   const { runJob, isRunning: isJobRunning } = useJobStream();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const queryParams: any = { page, limit: 10 };
+  const queryParams: any = { page, limit };
   if (debouncedSearch) queryParams.search = debouncedSearch;
   if (category && category !== 'all') queryParams.category = category;
   if (status && status !== 'all') queryParams.status = status;
@@ -92,20 +94,6 @@ export default function Products() {
       return next;
     });
   };
-
-  const createMutation = useMutation({
-    mutationFn: createProduct,
-    onSuccess: () => {
-      playSound('success');
-      toast.success("Product created successfully");
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      setIsAddOpen(false);
-    },
-    onError: () => {
-      playSound('error');
-      toast.error("Failed to create product");
-    }
-  });
 
   const updateMutation = useMutation({
     mutationFn: updateProduct,
@@ -157,18 +145,11 @@ export default function Products() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Products</h2>
         <div className="flex gap-2">
-          <Button onClick={() => setIsAddOpen(true)}>
+          <Button onClick={openAddProduct}>
             <Plus className="w-4 h-4 mr-2" /> Add Product
           </Button>
         </div>
       </div>
-
-      <AddProductDialog
-        open={isAddOpen}
-        onOpenChange={setIsAddOpen}
-        onImport={openWpImport}
-        onCreate={(data: any) => createMutation.mutate(data)}
-      />
 
       <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
         <div className="relative flex-1">
@@ -233,7 +214,7 @@ export default function Products() {
       )}
 
       {!isLoading && !isError && products.length === 0 ? (
-        <ProductsEmptyState onAdd={() => setIsAddOpen(true)} onImport={openWpImport} />
+        <ProductsEmptyState onAdd={openAddProduct} onImport={openWpImport} />
       ) : (
       <>
       <div className="border rounded-md bg-card">
@@ -350,29 +331,13 @@ export default function Products() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="text-muted-foreground">
-          Page {page} of {totalPages}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        limit={limit}
+        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+      />
       </>
       )}
 

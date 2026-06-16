@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getVersions, createVersion, updateVersion, deleteVersion } from '../../services/versions';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { playSound } from '@/lib/sound';
+import { TableRowSkeleton } from '@/components/ui/skeletons';
+import { Pagination } from '@/components/ui/Pagination';
 
 export function VersionManager({ productId }: { productId: string }) {
   const queryClient = useQueryClient();
@@ -25,6 +27,16 @@ export function VersionManager({ productId }: { productId: string }) {
     queryKey: ['versions', productId],
     queryFn: () => getVersions(productId),
   });
+
+  // Client-side pagination (versions are returned in full).
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const allVersions: any[] = versions || [];
+  const totalPages = Math.max(1, Math.ceil(allVersions.length / limit));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+  const pagedVersions = allVersions.slice((page - 1) * limit, page * limit);
 
   const createMutation = useMutation({
     mutationFn: createVersion,
@@ -109,11 +121,11 @@ export function VersionManager({ productId }: { productId: string }) {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
-            ) : versions?.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} cols={5} />)
+            ) : allVersions.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center h-24">No versions found.</TableCell></TableRow>
             ) : (
-              versions?.map((version: any) => (
+              pagedVersions.map((version: any) => (
                 <TableRow key={version._id}>
                   <TableCell className="font-medium">{version.label}</TableCell>
                   <TableCell>{version.releasedAt ? new Date(version.releasedAt).toLocaleDateString() : 'Unreleased'}</TableCell>
@@ -137,6 +149,17 @@ export function VersionManager({ productId }: { productId: string }) {
           </TableBody>
         </Table>
       </div>
+
+      {allVersions.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          limit={limit}
+          onLimitChange={(l) => { setLimit(l); setPage(1); }}
+          total={allVersions.length}
+        />
+      )}
 
       <Dialog open={isOpen || !!editingVersion} onOpenChange={(open) => {
         if (!open) { setIsOpen(false); setEditingVersion(null); }

@@ -1,4 +1,4 @@
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
@@ -174,6 +174,16 @@ export default function ProductDetails() {
   });
 
   const location = useLocation();
+
+  // Allow the sidebar (and any link) to deep-link to a tab via ?tab=.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme') {
+      setActiveTab(tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     if (activitiesData && location.hash && activeTab === 'activities') {

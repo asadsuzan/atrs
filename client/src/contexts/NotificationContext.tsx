@@ -8,7 +8,7 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'user-activity' | 'access-change' | 'system';
+  type: 'user-activity' | 'access-change' | 'password-reset-request' | 'system';
   createdAt: Date;
   read: boolean;
 }
@@ -109,6 +109,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         refreshMe();
       } catch (err) {
         console.error('[SSE] Failed to parse access-change payload:', err);
+      }
+    });
+
+    // Password reset requests (admins only).
+    eventSource.addEventListener('password-reset-request', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newNotif: Notification = {
+          id: Math.random().toString(),
+          title: 'Password reset requested',
+          message: `${data.name} (${data.email}) requested a password reset.`,
+          type: 'password-reset-request',
+          createdAt: new Date(data.requestedAt || Date.now()),
+          read: false,
+        };
+        setNotifications((prev) => [newNotif, ...prev]);
+        playSound('notification');
+        toast.warning(newNotif.title, {
+          description: `${newNotif.message} Reset it from the Users page.`,
+          duration: 8000,
+        });
+      } catch (err) {
+        console.error('[SSE] Failed to parse password-reset-request payload:', err);
       }
     });
 

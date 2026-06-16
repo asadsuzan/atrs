@@ -9,3 +9,11 @@ export const updateAppConfig = async (config: any) => {
   const { data } = await api.post('/config', config);
   return data;
 };
+
+export type NavMode = 'expanded' | 'collapsed' | 'disabled';
+
+/** Readable by any authenticated user (not just admins). */
+export const getNavSettings = async () => {
+  const { data } = await api.get('/notifications/nav-settings');
+  return data as { mode: NavMode };
+};

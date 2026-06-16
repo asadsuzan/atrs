@@ -32,3 +32,31 @@ export const me = async (req: Request, res: Response, next: NextFunction) => {
     next(error);
   }
 };
+
+export const checkEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await authService.checkEmail(req.body.email);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await authService.requestPasswordReset(req.body.email);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changePassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const result = await authService.changePassword(req.user!.id, currentPassword, newPassword);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};

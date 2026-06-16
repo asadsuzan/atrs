@@ -35,6 +35,85 @@ export function TableRowSkeleton({ cols }: { cols: number }) {
 }
 
 /* ─────────────────────────────────────────────
+   GENERIC PAGE SKELETON (route-level fallback)
+───────────────────────────────────────────── */
+
+/** Neutral page placeholder used as the lazy-route Suspense fallback. */
+export function PageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center gap-4">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+      <div className="flex flex-col sm:flex-row gap-4 bg-card p-4 rounded-lg border">
+        <Skeleton className="h-9 flex-1 rounded-md" />
+        <Skeleton className="h-9 w-[160px] rounded-md" />
+        <Skeleton className="h-9 w-[160px] rounded-md" />
+      </div>
+      <div className="border rounded-md bg-card p-4 space-y-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4">
+            <Skeleton className="h-8 w-8 rounded-md shrink-0" />
+            <Skeleton className="h-4 w-[35%]" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16 ml-auto" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Centered minimal skeleton used while auth resolves (no app chrome yet). */
+export function AuthBootSkeleton() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9 rounded-md" />
+          <Skeleton className="h-7 w-24" />
+        </div>
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-9 w-full rounded-md mt-2" />
+      </div>
+    </div>
+  );
+}
+
+/** Rows skeleton for the admin Users table. */
+export function UsersTableSkeleton() {
+  return (
+    <div className="border rounded-xl bg-card overflow-hidden">
+      <table className="w-full text-sm">
+        <tbody>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <tr key={i} className="border-b last:border-0">
+              <td className="py-3 px-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-44" />
+                </div>
+              </td>
+              <td className="py-3 px-4"><Skeleton className="h-5 w-14 rounded-full" /></td>
+              <td className="py-3 px-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+              <td className="py-3 px-4">
+                <div className="flex justify-end gap-2">
+                  <Skeleton className="h-8 w-20 rounded-md" />
+                  <Skeleton className="h-8 w-28 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    DASHBOARD SKELETON
 ───────────────────────────────────────────── */
 

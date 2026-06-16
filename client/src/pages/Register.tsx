@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
@@ -65,7 +66,7 @@ export default function Register() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
                 <span className="text-xs text-muted-foreground">At least 8 characters.</span>
               </div>
               <Button type="submit" disabled={submitting} className="mt-2">

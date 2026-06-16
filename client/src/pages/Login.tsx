@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { playSound } from '@/lib/sound';
@@ -47,8 +48,13 @@ export default function Login() {
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+            <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           <Button type="submit" disabled={submitting} className="mt-2">
             {submitting ? 'Signing in…' : 'Sign in'}

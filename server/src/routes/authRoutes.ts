@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as AuthController from '../controllers/AuthController';
 import { validate } from '../middlewares/validate';
-import { registerSchema, loginSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, emailOnlySchema, changePasswordSchema } from '../schemas/auth.schema';
 import { requireAuth } from '../middlewares/auth';
 
 const router = Router();
@@ -23,5 +23,14 @@ const authLimiter = rateLimit({
 router.post('/register', authLimiter, validate(registerSchema), AuthController.register);
 router.post('/login', authLimiter, validate(loginSchema), AuthController.login);
 router.get('/me', requireAuth, AuthController.me);
+
+// Forgot-password flow (public, rate-limited): look up the account, then record
+// a reset request that notifies admins.
+router.post('/check-email', authLimiter, validate(emailOnlySchema), AuthController.checkEmail);
+router.post('/password-reset-request', authLimiter, validate(emailOnlySchema), AuthController.requestPasswordReset);
+
+// Authenticated self-service password change (also used for the forced
+// one-time-password change after an admin reset).
+router.post('/change-password', requireAuth, validate(changePasswordSchema), AuthController.changePassword);
 
 export default router;

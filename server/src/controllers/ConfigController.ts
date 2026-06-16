@@ -35,7 +35,7 @@ const readEnvFile = (): Record<string, string> => {
 
 export const updateConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { server, sounds } = req.body;
+    const { server, sounds, navigation } = req.body;
 
     // Load existing config to merge
     let currentConfig: any = {
@@ -48,7 +48,8 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         notificationSound: 'synth-notification',
         clickSound: 'synth-click',
         volume: 0.5
-      }
+      },
+      navigation: { mode: 'expanded' }
     };
 
     if (fs.existsSync(configPath)) {
@@ -108,7 +109,12 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         notificationSound: 'synth-notification',
         clickSound: 'synth-click',
         volume: 0.5
-      })
+      }),
+      navigation: {
+        mode: ['expanded', 'collapsed', 'disabled'].includes(navigation?.mode)
+          ? navigation.mode
+          : (currentConfig.navigation?.mode || 'expanded'),
+      }
     };
 
     // 1. Write to app.config.json (atomic via temp file + rename)

@@ -59,6 +59,22 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+export const resetUserPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { password } = req.body as { password?: string };
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    if (password.length > 200) {
+      return res.status(400).json({ message: 'Password is too long' });
+    }
+    const result = await userService.resetPassword(req.params.id as string, password);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteUserStream = async (req: Request, res: Response) => {
   const id = req.params.id as string;
   // Pre-flight checks return clean JSON before the SSE stream opens.

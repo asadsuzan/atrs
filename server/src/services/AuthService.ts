@@ -1,6 +1,7 @@
 import { User, hashPassword } from '../models/User';
 import { signToken } from '../middlewares/auth';
 import createHttpError from '../utils/httpError';
+import { notificationManager } from './NotificationManager';
 
 export class AuthService {
   /** Self-registration. New accounts start as `pending` and require admin approval. */
@@ -52,5 +53,50 @@ export class AuthService {
     const user = await User.findById(userId);
     if (!user) throw createHttpError(404, 'User not found');
     return user.toJSON();
+  }
+
+  /** Looks up whether an account exists for an email (used by the forgot-password flow). */
+  async checkEmail(rawEmail: string) {
+    const email = rawEmail.toLowerCase().trim();
+    const user = await User.findOne({ email }).select('name isRoot');
+    if (!user) return { exists: false };
+    return { exists: true, name: user.name };
+  }
+
+  /**
+   * Records a user's request for an admin to reset their password and notifies
+   * connected admins. Always resolves the same way so the endpoint can't be
+   * used to probe which accounts have already requested a reset.
+   */
+  async requestPasswordReset(rawEmail: string) {
+    const email = rawEmail.toLowerCase().trim();
+    const user = await User.findOne({ email });
+    if (user && !user.isRoot) {
+      user.passwordResetRequested = true;
+      user.passwordResetRequestedAt = new Date();
+      await user.save();
+
+      notificationManager.sendToAdmins('password-reset-request', {
+        userId: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        requestedAt: user.passwordResetRequestedAt,
+      });
+    }
+    return { requested: true };
+  }
+
+  /** Lets an authenticated user set a new password after verifying their current one. */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await User.findById(userId);
+    if (!user) throw createHttpError(404, 'User not found');
+
+    const ok = await user.comparePassword(currentPassword);
+    if (!ok) throw createHttpError(400, 'Current password is incorrect');
+
+    user.passwordHash = await hashPassword(newPassword);
+    user.mustChangePassword = false; // one-time password has now been replaced
+    await user.save();
+    return { success: true };
   }
 }

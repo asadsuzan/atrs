@@ -4,7 +4,7 @@ import { scopeFilter } from '../utils/ownership';
 import type { AuthUser } from '../types/auth';
 
 export class ReportService {
-  async getMonthlyReport(month: number, year: number, user: AuthUser, productId?: string, startDate?: string, endDate?: string) {
+  async getMonthlyReport(month: number, year: number, user: AuthUser, productId?: string, startDate?: string, endDate?: string, ownerId?: string) {
     let start: Date;
     let end: Date;
 
@@ -19,6 +19,9 @@ export class ReportService {
 
     const matchStage: any = scopeFilter(user, { activityDate: { $gte: start, $lte: end } });
     if (productId) matchStage.productId = new mongoose.Types.ObjectId(productId);
+    // Admins may scope a report to a specific owner; non-admins are already
+    // restricted to their own data by scopeFilter.
+    if (ownerId && user.role === 'admin') matchStage.ownerId = new mongoose.Types.ObjectId(ownerId);
 
     const activities = await Activity.find(matchStage).populate('productId').sort({ activityDate: -1 });
 
@@ -59,10 +62,12 @@ export class ReportService {
     start: Date,
     end: Date,
     user: AuthUser,
-    productId?: string
+    productId?: string,
+    ownerId?: string
   ): Promise<Map<string, { features: number; improvements: number; bugFixes: number }>> {
     const match: any = scopeFilter(user, { activityDate: { $gte: start, $lte: end } });
     if (productId) match.productId = new mongoose.Types.ObjectId(productId);
+    if (ownerId && user.role === 'admin') match.ownerId = new mongoose.Types.ObjectId(ownerId);
 
     const rows = await Activity.aggregate([
       { $match: match },
@@ -120,13 +125,13 @@ export class ReportService {
     return results;
   }
 
-  async getAnnualReport(year: number, user: AuthUser, productId?: string) {
+  async getAnnualReport(year: number, user: AuthUser, productId?: string, ownerId?: string) {
     const months = [];
     let totalFeatures = 0, totalImprovements = 0, totalBugFixes = 0;
 
     const rangeStart = new Date(year, 0, 1);
     const rangeEnd = new Date(year, 12, 0, 23, 59, 59, 999);
-    const counts = await this.groupByMonthAndType(rangeStart, rangeEnd, user, productId);
+    const counts = await this.groupByMonthAndType(rangeStart, rangeEnd, user, productId, ownerId);
 
     for (let m = 1; m <= 12; m++) {
       const bucket = counts.get(`${year}-${m}`) || { features: 0, improvements: 0, bugFixes: 0 };

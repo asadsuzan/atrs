@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Save, Download, Sparkles, Plus, Trash2, LayoutTemplate, RotateCcw } from 'lucide-react';
 import { parseMarketingText } from './SmartParser';
+import { Skeleton } from '@/components/ui/skeleton';
 import jsPDF from 'jspdf';
 import pptxgen from 'pptxgenjs';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -264,7 +265,26 @@ ${(formData.faqs || []).map((f: any) => `Q: ${f.question}\n${f.answer}`).join('\
     pres.writeFile({ fileName: `${formData.pluginName || 'marketing'}.pptx` });
   };
 
-  if (isLoading || !formData) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading Marketing Hub...</div>;
+  if (isLoading || !formData) {
+    return (
+      <div className="space-y-6 max-w-5xl pb-12">
+        <div className="flex items-center justify-between gap-4">
+          <Skeleton className="h-8 w-56" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24 rounded-md" />
+            <Skeleton className="h-9 w-28 rounded-md" />
+          </div>
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="border rounded-lg bg-card p-6 space-y-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-9 w-full rounded-md" />
+            <Skeleton className="h-24 w-full rounded-md" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl pb-12">

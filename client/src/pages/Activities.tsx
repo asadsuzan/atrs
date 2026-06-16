@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, createActivity, deleteActivity, updateActivity, bulkUpdateActivities } from '../services/activities';
-import { getProducts, createProduct } from '../services/products';
-import { AddProductDialog } from '../components/products/AddProductDialog';
-import { useWpImport } from '../contexts/WpImportContext';
+import { getProducts } from '../services/products';
+import { useAddProduct } from '../contexts/AddProductContext';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
 import { playSound } from '@/lib/sound';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ActivityForm } from '../components/activities/ActivityForm';
-import { Plus, Edit2, Trash2, ArrowUpDown, ChevronLeft, ChevronRight, PackageOpen, ArrowRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
+import { Pagination } from '@/components/ui/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -42,16 +42,16 @@ export default function Activities() {
   const [startDate, setStartDate] = useLocalStorage<string>('atrs_activities_startDate', '');
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_activities_endDate', '');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useLocalStorage<number>('atrs_activities_limit', 10);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [ownerId, setOwnerId] = useState('all');
   const [sortBy, setSortBy] = useLocalStorage<string>('atrs_activities_sortBy', 'activityDate');
   const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_activities_sortOrder', 'desc');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
-  const { open: openWpImport } = useWpImport();
+  const { openAddProductFirst } = useAddProduct();
 
-  const queryParams: any = { page, limit: 10, sortBy, sortOrder };
+  const queryParams: any = { page, limit, sortBy, sortOrder };
   if (productId && productId !== 'all') queryParams.productId = productId;
   if (type && type !== 'all') queryParams.type = type;
   if (type === 'feature' && tier && tier !== 'all') queryParams.tier = tier;
@@ -75,6 +75,17 @@ export default function Activities() {
     setSelectedIds([]);
   }, [page, debouncedSearch, productId, type, tier, tagFilter, startDate, endDate, sortBy, sortOrder, ownerId]);
 
+  // Allow the sidebar (and other links) to pre-filter by product via ?productId=.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const pid = searchParams.get('productId');
+    if (pid) {
+      setProductId(pid);
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const handleSort = (field: string) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -95,21 +106,6 @@ export default function Activities() {
   });
   const products = productsData?.data || [];
   const hasProducts = products.length > 0;
-
-  // Lets the user create their first product without leaving the Changelogs page.
-  const createProductMutation = useMutation({
-    mutationFn: createProduct,
-    onSuccess: () => {
-      playSound('success');
-      toast.success('Product created — you can now add changelog entries');
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      setIsAddProductOpen(false);
-    },
-    onError: () => {
-      playSound('error');
-      toast.error('Failed to create product');
-    },
-  });
 
   const { data: usersData } = useQuery({
     queryKey: ['users'],
@@ -209,53 +205,29 @@ export default function Activities() {
     <PageTransition className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight">Changelogs</h2>
+        <Button
+          onClick={() => {
+            // No products yet → prompt to add one first (same flow as the
+            // sidebar's Changelogs "Add changelog" empty-state button).
+            if (!hasProducts && !productsLoading) openAddProductFirst();
+            else setIsAddOpen(true);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-2" /> Add Changelog Entry
+        </Button>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" /> Add Changelog Entry
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{hasProducts ? 'Add New Changelog Entry' : 'Add a product first'}</DialogTitle>
+              <DialogTitle>Add New Changelog Entry</DialogTitle>
             </DialogHeader>
-            {productsLoading ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">Loading products…</p>
-            ) : hasProducts ? (
-              <ActivityForm onSubmit={(data: any) => {
-                if(!data.mediaType) data.mediaType = null;
-                if(!data.mediaUrl) data.mediaUrl = null;
-                createMutation.mutate(data);
-              }} />
-            ) : (
-              <div className="flex flex-col items-center text-center py-6 px-2">
-                <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-4">
-                  <PackageOpen className="w-8 h-8" />
-                </div>
-                <h3 className="font-semibold text-lg">You need a product first</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                  Changelog entries always belong to a product. Add your first product and you'll be
-                  able to log changes, releases, and notes against it.
-                </p>
-                <Button
-                  className="mt-5"
-                  onClick={() => { setIsAddOpen(false); setIsAddProductOpen(true); }}
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add a product
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
+            <ActivityForm onSubmit={(data: any) => {
+              if(!data.mediaType) data.mediaType = null;
+              if(!data.mediaUrl) data.mediaUrl = null;
+              createMutation.mutate(data);
+            }} />
           </DialogContent>
         </Dialog>
       </div>
-
-      <AddProductDialog
-        open={isAddProductOpen}
-        onOpenChange={setIsAddProductOpen}
-        onImport={openWpImport}
-        onCreate={(data: any) => createProductMutation.mutate(data)}
-      />
 
       <div className="bg-card rounded-lg border overflow-hidden">
         {/* Row 1: Search + Dropdowns */}
@@ -521,19 +493,13 @@ export default function Activities() {
       </div>
 
       {totalPages > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-              <ChevronLeft className="w-4 h-4 mr-1" /> Previous
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-              Next <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          limit={limit}
+          onLimitChange={(l) => { setLimit(l); setPage(1); }}
+        />
       )}
 
       {selectedIds.length > 0 && (

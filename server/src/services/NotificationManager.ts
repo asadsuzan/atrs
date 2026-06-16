@@ -3,6 +3,7 @@ import { Response } from 'express';
 export interface NotificationClient {
   userId: string;
   isRoot: boolean;
+  isAdmin: boolean;
   res: Response;
 }
 
@@ -28,8 +29,8 @@ export class NotificationManager {
    * Registers a client connection for SSE updates.
    * Returns a cleanup function to invoke on socket close.
    */
-  public addClient(userId: string, isRoot: boolean, res: Response): () => void {
-    const client: NotificationClient = { userId, isRoot, res };
+  public addClient(userId: string, isRoot: boolean, res: Response, isAdmin: boolean = false): () => void {
+    const client: NotificationClient = { userId, isRoot, isAdmin: isAdmin || isRoot, res };
     this.clients.add(client);
     
     // Send initial handshake acknowledgement
@@ -69,6 +70,18 @@ export class NotificationManager {
   public sendToRootAdmins(event: string, data: any) {
     for (const client of this.clients) {
       if (client.isRoot) {
+        this.sendEventToClient(client, event, data);
+      }
+    }
+  }
+
+  /**
+   * Sends a real-time notification to all connected administrators (role admin
+   * or root).
+   */
+  public sendToAdmins(event: string, data: any) {
+    for (const client of this.clients) {
+      if (client.isAdmin) {
         this.sendEventToClient(client, event, data);
       }
     }

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getUsers,
@@ -5,15 +6,21 @@ import {
   suspendUser,
   reactivateUser,
   setUserRole,
+  resetUserPassword,
 } from '@/services/users';
 import type { AuthUser } from '@/services/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useJobStream } from '@/contexts/JobStreamContext';
-import { ShieldCheck, UserCheck, UserX, Trash2, Crown } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserX, Trash2, Crown, KeyRound, RefreshCw, Copy, Check } from 'lucide-react';
 import { playSound } from '@/lib/sound';
+import { UsersTableSkeleton } from '@/components/ui/skeletons';
+import { Pagination } from '@/components/ui/Pagination';
 
 const statusVariant: Record<string, string> = {
   active: 'bg-green-500/15 text-green-600 dark:text-green-400',
@@ -50,8 +57,65 @@ export default function Users() {
   const reactivate = useMutation({ mutationFn: reactivateUser });
   const role = useMutation({ mutationFn: ({ id, r }: { id: string; r: 'admin' | 'user' }) => setUserRole(id, r) });
 
+  // Admin-driven password reset state.
+  const [resetTarget, setResetTarget] = useState<AuthUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    const arr = new Uint32Array(16);
+    crypto.getRandomValues(arr);
+    setNewPassword(Array.from(arr, (n) => chars[n % chars.length]).join(''));
+    setCopied(false);
+  };
+
+  const closeReset = () => {
+    setResetTarget(null);
+    setNewPassword('');
+    setCopied(false);
+    setResetting(false);
+  };
+
+  const copyPassword = () => {
+    navigator.clipboard.writeText(newPassword).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const submitReset = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetUserPassword(resetTarget._id, newPassword);
+      playSound('success');
+      toast.success(`Password reset for ${resetTarget.name}`);
+      invalidate(); // refresh so the "Reset requested" badge clears
+      closeReset();
+    } catch (err: any) {
+      playSound('error');
+      toast.error(err?.response?.data?.message || 'Failed to reset password');
+      setResetting(false);
+    }
+  };
+
   const pending = users.filter((u) => u.status === 'pending');
   const others = users.filter((u) => u.status !== 'pending');
+
+  // Client-side pagination for the main users table.
+  const [othersPage, setOthersPage] = useState(1);
+  const [othersLimit, setOthersLimit] = useState(10);
+  const othersTotalPages = Math.max(1, Math.ceil(others.length / othersLimit));
+  useEffect(() => {
+    if (othersPage > othersTotalPages) setOthersPage(othersTotalPages);
+  }, [othersPage, othersTotalPages]);
+  const pagedOthers = others.slice((othersPage - 1) * othersLimit, othersPage * othersLimit);
 
   const handleDelete = async (u: AuthUser) => {
     const ok = await confirm({
@@ -87,9 +151,16 @@ export default function Users() {
         </Badge>
       </td>
       <td className="py-3 px-4">
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusVariant[u.status] || ''}`}>
-          {u.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusVariant[u.status] || ''}`}>
+            {u.status}
+          </span>
+          {u.passwordResetRequested && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400" title="This user requested a password reset">
+              <KeyRound className="w-3 h-3" /> Reset requested
+            </span>
+          )}
+        </div>
       </td>
       <td className="py-3 px-4 text-right">
         {u.isRoot ? (
@@ -119,6 +190,13 @@ export default function Users() {
               <ShieldCheck className="w-3.5 h-3.5 mr-1" />
               {u.role === 'admin' ? 'Make user' : 'Make admin'}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setResetTarget(u); setNewPassword(''); setCopied(false); }}
+            >
+              <KeyRound className="w-3.5 h-3.5 mr-1" /> Reset password
+            </Button>
             <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => handleDelete(u)}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -136,7 +214,7 @@ export default function Users() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading users…</p>
+        <UsersTableSkeleton />
       ) : (
         <>
           {pending.length > 0 && (
@@ -164,13 +242,71 @@ export default function Users() {
                 {others.length === 0 ? (
                   <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">No active users yet.</td></tr>
                 ) : (
-                  others.map((u) => <Row key={u._id} u={u} />)
+                  pagedOthers.map((u) => <Row key={u._id} u={u} />)
                 )}
               </tbody>
             </table>
           </div>
+
+          {others.length > 0 && (
+            <Pagination
+              page={othersPage}
+              totalPages={othersTotalPages}
+              onPageChange={setOthersPage}
+              limit={othersLimit}
+              onLimitChange={(l) => { setOthersLimit(l); setOthersPage(1); }}
+              total={others.length}
+            />
+          )}
         </>
       )}
+
+      {/* Admin password reset */}
+      <Dialog open={!!resetTarget} onOpenChange={(open) => { if (!open) closeReset(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5" /> Reset password
+            </DialogTitle>
+            <DialogDescription>
+              Set a new password for <span className="font-medium text-foreground">{resetTarget?.name}</span>{' '}
+              ({resetTarget?.email}). Share it with them securely — it won't be shown again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-password"
+                type="text"
+                value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setCopied(false); }}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                spellCheck={false}
+              />
+              <Button type="button" variant="outline" size="icon" title="Copy" onClick={copyPassword} disabled={!newPassword}>
+                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <button
+              type="button"
+              onClick={generatePassword}
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Generate a strong password
+            </button>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={closeReset} disabled={resetting}>Cancel</Button>
+            <Button onClick={submitReset} disabled={resetting || newPassword.length < 8}>
+              {resetting ? 'Setting…' : 'Set new password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

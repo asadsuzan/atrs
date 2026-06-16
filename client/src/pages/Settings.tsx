@@ -1,16 +1,18 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { getAppConfig, updateAppConfig } from '../services/config';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAppConfig, updateAppConfig, type NavMode } from '../services/config';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '../contexts/AuthContext';
-import { isUserMuted, setUserMute, playSound, getSoundConfig, setCachedSoundConfig } from '../lib/sound';
+import { isUserMuted, setUserMute, playSound, setCachedSoundConfig } from '../lib/sound';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -25,9 +27,11 @@ const THEMES = [
 export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const [isMuted, setIsMuted] = useState(isUserMuted());
   const [configForm, setConfigForm] = useState({ serverPort: '5000', mongodbUri: '' });
+  const [navMode, setNavMode] = useState<NavMode>('expanded');
   const [isRestarting, setIsRestarting] = useState(false);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
@@ -62,6 +66,7 @@ export default function Settings() {
         serverPort: String(configData.server?.port || 5000),
         mongodbUri: configData.server?.mongodbUri || ''
       });
+      if (configData.navigation?.mode) setNavMode(configData.navigation.mode);
       if (configData.sounds) {
         setSoundsForm({
           enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
@@ -83,6 +88,14 @@ export default function Settings() {
       if (variables.sounds) {
         setCachedSoundConfig(variables.sounds);
         toast.success("Sound configuration saved successfully!");
+        refetch();
+        return;
+      }
+
+      // Navigation preference: no server restart; refresh the sidebar's setting.
+      if (variables.navigation) {
+        toast.success("Navigation settings saved");
+        queryClient.invalidateQueries({ queryKey: ['nav-settings'] });
         refetch();
         return;
       }
@@ -136,6 +149,10 @@ export default function Settings() {
     saveMutation.mutate({
       sounds: soundsForm
     });
+  };
+
+  const handleSaveNav = () => {
+    saveMutation.mutate({ navigation: { mode: navMode } });
   };
 
   const handleToggleMute = () => {
@@ -284,6 +301,39 @@ export default function Settings() {
       </div>
 
       {isAdmin && (
+        <div className="pt-8">
+          <h3 className="text-xl font-bold mb-4">Navigation</h3>
+          <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <PanelLeft className="w-5 h-5 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="font-semibold">Nested sidebar navigation</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                    Controls how the nested product / changelog / report items behave in the sidebar
+                    for everyone. "Disabled" hides the nested items entirely.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Select value={navMode} onValueChange={(v) => setNavMode(v as NavMode)}>
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expanded">Expanded by default</SelectItem>
+                    <SelectItem value="collapsed">Collapsed by default</SelectItem>
+                    <SelectItem value="disabled">Disabled (flat nav)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleSaveNav} disabled={saveMutation.isPending}>
+                  <Save className="w-4 h-4 mr-2" /> Save
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
       <div className="pt-8 border-b pb-8">
         <h3 className="text-xl font-bold mb-4">System Configuration</h3>
         <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
@@ -292,8 +342,13 @@ export default function Settings() {
           </p>
           
           {configLoading ? (
-            <div className="py-4 text-center text-sm text-muted-foreground animate-pulse">
-              Loading configuration data...
+            <div className="py-2 space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </div>
+              ))}
             </div>
           ) : isRestarting ? (
             <div className="py-8 text-center space-y-3">

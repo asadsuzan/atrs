@@ -5,7 +5,7 @@ const reportService = new ReportService();
 
 export const getMonthlyReport = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { month, year, productId, startDate, endDate } = req.query;
+    const { month, year, productId, startDate, endDate, ownerId } = req.query;
 
     // Support custom date range OR month/year
     if (startDate && endDate) {
@@ -14,7 +14,8 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
         req.user!,
         productId as string,
         startDate as string,
-        endDate as string
+        endDate as string,
+        ownerId as string
       );
       return res.status(200).json(report);
     }
@@ -27,7 +28,10 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
       parseInt(month as string, 10),
       parseInt(year as string, 10),
       req.user!,
-      productId as string
+      productId as string,
+      undefined,
+      undefined,
+      ownerId as string
     );
     res.status(200).json(report);
   } catch (error) {
@@ -50,7 +54,8 @@ export const getAnnual = async (req: Request, res: Response, next: NextFunction)
   try {
     const year = req.query.year ? parseInt(req.query.year as string, 10) : new Date().getFullYear();
     const productId = req.query.productId as string | undefined;
-    const data = await reportService.getAnnualReport(year, req.user!, productId);
+    const ownerId = req.query.ownerId as string | undefined;
+    const data = await reportService.getAnnualReport(year, req.user!, productId, ownerId);
     res.status(200).json(data);
   } catch (error) {
     next(error);

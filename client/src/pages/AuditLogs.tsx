@@ -11,14 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, History, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, History, X } from 'lucide-react';
+import { Pagination } from '@/components/ui/Pagination';
 import { format } from 'date-fns';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PageTransition from '../components/layout/PageTransition';
+import { TableRowSkeleton } from '@/components/ui/skeletons';
 
 export default function AuditLogs() {
   const { isAdmin } = useAuth();
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [entityType, setEntityType] = useState<string>('all');
   const [action, setAction] = useState<string>('all');
   const [userId, setUserId] = useState<string>('all');
@@ -27,7 +30,7 @@ export default function AuditLogs() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const queryParams: any = { page, limit: 15 };
+  const queryParams: any = { page, limit };
   if (entityType !== 'all') queryParams.entityType = entityType;
   if (action !== 'all') queryParams.action = action;
   if (userId !== 'all') queryParams.userId = userId;
@@ -178,7 +181,7 @@ export default function AuditLogs() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10">Loading logs...</TableCell></TableRow>
+              Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={6} />)
             ) : isError ? (
               <TableRow><TableCell colSpan={6} className="text-center py-10 text-destructive">Failed to load audit logs. Please try again.</TableCell></TableRow>
             ) : logs.length === 0 ? (
@@ -220,29 +223,14 @@ export default function AuditLogs() {
         </Table>
       </Card>
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="text-muted-foreground">
-          Page {page} of {totalPages}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages || totalPages === 0}
-          >
-            Next <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        limit={limit}
+        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+        limitOptions={[15, 25, 50, 100]}
+      />
     </PageTransition>
   );
 }

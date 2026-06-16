@@ -11,5 +11,8 @@
     "notificationSound": "synth-notification",
     "clickSound": "synth-click",
     "volume": 1
+  },
+  "navigation": {
+    "mode": "expanded"
   }
 }

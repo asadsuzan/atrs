@@ -1,4 +1,4 @@
-import { User, UserRole, UserStatus } from '../models/User';
+import { User, UserRole, UserStatus, hashPassword } from '../models/User';
 import { Product } from '../models/Product';
 import { Activity } from '../models/Activity';
 import { Version } from '../models/Version';
@@ -58,6 +58,28 @@ export class UserService {
 
   async reactivate(id: string) {
     return this.setStatus(id, 'active');
+  }
+
+  /**
+   * Admin-driven password reset. Sets a one-time password for a non-root user:
+   * they can sign in with it once, but are then forced to choose their own
+   * password. Also clears any pending reset request.
+   */
+  async resetPassword(id: string, newPassword: string) {
+    const user = await this.getEditableUser(id); // blocks root, 404 if missing
+    user.passwordHash = await hashPassword(newPassword);
+    user.mustChangePassword = true;
+    user.passwordResetRequested = false;
+    user.passwordResetRequestedAt = undefined;
+    await user.save();
+
+    // Let the user know (if they're connected) that their access changed.
+    notificationManager.sendToUser(id, 'access-change', {
+      userId: id,
+      message: 'Your password was reset by an administrator. Sign in with the temporary password and choose a new one.',
+    });
+
+    return { id };
   }
 
   async setRole(id: string, role: UserRole) {

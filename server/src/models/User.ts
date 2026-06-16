@@ -11,6 +11,11 @@ export interface IUser extends Document {
   role: UserRole;
   status: UserStatus;
   isRoot: boolean;
+  /** Set when an admin issues a one-time password; forces a self-set on next login. */
+  mustChangePassword: boolean;
+  /** Set when the user requests a reset from the login screen; cleared on reset. */
+  passwordResetRequested: boolean;
+  passwordResetRequestedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -39,6 +44,9 @@ const UserSchema: Schema = new Schema(
       default: 'pending',
     },
     isRoot: { type: Boolean, default: false },
+    mustChangePassword: { type: Boolean, default: false },
+    passwordResetRequested: { type: Boolean, default: false },
+    passwordResetRequestedAt: { type: Date },
   },
   {
     timestamps: true,

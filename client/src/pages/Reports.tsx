@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getMonthlyReport, getAnnualReport } from '../services/reports';
 import { getProducts } from '../services/products';
+import { getUsers } from '../services/users';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -167,12 +170,14 @@ const ProductReportCard = ({ pData, forceExpanded }: { pData: any; forceExpanded
 
 export default function Reports() {
   const currentDate = new Date();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'monthly' | 'annual'>('monthly');
 
   // Monthly Report State
   const [month, setMonth] = useLocalStorage<string>('atrs_reports_month', (currentDate.getMonth() + 1).toString());
   const [year, setYear] = useLocalStorage<string>('atrs_reports_year', currentDate.getFullYear().toString());
   const [productId, setProductId] = useLocalStorage<string>('atrs_reports_productId', 'all');
+  const [ownerId, setOwnerId] = useLocalStorage<string>('atrs_reports_ownerId', 'all');
   const [startDate, setStartDate] = useLocalStorage<string>('atrs_reports_startDate', '');
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_reports_endDate', '');
   const [useCustomRange, setUseCustomRange] = useState(false);
@@ -184,13 +189,15 @@ export default function Reports() {
     month: parseInt(month, 10),
     year: parseInt(year, 10),
     productId,
+    ownerId,
     startDate: '',
     endDate: ''
   });
 
   const [annualQueryArgs, setAnnualQueryArgs] = useState({
     year: parseInt(annualYear, 10),
-    productId
+    productId,
+    ownerId
   });
 
   // When true, all report cards render expanded (used while capturing the PDF).
@@ -198,8 +205,41 @@ export default function Reports() {
 
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Deep-link support: the sidebar navigates here with ?tab / ?month / ?year
+  // and we auto-generate the matching report.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const m = searchParams.get('month');
+    const y = searchParams.get('year');
+    if (tab === 'annual') {
+      setActiveTab('annual');
+      if (y) {
+        setAnnualYear(y);
+        setAnnualQueryArgs({ year: parseInt(y, 10), productId, ownerId });
+      }
+    } else if (tab === 'monthly' || m) {
+      setActiveTab('monthly');
+      setUseCustomRange(false);
+      if (m) setMonth(m);
+      if (y) setYear(y);
+      setMonthlyQueryArgs({
+        month: parseInt(m || month, 10),
+        year: parseInt(y || year, 10),
+        productId,
+        ownerId,
+        startDate: '',
+        endDate: '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const { data: productsData } = useQuery({ queryKey: ['products'], queryFn: () => getProducts() });
   const products = productsData?.data || [];
+
+  // Admins can scope a report to a specific user's data.
+  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });
 
   const { data: monthlyReport, isLoading: isLoadingMonthly, isError: isMonthlyError } = useQuery({
     queryKey: ['report-monthly', monthlyQueryArgs],
@@ -207,6 +247,7 @@ export default function Reports() {
       month: monthlyQueryArgs.startDate ? undefined : monthlyQueryArgs.month,
       year: monthlyQueryArgs.startDate ? undefined : monthlyQueryArgs.year,
       productId: monthlyQueryArgs.productId !== 'all' ? monthlyQueryArgs.productId : undefined,
+      ownerId: monthlyQueryArgs.ownerId && monthlyQueryArgs.ownerId !== 'all' ? monthlyQueryArgs.ownerId : undefined,
       startDate: monthlyQueryArgs.startDate || undefined,
       endDate: monthlyQueryArgs.endDate || undefined,
     }),
@@ -217,6 +258,7 @@ export default function Reports() {
     queryFn: () => getAnnualReport({
       year: annualQueryArgs.year,
       productId: annualQueryArgs.productId !== 'all' ? annualQueryArgs.productId : undefined,
+      ownerId: annualQueryArgs.ownerId && annualQueryArgs.ownerId !== 'all' ? annualQueryArgs.ownerId : undefined,
     }),
   });
 
@@ -225,6 +267,7 @@ export default function Reports() {
       month: parseInt(month, 10),
       year: parseInt(year, 10),
       productId,
+      ownerId,
       startDate: useCustomRange ? startDate : '',
       endDate: useCustomRange ? endDate : ''
     });
@@ -233,7 +276,8 @@ export default function Reports() {
   const handleGenerateAnnual = () => {
     setAnnualQueryArgs({
       year: parseInt(annualYear, 10),
-      productId
+      productId,
+      ownerId
     });
   };
 
@@ -434,6 +478,18 @@ export default function Reports() {
               </>
             )}
 
+            {isAdmin && (
+              <div className="space-y-1 flex-1">
+                <label className="text-sm font-medium">User</label>
+                <Select value={ownerId} onValueChange={setOwnerId}>
+                  <SelectTrigger><SelectValue placeholder="All Users" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map((u: any) => <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1 flex-1">
               <label className="text-sm font-medium">Product</label>
               <Select value={productId} onValueChange={setProductId}>
@@ -501,6 +557,18 @@ export default function Reports() {
               <label className="text-sm font-medium">Year</label>
               <Input type="number" value={annualYear} onChange={e => setAnnualYear(e.target.value)} min="2000" max="2100" />
             </div>
+            {isAdmin && (
+              <div className="space-y-1 flex-1">
+                <label className="text-sm font-medium">User</label>
+                <Select value={ownerId} onValueChange={setOwnerId}>
+                  <SelectTrigger><SelectValue placeholder="All Users" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map((u: any) => <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1 flex-1">
               <label className="text-sm font-medium">Product</label>
               <Select value={productId} onValueChange={setProductId}>

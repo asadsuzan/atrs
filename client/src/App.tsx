@@ -1,7 +1,13 @@
-import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, Outlet } from 'react-router-dom';
+import { useEffect, lazy, Suspense, cloneElement } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, useOutlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LayoutDashboard, Package, Activity, BarChart2, ChevronLeft, ChevronRight, Settings as SettingsIcon, History, Search, Image as ImageIcon, Users as UsersIcon, LogOut, HelpCircle } from 'lucide-react';
+
+
+
+
+
+
+import { ChevronLeft, ChevronRight, Settings as SettingsIcon, Search, LogOut } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { startTour, hasSeenTour } from './lib/tour';
@@ -9,6 +15,8 @@ import { startTour, hasSeenTour } from './lib/tour';
 // Auth pages stay eager (small, hit before the heavy app shell loads).
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import SetPassword from './pages/SetPassword';
 
 // Lazy-load page routes so heavy deps (jspdf, html2canvas, pptxgenjs, etc.)
 // only load when their route is visited, shrinking the initial bundle.
@@ -32,10 +40,13 @@ import { WpImportMiniPlayer } from './components/products/WpImportMiniPlayer';
 import { JobStreamProvider } from './contexts/JobStreamContext';
 import { JobStreamDialog } from './components/jobs/JobStreamDialog';
 import { JobStreamMiniPlayer } from './components/jobs/JobStreamMiniPlayer';
+import { AddProductProvider } from './contexts/AddProductContext';
 import { NotificationBell } from './components/layout/NotificationBell';
+import { SidebarNav } from './components/layout/SidebarNav';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
+import { AuthBootSkeleton, PageSkeleton } from './components/ui/skeletons';
 
 const queryClient = new QueryClient();
 
@@ -50,17 +61,6 @@ function Layout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useLocalStorage<boolean>('atrs_sidebar_collapsed', false);
   const location = useLocation();
   const { user, isAdmin, logout } = useAuth();
-
-  const navItems = [
-    { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/products', icon: Package, label: 'Products' },
-    { to: '/activities', icon: Activity, label: 'Changelogs' },
-    { to: '/media', icon: ImageIcon, label: 'Media Library' },
-    { to: '/reports', icon: BarChart2, label: 'Reports' },
-    { to: '/audit-logs', icon: History, label: 'Audit Logs' },
-    ...(isAdmin ? [{ to: '/users', icon: UsersIcon, label: 'Users' }] : []),
-    { to: '/help', icon: HelpCircle, label: 'Help & Demos' },
-  ];
 
   // Auto-launch the interactive tour once for new users.
   useEffect(() => {
@@ -82,27 +82,9 @@ function Layout({ children }: { children: React.ReactNode }) {
           <h1 className={`text-xl font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>ATRS</h1>
         </div>
         
-        <nav className="flex flex-col gap-1 flex-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                data-tour={`nav-${item.to}`}
-                className={`flex items-center py-2 rounded-md transition-all duration-300 ease-in-out ${
-                  isCollapsed ? 'justify-center px-0' : 'px-3 gap-2'
-                } ${isActive ? 'bg-accent text-accent-foreground font-semibold' : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground font-medium'}`}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <item.icon className={`shrink-0 transition-all duration-300 ${isCollapsed ? 'w-6 h-6' : 'w-4 h-4'}`} />
-                <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out text-sm ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'}`}>
-                  {item.label}
-                </span>
-              </Link>
-            )
-          })}
-        </nav>
+        <div className="flex-1 overflow-y-auto -mx-1 px-1">
+          <SidebarNav isCollapsed={isCollapsed} isAdmin={isAdmin} />
+        </div>
 
         {/* Bottom Actions */}
         <div className="mt-auto flex flex-col gap-2 pt-4 border-t">
@@ -179,11 +161,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function FullScreenLoader() {
-  return (
-    <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-      Loading…
-    </div>
-  );
+  return <AuthBootSkeleton />;
 }
 
 function NotFound() {
@@ -200,13 +178,21 @@ function NotFound() {
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const outlet = useOutlet();
   if (loading) return <FullScreenLoader />;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  // A user with a one-time (admin-issued) password must choose their own first.
+  if (user.mustChangePassword) return <Navigate to="/set-password" replace />;
   return (
     <Layout>
       <CommandPalette />
-      <Suspense fallback={<FullScreenLoader />}>
-        <Outlet />
+      <Suspense fallback={<PageSkeleton />}>
+        {/* Animate only the page content, keyed by path, so the surrounding
+            Layout (sidebar — its scroll position and expanded nav panels) stays
+            mounted across navigation. */}
+        <AnimatePresence mode="wait">
+          {outlet ? cloneElement(outlet, { key: location.pathname }) : null}
+        </AnimatePresence>
       </Suspense>
     </Layout>
   );
@@ -227,12 +213,18 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 }
 
 function AnimatedRoutes() {
-  const location = useLocation();
+  // No key/AnimatePresence here: keying <Routes> by pathname would remount the
+  // whole tree (including ProtectedLayout → Layout → SidebarNav) on every
+  // navigation, resetting the sidebar's scroll + expanded sections. Page-content
+  // transitions are handled inside ProtectedLayout instead, so the Layout stays
+  // mounted across route changes.
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+    <Routes>
         <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
         <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+        <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+        {/* Self-gates: requires auth + mustChangePassword (see component). */}
+        <Route path="/set-password" element={<SetPassword />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />
@@ -246,8 +238,7 @@ function AnimatedRoutes() {
           <Route path="/users" element={<RequireAdmin><Users /></RequireAdmin>} />
           <Route path="*" element={<NotFound />} />
         </Route>
-      </Routes>
-    </AnimatePresence>
+    </Routes>
   );
 }
 
@@ -259,6 +250,7 @@ function App() {
           <AuthProvider>
             <NotificationProvider>
               <WpImportProvider>
+                <AddProductProvider>
                 <JobStreamProvider>
                   <SmoothScroll>
                     <BrowserRouter>
@@ -273,6 +265,7 @@ function App() {
                   <JobStreamMiniPlayer />
                   <Toaster />
                 </JobStreamProvider>
+                </AddProductProvider>
               </WpImportProvider>
             </NotificationProvider>
           </AuthProvider>

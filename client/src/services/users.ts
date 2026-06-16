@@ -30,3 +30,8 @@ export const deleteUser = async (id: string, reassignTo?: string) => {
   const { data } = await api.delete(`/users/${id}`, { params: reassignTo ? { reassignTo } : undefined });
   return data;
 };
+
+export const resetUserPassword = async (id: string, password: string) => {
+  const { data } = await api.post(`/users/${id}/reset-password`, { password });
+  return data as { id: string };
+};
