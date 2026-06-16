@@ -13,7 +13,12 @@ import { ProductMarketing } from '../models/ProductMarketing';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
+import { parseReadmeChangelog } from '../utils/readmeChangelog';
 import type { AuthUser } from '../types/auth';
+
+// Filled into the required shortDescription for changelog entries imported from
+// a readme (which only provides a one-line change), so they're easy to spot.
+const IMPORTED_CHANGELOG_DESC = 'Imported from WordPress.org changelog — add details.';
 
 export type ImportProgress = {
   type: 'info' | 'success' | 'warn' | 'error';
@@ -414,6 +419,59 @@ export class ProductService {
         } else {
           emit({ ...pctx, type: 'info', step: 'version-sync', message: `No version tags to sync` });
           console.log(`[WP Import] ${plugin.slug}: skipping version sync (product=${!!product}, tracTags=${tracTags.length})`);
+        }
+
+        // Parse the readme.txt Changelog section into changelog entries
+        // (activities), one per change line. Deduped by version + title so a
+        // re-import only adds new lines and never clobbers manual edits.
+        if (product && readme) {
+          try {
+            const parsed = parseReadmeChangelog(readme);
+            if (parsed.length > 0) {
+              emit({ ...pctx, type: 'info', step: 'changelog', message: `Parsing changelog from readme...` });
+
+              const versionDocs = await Version.find({ productId: product._id }).select('label releasedAt').lean();
+              const versionByLabel = new Map(versionDocs.map((v: any) => [v.label, v]));
+              const labelByVersionId = new Map(versionDocs.map((v: any) => [v._id.toString(), v.label]));
+
+              const norm = (s: string) => s.trim().toLowerCase();
+              const existingActs = await Activity.find({ productId: product._id }).select('title versionId').lean();
+              const existingKeys = new Set(
+                existingActs.map((a: any) => `${a.versionId ? (labelByVersionId.get(a.versionId.toString()) || '') : ''}|${norm(a.title)}`)
+              );
+
+              const toInsertActs: any[] = [];
+              for (const block of parsed) {
+                const v: any = versionByLabel.get(block.version);
+                const activityDate = block.releasedAt || v?.releasedAt || new Date();
+                for (const item of block.items) {
+                  const key = `${block.version}|${norm(item.title)}`;
+                  if (existingKeys.has(key)) continue;
+                  existingKeys.add(key);
+                  toInsertActs.push({
+                    productId: product._id,
+                    ownerId: product.ownerId,
+                    type: item.type,
+                    title: item.title,
+                    shortDescription: IMPORTED_CHANGELOG_DESC,
+                    tags: ['released'],
+                    ...(v ? { versionId: v._id } : {}),
+                    activityDate,
+                  });
+                }
+              }
+
+              if (toInsertActs.length > 0) {
+                await Activity.insertMany(toInsertActs, { ordered: false });
+                emit({ ...pctx, type: 'success', step: 'changelog', message: `Created ${toInsertActs.length} changelog ${toInsertActs.length === 1 ? 'entry' : 'entries'} from readme` });
+              } else {
+                emit({ ...pctx, type: 'info', step: 'changelog', message: `Changelog already up to date` });
+              }
+            }
+          } catch (err: any) {
+            // Never fail the whole import over changelog parsing.
+            emit({ ...pctx, type: 'warn', step: 'changelog', message: `Changelog import skipped: ${err.message}` });
+          }
         }
 
         emit({ ...pctx, type: 'success', step: 'done', message: `✓ Import complete` });
