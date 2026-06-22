@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2 } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../contexts/ConfirmContext';
+import { getToken, setToken } from '../services/api';
 import { isUserMuted, setUserMute, playSound, setCachedSoundConfig } from '../lib/sound';
 
 const THEMES = [
@@ -27,6 +29,7 @@ const THEMES = [
 export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
   const { isAdmin } = useAuth();
+  const { confirm } = useConfirm();
   const queryClient = useQueryClient();
 
   const [isMuted, setIsMuted] = useState(isUserMuted());
@@ -174,6 +177,31 @@ export default function Settings() {
     saveMutation.mutate({ codeTracker: trackerForm });
   };
 
+  const handleClearLocalData = async () => {
+    const ok = await confirm({
+      title: 'Clear local data on this device?',
+      description:
+        "This resets preferences saved in this browser — theme, dark mode, sidebar state, list filters, the welcome tour, and cached data. You'll stay signed in. It only affects this device and can't be undone.",
+      confirmText: 'Clear data',
+      cancelText: 'Cancel',
+    });
+    if (!ok) return;
+    try {
+      // Preserve the auth session, wipe everything else this origin has stored,
+      // drop the in-memory query cache, then reload so the app re-seeds from
+      // defaults.
+      const token = getToken();
+      localStorage.clear();
+      sessionStorage.clear();
+      if (token) setToken(token);
+      queryClient.clear();
+      toast.success('Local data cleared. Reloading…');
+      setTimeout(() => window.location.reload(), 700);
+    } catch {
+      toast.error('Could not clear local data.');
+    }
+  };
+
   const handleToggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
@@ -316,6 +344,33 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Local Data — per device, available to every user */}
+      <div className="pt-2 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">Local Data</h3>
+        <div className="space-y-6 bg-card p-6 rounded-xl border shadow-sm">
+          <div className="flex items-start justify-between flex-col sm:flex-row gap-4">
+            <div>
+              <p className="font-semibold text-lg flex items-center gap-2">
+                <Eraser className="w-5 h-5 text-primary" /> Clear local data
+              </p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-lg">
+                Resets preferences saved in this browser — theme, dark mode, sidebar state,
+                list filters, the welcome tour, and cached data. You'll stay signed in.
+                Affects only this device and can't be undone.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleClearLocalData}
+              className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Eraser className="w-4 h-4 mr-2" />
+              Clear data
+            </Button>
+          </div>
         </div>
       </div>
 
