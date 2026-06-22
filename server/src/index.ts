@@ -27,8 +27,11 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 
 // Connect to MongoDB, then ensure the root admin exists and back-fill ownership.
 connectDB()
-  .then(() => {
-    seedAndMigrate().catch((err) => console.error('[server]: seedAndMigrate failed:', err));
+  .then(async () => {
+    await seedAndMigrate().catch((err) => console.error('[server]: seedAndMigrate failed:', err));
+    // Start the code-activity tracker once the DB is ready (no-op unless enabled
+    // and some product has a repoPath).
+    codeTrackerService.refresh().catch((err) => console.error('[CodeTracker] refresh failed:', err));
   })
   .catch((err) => {
     console.error('[server]: Could not establish initial MongoDB connection:', err?.message || err);
@@ -43,7 +46,7 @@ app.use(helmet({
 // CORS allow-list. CLIENT_ORIGIN is a comma-separated list of allowed origins;
 // defaults to the vite dev origins. Requests with no Origin header (curl,
 // server-to-server, same-origin) are always allowed.
-const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', ' http://192.168.0.199:5173'];
+const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://192.168.0.199:5173'];
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN
     ? process.env.CLIENT_ORIGIN.split(',')
@@ -59,7 +62,11 @@ app.use(
       if (!origin || allowedOrigins.has(origin)) {
         return callback(null, true);
       }
-      return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+      // Don't throw on a disallowed (or `null`, e.g. iframe form-navigation)
+      // origin — just omit the CORS headers. The browser still blocks
+      // cross-origin XHR/fetch reads (no Access-Control-Allow-Origin), but
+      // plain navigations like the readme-validator iframe's form POST proceed.
+      return callback(null, false);
     },
     credentials: true,
   })
@@ -94,6 +101,9 @@ import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import jobRoutes from './routes/jobRoutes';
+import codeTrackerRoutes from './routes/codeTrackerRoutes';
+import readmeToolsRoutes from './routes/readmeToolsRoutes';
+import { codeTrackerService } from './services/CodeTrackerService';
 import { exportAllData } from './controllers/ExportController';
 
 // Static files for uploads
@@ -101,6 +111,11 @@ app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
 // Public auth routes (register / login / me)
 app.use('/api/auth', authRoutes);
+
+// Public: reverse proxy for the WordPress.org readme validator so it can be
+// embedded in an <iframe> (it blocks framing). No auth — an iframe navigation
+// can't send the JWT header, and it only proxies a public page.
+app.use('/api/tools', readmeToolsRoutes);
 
 // Authenticated + active-account routes
 app.use('/api/products', requireAuth, requireActive, productRoutes);
@@ -111,6 +126,7 @@ app.use('/api/media', requireAuth, requireActive, mediaRoutes);
 app.use('/api/audit-logs', requireAuth, requireActive, auditLogRoutes);
 app.use('/api/versions', requireAuth, requireActive, versionRoutes);
 app.use('/api/jobs', requireAuth, requireActive, jobRoutes);
+app.use('/api/code-tracker', requireAuth, requireActive, codeTrackerRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes
@@ -118,7 +134,7 @@ app.use('/api/users', requireAuth, requireActive, requireAdmin, userRoutes);
 app.use('/api/config', requireAuth, requireActive, requireAdmin, configRoutes);
 app.get('/api/export', requireAuth, requireActive, requireAdmin, exportAllData);
 
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'ATRS API is running' });
 });
 

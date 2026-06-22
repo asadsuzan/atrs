@@ -30,6 +30,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const MediaManager = lazy(() => import('./pages/MediaManager'));
 const Help = lazy(() => import('./pages/Help'));
 const Users = lazy(() => import('./pages/admin/Users'));
+const CodeActivity = lazy(() => import('./pages/CodeActivity'));
+const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -44,6 +46,7 @@ import { AddProductProvider } from './contexts/AddProductContext';
 import { NotificationBell } from './components/layout/NotificationBell';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { CommandPalette } from './components/layout/CommandPalette';
+import { GetStarted } from './components/onboarding/GetStarted';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
 import { AuthBootSkeleton, PageSkeleton } from './components/ui/skeletons';
@@ -186,6 +189,7 @@ function ProtectedLayout() {
   return (
     <Layout>
       <CommandPalette />
+      <GetStarted />
       <Suspense fallback={<PageSkeleton />}>
         {/* Animate only the page content, keyed by path, so the surrounding
             Layout (sidebar — its scroll position and expanded nav panels) stays
@@ -232,6 +236,8 @@ function AnimatedRoutes() {
           <Route path="/activities" element={<Activities />} />
           <Route path="/media" element={<MediaManager />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/code-activity" element={<CodeActivity />} />
+          <Route path="/readme-tools" element={<ReadmeTools />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />

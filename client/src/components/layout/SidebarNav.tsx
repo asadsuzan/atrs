@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon,
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
-  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User,
+  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, Code2, FileCheck2,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
@@ -477,6 +477,8 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
         </>
       )}
 
+      <LeafLink to="/code-activity" icon={Code2} label="Code Activity" />
+      <LeafLink to="/readme-tools" icon={FileCheck2} label="Readme Tools" />
       <LeafLink to="/audit-logs" icon={History} label="Audit Logs" />
       {isAdmin && <LeafLink to="/users" icon={UsersIcon} label="Users" />}
       <LeafLink to="/help" icon={HelpCircle} label="Help & Demos" />
