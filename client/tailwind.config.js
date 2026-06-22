@@ -52,10 +52,26 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        sans: [
+          "-apple-system", "BlinkMacSystemFont", '"SF Pro Text"', '"SF Pro Display"',
+          '"Segoe UI"', "Roboto", "Helvetica", "Arial", "sans-serif",
+        ],
+      },
       borderRadius: {
+        xl: "calc(var(--radius) + 0.25rem)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      // Soft, diffuse, multi-layer shadows for gentle macOS-like depth.
+      boxShadow: {
+        sm: "0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 1px -0.5px rgb(15 23 42 / 0.03)",
+        DEFAULT: "0 1px 3px 0 rgb(15 23 42 / 0.05), 0 2px 8px -2px rgb(15 23 42 / 0.06)",
+        md: "0 2px 6px -1px rgb(15 23 42 / 0.06), 0 6px 16px -3px rgb(15 23 42 / 0.08)",
+        lg: "0 8px 24px -6px rgb(15 23 42 / 0.12)",
+        xl: "0 16px 48px -10px rgb(15 23 42 / 0.16)",
+        "2xl": "0 24px 64px -12px rgb(15 23 42 / 0.22)",
       },
       keyframes: {
         "accordion-down": {
