@@ -39,7 +39,7 @@ client_secret.json
 .npm
 .eslintcache
 .stylelintcache
-.tsbuildinfo
+*.tsbuildinfo
 .parcel-cache
 
 # OS generated files
