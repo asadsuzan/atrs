@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download } from 'lucide-react';
+import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -53,8 +53,13 @@ const ReportActivityCard = ({ act, forceExpanded }: { act: any; forceExpanded?: 
       >
         <div className="flex justify-between items-start">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <CardTitle className="text-base">{act.title}</CardTitle>
+              {act.versionId?.label && (
+                <Badge variant="outline" className="text-[10px] font-bold tracking-wider uppercase border-indigo-300 text-indigo-700 dark:border-indigo-700 dark:text-indigo-300">
+                  {act.versionId.label}
+                </Badge>
+              )}
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <CalendarIcon className="w-3 h-3" />
                 {new Date(act.activityDate).toLocaleDateString()}
@@ -181,6 +186,7 @@ export default function Reports() {
   const [startDate, setStartDate] = useLocalStorage<string>('atrs_reports_startDate', '');
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_reports_endDate', '');
   const [useCustomRange, setUseCustomRange] = useState(false);
+  const [versionFilter, setVersionFilter] = useState<string>('all');
 
   // Annual Report State
   const [annualYear, setAnnualYear] = useState(currentDate.getFullYear().toString());
@@ -262,6 +268,55 @@ export default function Reports() {
     }),
   });
 
+  // Distinct version labels present across the monthly report, used to populate
+  // the version filter. Reports span multiple products, so labels are unioned.
+  const versionOptions: string[] = Array.from(
+    new Set(
+      (monthlyReport?.products || [])
+        .flatMap((pData: any) => pData.activities || [])
+        .map((act: any) => act.versionId?.label)
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const hasUnversioned = (monthlyReport?.products || [])
+    .flatMap((pData: any) => pData.activities || [])
+    .some((act: any) => !act.versionId?.label);
+
+  // Apply the client-side version filter: keep matching activities, recompute
+  // per-product counts and the top-line summary, and drop emptied products.
+  const matchesVersion = (act: any) => {
+    if (versionFilter === 'all') return true;
+    if (versionFilter === '__none__') return !act.versionId?.label;
+    return act.versionId?.label === versionFilter;
+  };
+
+  const displayedMonthlyReport = (() => {
+    if (!monthlyReport) return monthlyReport;
+    if (versionFilter === 'all') return monthlyReport;
+
+    const summary = { products: 0, features: 0, improvements: 0, bugFixes: 0 };
+    const products = (monthlyReport.products || [])
+      .map((pData: any) => {
+        const activities = (pData.activities || []).filter(matchesVersion);
+        const counts = {
+          features: activities.filter((a: any) => a.type === 'feature').length,
+          improvements: activities.filter((a: any) => a.type === 'improvement').length,
+          bugFixes: activities.filter((a: any) => a.type === 'bug-fix').length,
+        };
+        return { ...pData, activities, counts };
+      })
+      .filter((pData: any) => pData.activities.length > 0);
+
+    products.forEach((pData: any) => {
+      summary.products++;
+      summary.features += pData.counts.features;
+      summary.improvements += pData.counts.improvements;
+      summary.bugFixes += pData.counts.bugFixes;
+    });
+
+    return { ...monthlyReport, summary, products };
+  })();
+
   const handleGenerateMonthly = () => {
     setMonthlyQueryArgs({
       month: parseInt(month, 10),
@@ -306,7 +361,7 @@ export default function Reports() {
   };
 
   const handleExportJSON = () => {
-    const data = activeTab === 'monthly' ? monthlyReport : annualReport;
+    const data = activeTab === 'monthly' ? displayedMonthlyReport : annualReport;
     if (!data) {
       toast.error('Nothing to export yet');
       return;
@@ -332,20 +387,21 @@ export default function Reports() {
   };
 
   const handleExportCSV = () => {
-    if (!monthlyReport) {
+    if (!displayedMonthlyReport) {
       toast.error('Generate a report first');
       return;
     }
     try {
       const rows: string[] = [];
-      rows.push(['Product', 'Category', 'Type', 'Title', 'Date', 'Description'].map(escapeCsv).join(','));
-      (monthlyReport.products || []).forEach((pData: any) => {
+      rows.push(['Product', 'Category', 'Type', 'Title', 'Version', 'Date', 'Description'].map(escapeCsv).join(','));
+      (displayedMonthlyReport.products || []).forEach((pData: any) => {
         (pData.activities || []).forEach((act: any) => {
           rows.push([
             pData.product?.name,
             pData.product?.category,
             (act.type || '').replace('-', ' '),
             act.title,
+            act.versionId?.label || '',
             act.activityDate ? new Date(act.activityDate).toLocaleDateString() : '',
             act.shortDescription,
           ].map(escapeCsv).join(','));
@@ -366,7 +422,7 @@ export default function Reports() {
   };
 
   const handleExportPPTX = () => {
-    if (!monthlyReport) {
+    if (!displayedMonthlyReport) {
       toast.error('Generate a report first');
       return;
     }
@@ -380,7 +436,7 @@ export default function Reports() {
       const title = pres.addSlide();
       title.addText('Monthly Report', { x: 0.5, y: 1.2, w: '90%', h: 1, fontSize: 36, bold: true, align: 'center' });
       title.addText(periodLabel, { x: 0.5, y: 2.4, w: '90%', h: 0.6, fontSize: 20, align: 'center', color: '666666' });
-      const s = monthlyReport.summary || {};
+      const s = displayedMonthlyReport.summary || {};
       title.addText(
         [
           { text: `Products updated: ${s.products ?? 0}`, options: { bullet: true } },
@@ -392,11 +448,11 @@ export default function Reports() {
       );
 
       // One slide per product
-      (monthlyReport.products || []).forEach((pData: any) => {
+      (displayedMonthlyReport.products || []).forEach((pData: any) => {
         const slide = pres.addSlide();
         slide.addText(pData.product?.name || 'Product', { x: 0.5, y: 0.4, w: '90%', h: 0.7, fontSize: 24, bold: true });
         const bullets = (pData.activities || []).slice(0, 12).map((act: any) => ({
-          text: `[${(act.type || '').replace('-', ' ')}] ${act.title}`,
+          text: `[${(act.type || '').replace('-', ' ')}] ${act.title}${act.versionId?.label ? ` (${act.versionId.label})` : ''}`,
           options: { bullet: true, fontSize: 14 },
         }));
         if (bullets.length === 0) {
@@ -501,6 +557,27 @@ export default function Reports() {
               </Select>
             </div>
 
+            {(versionOptions.length > 0 || hasUnversioned) && (
+              <div className="space-y-1 flex-1">
+                <label className="text-sm font-medium flex items-center gap-1"><Tag className="w-3.5 h-3.5" /> Version</label>
+                <Select value={versionFilter} onValueChange={setVersionFilter}>
+                  <SelectTrigger><SelectValue placeholder="All Versions" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Versions</SelectItem>
+                    {versionOptions.map((label, i) => (
+                      <SelectItem key={label} value={label}>
+                        <span className="flex items-center gap-2">
+                          {label}
+                          {i === 0 && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">Latest</span>}
+                        </span>
+                      </SelectItem>
+                    ))}
+                    {hasUnversioned && <SelectItem value="__none__">Unversioned</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-2 mt-4 lg:mt-0 items-end">
               <Button variant="outline" onClick={() => setUseCustomRange(!useCustomRange)}>
                 {useCustomRange ? 'Use Month/Year' : 'Use Custom Range'}
@@ -526,23 +603,25 @@ export default function Reports() {
             <ReportsSkeleton />
           ) : isMonthlyError ? (
             <div className="text-destructive py-10 text-center">Failed to load the report. Please try again.</div>
-          ) : monthlyReport ? (
+          ) : displayedMonthlyReport ? (
             <div ref={reportRef} className="space-y-6">
               <div className="lg:sticky lg:top-4 z-30 bg-background/80 lg:backdrop-blur-md pb-4 pt-2 -mt-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shadow-sm rounded-xl">
-                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{monthlyReport.summary.products}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Products Updated</div></CardContent></Card>
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><PlusCircle className="w-8 h-8 text-blue-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.features}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Features Delivered</div></CardContent></Card>
-                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Wrench className="w-8 h-8 text-purple-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.improvements}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Improvements Made</div></CardContent></Card>
-                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{monthlyReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Bug Fixes Resolved</div></CardContent></Card>
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Package className="w-8 h-8 text-muted-foreground" /><div className="text-3xl font-bold">{displayedMonthlyReport.summary.products}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Products Updated</div></CardContent></Card>
+                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><PlusCircle className="w-8 h-8 text-blue-500 opacity-80" /><div className="text-3xl font-bold">{displayedMonthlyReport.summary.features}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Features Delivered</div></CardContent></Card>
+                <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Wrench className="w-8 h-8 text-purple-500 opacity-80" /><div className="text-3xl font-bold">{displayedMonthlyReport.summary.improvements}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Improvements Made</div></CardContent></Card>
+                  <Card><CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2"><Bug className="w-8 h-8 text-red-500 opacity-80" /><div className="text-3xl font-bold">{displayedMonthlyReport.summary.bugFixes}</div><div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Bug Fixes Resolved</div></CardContent></Card>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <h3 className="text-xl font-bold mt-8 mb-4">Product Reports</h3>
-                {monthlyReport.products.length === 0 ? (
-                  <div className="text-muted-foreground">No activities found for the selected period.</div>
+                {displayedMonthlyReport.products.length === 0 ? (
+                  <div className="text-muted-foreground">
+                    {versionFilter === 'all' ? 'No activities found for the selected period.' : 'No activities found for the selected version.'}
+                  </div>
                 ) : (
-                  monthlyReport.products.map((pData: any) => <ProductReportCard key={pData.product._id} pData={pData} forceExpanded={forceExpand} />)
+                  displayedMonthlyReport.products.map((pData: any) => <ProductReportCard key={pData.product._id} pData={pData} forceExpanded={forceExpand} />)
                 )}
               </div>
             </div>

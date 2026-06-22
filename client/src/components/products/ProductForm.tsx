@@ -31,6 +31,7 @@ const buildSchema = (variant: ProductFormVariant) =>
     icon: z.string().optional(),
     banner: z.string().optional(),
     wpOrgSlug: z.string().optional(),
+    repoPath: z.string().optional(),
   });
 
 type FormValues = z.infer<ReturnType<typeof buildSchema>>;
@@ -76,6 +77,7 @@ export function ProductForm({
       icon: '',
       banner: '',
       wpOrgSlug: '',
+      repoPath: '',
     },
   });
 
@@ -140,6 +142,24 @@ export function ProductForm({
             )}
           />
         )}
+
+        <FormField
+          control={form.control as any}
+          name="repoPath"
+          render={({ field }: any) => (
+            <FormItem>
+              <FormLabel>Local repo path (optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. C:\\Users\\you\\projects\\my-plugin" {...field} />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                Absolute path on the server machine. When the Code Activity Tracker is enabled, file
+                changes here are auto-summarized into draft changelog entries.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="grid grid-cols-2 gap-4">
           {/* Standalone has a fixed category, so the select is hidden. */}

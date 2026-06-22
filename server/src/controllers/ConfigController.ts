@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { hasControlChars } from '../utils/sanitize';
+import { codeTrackerService } from '../services/CodeTrackerService';
 
 const configPath = path.resolve(__dirname, '../../../app.config.json');
 const envPath = path.resolve(__dirname, '../../../.env');
@@ -35,7 +36,7 @@ const readEnvFile = (): Record<string, string> => {
 
 export const updateConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { server, sounds, navigation } = req.body;
+    const { server, sounds, navigation, codeTracker } = req.body;
 
     // Load existing config to merge
     let currentConfig: any = {
@@ -49,7 +50,8 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         clickSound: 'synth-click',
         volume: 0.5
       },
-      navigation: { mode: 'expanded' }
+      navigation: { mode: 'expanded' },
+      codeTracker: { enabled: false, model: 'qwen2.5-coder' }
     };
 
     if (fs.existsSync(configPath)) {
@@ -114,6 +116,14 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         mode: ['expanded', 'collapsed', 'disabled'].includes(navigation?.mode)
           ? navigation.mode
           : (currentConfig.navigation?.mode || 'expanded'),
+      },
+      codeTracker: {
+        enabled: typeof codeTracker?.enabled === 'boolean'
+          ? codeTracker.enabled
+          : (currentConfig.codeTracker?.enabled ?? false),
+        model: (typeof codeTracker?.model === 'string' && codeTracker.model.trim())
+          ? codeTracker.model.trim()
+          : (currentConfig.codeTracker?.model || 'qwen2.5-coder'),
       }
     };
 
@@ -121,6 +131,9 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
     const tmpConfig = `${configPath}.tmp`;
     fs.writeFileSync(tmpConfig, JSON.stringify(mergedConfig, null, 2), 'utf8');
     fs.renameSync(tmpConfig, configPath);
+
+    // Apply code-tracker config changes (enable/disable, model) live.
+    void codeTrackerService.refresh();
 
     // 2. Only update .env if server settings changed
     if (isServerChanged) {

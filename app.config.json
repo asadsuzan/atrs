@@ -14,5 +14,9 @@
   },
   "navigation": {
     "mode": "expanded"
+  },
+  "codeTracker": {
+    "enabled": true,
+    "model": "llama3"
   }
 }

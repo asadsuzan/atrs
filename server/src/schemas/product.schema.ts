@@ -12,6 +12,7 @@ export const createProductSchema = z.object({
     banner: z.string().optional(),
     wpOrgSlug: z.string().optional(),
     wpReadme: z.string().optional(),
+    repoPath: z.string().optional(),
   }),
 });
 
@@ -26,6 +27,7 @@ export const updateProductSchema = z.object({
     banner: z.string().optional(),
     wpOrgSlug: z.string().optional(),
     wpReadme: z.string().optional(),
+    repoPath: z.string().optional(),
   }),
   params: z.object({
     id: z.string(),

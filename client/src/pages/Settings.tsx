@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
@@ -32,6 +32,7 @@ export default function Settings() {
   const [isMuted, setIsMuted] = useState(isUserMuted());
   const [configForm, setConfigForm] = useState({ serverPort: '5000', mongodbUri: '' });
   const [navMode, setNavMode] = useState<NavMode>('expanded');
+  const [trackerForm, setTrackerForm] = useState({ enabled: false, model: 'qwen2.5-coder' });
   const [isRestarting, setIsRestarting] = useState(false);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
@@ -67,6 +68,12 @@ export default function Settings() {
         mongodbUri: configData.server?.mongodbUri || ''
       });
       if (configData.navigation?.mode) setNavMode(configData.navigation.mode);
+      if (configData.codeTracker) {
+        setTrackerForm({
+          enabled: !!configData.codeTracker.enabled,
+          model: configData.codeTracker.model || 'qwen2.5-coder',
+        });
+      }
       if (configData.sounds) {
         setSoundsForm({
           enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
@@ -96,6 +103,14 @@ export default function Settings() {
       if (variables.navigation) {
         toast.success("Navigation settings saved");
         queryClient.invalidateQueries({ queryKey: ['nav-settings'] });
+        refetch();
+        return;
+      }
+
+      // Code-tracker preference: no restart; refresh its status.
+      if (variables.codeTracker) {
+        toast.success("Code Activity Tracker settings saved");
+        queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
         refetch();
         return;
       }
@@ -153,6 +168,10 @@ export default function Settings() {
 
   const handleSaveNav = () => {
     saveMutation.mutate({ navigation: { mode: navMode } });
+  };
+
+  const handleSaveTracker = () => {
+    saveMutation.mutate({ codeTracker: trackerForm });
   };
 
   const handleToggleMute = () => {
@@ -328,6 +347,52 @@ export default function Settings() {
                   <Save className="w-4 h-4 mr-2" /> Save
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="pt-8">
+          <h3 className="text-xl font-bold mb-4">Code Activity Tracker</h3>
+          <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Code2 className="w-5 h-5 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="font-semibold">Watch repos &amp; auto-draft changelogs</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                    Watches each product's local repo path and uses a local Ollama model to turn saved
+                    edits into draft changelog entries. Requires Ollama running locally.
+                  </p>
+                </div>
+              </div>
+              <label className="inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={trackerForm.enabled}
+                  onChange={(e) => setTrackerForm((f) => ({ ...f, enabled: e.target.checked }))}
+                />
+                <div className="relative w-11 h-6 bg-muted peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="flex-1 space-y-1">
+                <label className="text-sm font-medium">Ollama model</label>
+                <Input
+                  value={trackerForm.model}
+                  onChange={(e) => setTrackerForm((f) => ({ ...f, model: e.target.value }))}
+                  placeholder="qwen2.5-coder"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Pull it first: <code>ollama pull {trackerForm.model || 'qwen2.5-coder'}</code>. Set a repo path per product to start tracking.
+                </p>
+              </div>
+              <Button onClick={handleSaveTracker} disabled={saveMutation.isPending}>
+                <Save className="w-4 h-4 mr-2" /> Save
+              </Button>
             </div>
           </div>
         </div>

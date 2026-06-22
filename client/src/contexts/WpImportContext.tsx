@@ -54,6 +54,14 @@ interface WpImportContextValue {
   summary: ImportSummary | null;
   startImport: () => void;
   requestCancel: () => void;
+
+  /**
+   * Onboarding shortcut: kick off an import directly (skipping the manual
+   * select-plugins step) and surface the live console. Pass an author
+   * `username` to import a whole catalogue, or just `slugs` to import specific
+   * plugins by slug.
+   */
+  quickImport: (opts: { username?: string; slugs: string[] }) => Promise<void>;
 }
 
 const WpImportContext = createContext<WpImportContextValue | null>(null);
@@ -154,7 +162,7 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const startImport = async () => {
+  const runImport = async (uname: string, slugList: string[]) => {
     setIsImporting(true);
     setIsCancelling(false);
     setLogs([]);
@@ -172,8 +180,8 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
 
     try {
       await importFromWpOrgStream(
-        username.trim(),
-        Array.from(selected),
+        uname.trim(),
+        slugList,
         {
           onSession: (id) => { sessionIdRef.current = id; },
           onProgress: (e) => {
@@ -219,6 +227,17 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const startImport = () => runImport(username, Array.from(selected));
+
+  const quickImport = async ({ username: uname = '', slugs }: { username?: string; slugs: string[] }) => {
+    if (slugs.length === 0) return;
+    // Surface the live console while it streams (same window as the manual flow).
+    setIsOpen(true);
+    setIsMinimized(false);
+    setUsernameRaw(uname);
+    await runImport(uname, slugs);
+  };
+
   // Graceful cancel: signal the server to stop and roll back, but keep the
   // stream open so rollback progress streams into the console / mini-player.
   const requestCancel = async () => {
@@ -244,7 +263,7 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     fetchPlugins: () => previewMutation.mutate(),
     toggle, toggleAll,
     isImporting, isCancelling, logs, progress, summary,
-    startImport, requestCancel,
+    startImport, requestCancel, quickImport,
   };
 
   return <WpImportContext.Provider value={value}>{children}</WpImportContext.Provider>;

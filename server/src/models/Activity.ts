@@ -25,6 +25,17 @@ export interface IActivity extends Document {
   tags?: string[];
   items: IActivityItem[];
   activityDate: Date;
+  /** True when auto-created by the code-activity tracker (draft changelog entry). */
+  autoTracked?: boolean;
+  /** Source file (relative to repo) that triggered an auto-tracked entry. */
+  filePath?: string;
+  /**
+   * Stable identity for entries imported from a WordPress.org readme changelog
+   * (`version|normalized-title` at import time). Lets a re-import recognize a
+   * line it already created even after the user edits its title/description, so
+   * manual edits are never clobbered or duplicated.
+   */
+  importSourceKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,6 +97,9 @@ const ActivitySchema: Schema = new Schema(
     mediaUrls: [{ type: String, required: false }],
     items: [ActivityItemSchema],
     activityDate: { type: Date, required: true },
+    autoTracked: { type: Boolean, default: false, index: true },
+    filePath: { type: String, required: false },
+    importSourceKey: { type: String, required: false, index: true },
   },
   { timestamps: true }
 );

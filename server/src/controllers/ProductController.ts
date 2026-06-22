@@ -127,7 +127,8 @@ export const wpOrgPreview = async (req: Request, res: Response, next: NextFuncti
 export const importFromWpOrg = async (req: Request, res: Response, next: NextFunction) => {
   console.log('[WP Import Controller] POST /import-from-wporg hit, body:', JSON.stringify(req.body));
   const { username, slugs } = req.body;
-  if (!username) return res.status(400).json({ message: 'username is required' });
+  // Either an author username (catalogue import) or an explicit slug list
+  // (onboarding "import by slug") is required — slugs alone are enough.
   if (!Array.isArray(slugs) || slugs.length === 0) return res.status(400).json({ message: 'slugs must be a non-empty array' });
 
   // Stream import progress to the client as Server-Sent Events.

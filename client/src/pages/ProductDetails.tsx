@@ -1,11 +1,14 @@
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
-import { getActivities, reorderActivity } from '../services/activities';
+import { getActivities, reorderActivity, updateActivity, deleteActivity } from '../services/activities';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ActivityForm } from '../components/activities/ActivityForm';
+import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Tag, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
@@ -14,12 +17,15 @@ import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { playSound } from '@/lib/sound';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/ui/skeletons';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: boolean, onClick: () => void }) => {
+const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -40,7 +46,23 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
           ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-xl shadow-primary/10"
           : "border-border shadow-sm hover:shadow-md"
       )}>
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+           <button
+             type="button"
+             aria-label={`Edit ${act.title}`}
+             onClick={(e) => { e.stopPropagation(); onEdit(act); }}
+             className="text-muted-foreground hover:text-foreground p-1 bg-muted rounded-md border"
+           >
+             <Edit2 className="w-4 h-4" />
+           </button>
+           <button
+             type="button"
+             aria-label={`Delete ${act.title}`}
+             onClick={(e) => { e.stopPropagation(); onDelete(act); }}
+             className="text-muted-foreground hover:text-destructive p-1 bg-muted rounded-md border"
+           >
+             <Trash2 className="w-4 h-4" />
+           </button>
            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 bg-muted rounded-md border">
              <GripVertical className="w-4 h-4" />
            </div>
@@ -61,6 +83,7 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2 pr-8">
             <h4 className="font-semibold text-[18px] text-foreground leading-tight">{act.title}</h4>
+            {act.versionId?.label && <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">{act.versionId.label}</span>}
             {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
             {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
             {act.tags?.includes('unreleased') && <span className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">UNRELEASED</span>}
@@ -99,7 +122,7 @@ const SortableActivityCard = ({ act, isActive, onClick }: { act: any, isActive: 
   );
 };
 
-const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void }) => {
+const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void }) => {
   const [isOpen, setIsOpen] = useState(true);
   if (typeActs.length === 0) return null;
   return (
@@ -124,11 +147,13 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
               <SortableContext items={typeActs.map(a => a._id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                   {typeActs.map((act: any) => (
-                    <SortableActivityCard 
-                      key={act._id} 
-                      act={act} 
+                    <SortableActivityCard
+                      key={act._id}
+                      act={act}
                       isActive={activeCardId === act._id}
                       onClick={() => onCardClick(act._id)}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
                     />
                   ))}
                 </div>
@@ -144,8 +169,54 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
 export default function ProductDetails() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [versionFilter, setVersionFilter] = useState<string>('all');
+  const [editingActivity, setEditingActivity] = useState<any>(null);
+
+  const updateMutation = useMutation({
+    mutationFn: updateActivity,
+    onSuccess: () => {
+      playSound('success');
+      toast.success('Changelog entry updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['activities', id] });
+      setEditingActivity(null);
+    },
+    onError: () => {
+      playSound('error');
+      toast.error('Failed to update changelog entry');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteActivity,
+    onSuccess: () => {
+      playSound('delete');
+      toast.success('Changelog entry deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['activities', id] });
+    },
+    onError: () => {
+      playSound('error');
+      toast.error('Failed to delete changelog entry');
+    },
+  });
+
+  const handleEditActivity = (act: any) => {
+    setEditingActivity({
+      ...act,
+      productId: act.productId?._id || id,
+      versionId: typeof act.versionId === 'object' ? act.versionId?._id : act.versionId,
+      activityDate: format(new Date(act.activityDate), 'yyyy-MM-dd'),
+      tags: act.tags || [],
+    });
+  };
+
+  const handleDeleteActivity = async (act: any) => {
+    if (await confirm({ title: 'Delete Changelog Entry', description: 'Are you sure you want to permanently delete this changelog entry?' })) {
+      deleteMutation.mutate(act._id);
+    }
+  };
 
   const { data: product, isLoading: productLoading } = useQuery({
     queryKey: ['product', id],
@@ -238,7 +309,8 @@ export default function ProductDetails() {
     let markdown = `# Changelog - ${product?.name}\n\n`;
     activitiesData.data.forEach((act: any) => {
       markdown += `## ${act.title}\n`;
-      markdown += `*Date: ${new Date(act.activityDate).toLocaleDateString()} | Type: ${act.type}*\n\n`;
+      const versionPart = act.versionId?.label ? ` | Version: ${act.versionId.label}` : '';
+      markdown += `*Date: ${new Date(act.activityDate).toLocaleDateString()} | Type: ${act.type}${versionPart}*\n\n`;
       markdown += `${act.shortDescription}\n\n`;
     });
     const blob = new Blob([markdown], { type: 'text/markdown' });
@@ -253,7 +325,20 @@ export default function ProductDetails() {
   if (productLoading) return <ProductDetailsSkeleton />;
   if (!product) return <div>Product not found</div>;
 
-  const activities = activitiesData?.data || [];
+  const allActivities = activitiesData?.data || [];
+
+  // Distinct version labels present across this product's activities, used to
+  // populate the changelog version filter ("__none__" groups unversioned ones).
+  const versionOptions: string[] = Array.from(
+    new Set(allActivities.map((a: any) => a.versionId?.label).filter(Boolean) as string[])
+  ).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const hasUnversioned = allActivities.some((a: any) => !a.versionId?.label);
+
+  const activities = allActivities.filter((a: any) => {
+    if (versionFilter === 'all') return true;
+    if (versionFilter === '__none__') return !a.versionId?.label;
+    return a.versionId?.label === versionFilter;
+  });
   const features = activities.filter((a: any) => a.type === 'feature') || [];
   const improvements = activities.filter((a: any) => a.type === 'improvement') || [];
   const bugFixes = activities.filter((a: any) => a.type === 'bug-fix') || [];
@@ -360,20 +445,44 @@ export default function ProductDetails() {
 
         {activeTab === 'activities' && (
           <div className="space-y-6">
-            <div className="flex justify-end">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              {(versionOptions.length > 0 || hasUnversioned) ? (
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-muted-foreground" />
+                  <Select value={versionFilter} onValueChange={setVersionFilter}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Filter by version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All versions</SelectItem>
+                      {versionOptions.map((label, i) => (
+                        <SelectItem key={label} value={label}>
+                          <span className="flex items-center gap-2">
+                            {label}
+                            {i === 0 && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">Latest</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                      {hasUnversioned && <SelectItem value="__none__">Unversioned</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : <div />}
               <Button variant="outline" size="sm" onClick={exportChangelog}>
                 <Download className="w-4 h-4 mr-2" /> Export Changelog
               </Button>
             </div>
             {activitiesLoading ? (
               <ProductActivitiesSkeleton />
-            ) : activities.length === 0 ? (
+            ) : allActivities.length === 0 ? (
               <div className="text-muted-foreground">No activities recorded for this product yet.</div>
+            ) : activities.length === 0 ? (
+              <div className="text-muted-foreground">No activities found for the selected version.</div>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
-                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
-                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} />
+                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
+                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
+                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
               </DndContext>
             )}
           </div>
@@ -391,6 +500,25 @@ export default function ProductDetails() {
           <WpReadmeViewer content={product.wpReadme} />
         )}
       </div>
+
+      <Dialog open={!!editingActivity} onOpenChange={(open: boolean) => !open && setEditingActivity(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Changelog Entry</DialogTitle>
+          </DialogHeader>
+          {editingActivity && (
+            <ActivityForm
+              key={editingActivity._id}
+              initialData={editingActivity}
+              onSubmit={(data: any) => {
+                if (!data.mediaType) data.mediaType = null;
+                if (!data.mediaUrl) data.mediaUrl = null;
+                updateMutation.mutate({ id: editingActivity._id, ...data });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
     </PageTransition>
   );

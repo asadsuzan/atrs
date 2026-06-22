@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { getToken, api } from '@/services/api';
@@ -25,6 +26,7 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user, refreshMe } = useAuth();
+  const queryClient = useQueryClient();
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
@@ -135,6 +137,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     });
 
+    // Live code-activity tracker updates → refresh the feed + lightweight toast.
+    eventSource.addEventListener('code-activity', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
+        queryClient.invalidateQueries({ queryKey: ['activities'] });
+        playSound('notification');
+        toast.info('Code activity tracked', {
+          description: `${data.title}${data.productName ? ` — ${data.productName}` : ''}`,
+          duration: 5000,
+        });
+      } catch (err) {
+        console.error('[SSE] Failed to parse code-activity payload:', err);
+      }
+    });
+
+    // Code-activity tracker error (e.g. Ollama unreachable / model not pulled).
+    eventSource.addEventListener('code-activity-error', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
+        toast.error('Code tracker', { description: data.error || 'AI generation failed', duration: 7000 });
+      } catch (err) {
+        console.error('[SSE] Failed to parse code-activity-error payload:', err);
+      }
+    });
+
     eventSource.onerror = (err) => {
       console.error('[SSE] EventSource encountered connection error. Reconnecting...', err);
     };
@@ -142,7 +171,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => {
       eventSource.close();
     };
-  }, [user, refreshMe]);
+  }, [user, refreshMe, queryClient]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

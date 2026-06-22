@@ -14,6 +14,7 @@ import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
 import { parseReadmeChangelog } from '../utils/readmeChangelog';
+import { codeTrackerService } from './CodeTrackerService';
 import type { AuthUser } from '../types/auth';
 
 // Filled into the required shortDescription for changelog entries imported from
@@ -52,6 +53,7 @@ export class ProductService {
     const slug = await this.uniqueSlugForOwner(data.name, user.id);
     const product = await this.repository.create({ ...data, slug, ownerId: user.id });
     await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id, name: user.name });
+    void codeTrackerService.refresh();
     return product;
   }
 
@@ -93,6 +95,7 @@ export class ProductService {
     if (product) {
       await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product details', { id: user.id, name: user.name });
     }
+    void codeTrackerService.refresh();
     return product;
   }
 
@@ -122,6 +125,27 @@ export class ProductService {
     if (!response.ok) throw new Error('Failed to fetch from WordPress.org API');
     const data: any = await response.json();
     return data.plugins || [];
+  }
+
+  /**
+   * Fetch a single plugin's info directly by its slug (no author username
+   * required). Used by the onboarding "import a specific plugin" path. Returns
+   * the plugin object in the same shape as fetchWpOrgPlugins(), or null when the
+   * slug doesn't resolve to a published plugin.
+   */
+  async fetchWpOrgPluginBySlug(slug: string): Promise<any | null> {
+    const url =
+      `https://api.wordpress.org/plugins/info/1.2/?action=plugin_information` +
+      `&request[slug]=${encodeURIComponent(slug)}` +
+      `&request[fields][icons]=1&request[fields][banners]=1` +
+      `&request[fields][tags]=1&request[fields][short_description]=1` +
+      `&request[fields][versions]=1`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data: any = await response.json();
+    // The API returns { error: "Plugin not found." } for unknown slugs.
+    if (!data || data.error || !data.slug) return null;
+    return data;
   }
 
   /**
@@ -302,12 +326,25 @@ export class ProductService {
     const emit = (e: ImportProgress) => { if (onProgress) onProgress(e); };
     const cancelled = () => (isCancelled ? isCancelled() : false);
 
-    emit({ type: 'info', step: 'fetch-api', message: `Fetching plugins from WordPress.org for user "${username}"...` });
-    console.log(`[WP Import] importFromWpOrg called: username=${username}, slugs=${JSON.stringify(slugs)}`);
-    const plugins = await this.fetchWpOrgPlugins(username);
-    console.log(`[WP Import] WP API returned ${plugins.length} plugins`);
-    const toImport = plugins.filter((p: any) => slugs.includes(p.slug));
-    emit({ type: 'info', step: 'fetch-api', message: `WordPress.org API returned ${plugins.length} plugins, ${toImport.length} selected for import` });
+    let toImport: any[];
+    if (username && username.trim()) {
+      // Author-based: fetch the user's whole catalogue, then keep the selected slugs.
+      emit({ type: 'info', step: 'fetch-api', message: `Fetching plugins from WordPress.org for user "${username}"...` });
+      console.log(`[WP Import] importFromWpOrg called: username=${username}, slugs=${JSON.stringify(slugs)}`);
+      const plugins = await this.fetchWpOrgPlugins(username);
+      console.log(`[WP Import] WP API returned ${plugins.length} plugins`);
+      toImport = plugins.filter((p: any) => slugs.includes(p.slug));
+      emit({ type: 'info', step: 'fetch-api', message: `WordPress.org API returned ${plugins.length} plugins, ${toImport.length} selected for import` });
+    } else {
+      // Slug-based (no username): resolve each slug directly via plugin_information.
+      emit({ type: 'info', step: 'fetch-api', message: `Looking up ${slugs.length} plugin(s) by slug on WordPress.org...` });
+      console.log(`[WP Import] importFromWpOrg called: slug-only, slugs=${JSON.stringify(slugs)}`);
+      const resolved = await Promise.all(slugs.map((s) => this.fetchWpOrgPluginBySlug(s)));
+      toImport = resolved.filter(Boolean);
+      const missing = slugs.filter((_s, i) => !resolved[i]);
+      missing.forEach((s) => emit({ type: 'warn', step: 'fetch-api', slug: s, message: `Plugin "${s}" not found on WordPress.org` }));
+      emit({ type: 'info', step: 'fetch-api', message: `Resolved ${toImport.length} of ${slugs.length} plugin(s) for import` });
+    }
     console.log(`[WP Import] ${toImport.length} plugins to import: ${toImport.map((p: any) => p.slug).join(', ')}`);
 
     const created: any[] = [];
@@ -435,10 +472,21 @@ export class ProductService {
               const labelByVersionId = new Map(versionDocs.map((v: any) => [v._id.toString(), v.label]));
 
               const norm = (s: string) => s.trim().toLowerCase();
-              const existingActs = await Activity.find({ productId: product._id }).select('title versionId').lean();
-              const existingKeys = new Set(
-                existingActs.map((a: any) => `${a.versionId ? (labelByVersionId.get(a.versionId.toString()) || '') : ''}|${norm(a.title)}`)
-              );
+              const existingActs = await Activity.find({ productId: product._id }).select('title versionId importSourceKey').lean();
+              // Dedup against two identities so a re-import skips a line it has
+              // already created:
+              //  - importSourceKey: the stable key stamped at import time. This
+              //    survives the user editing the title/description, so their
+              //    manual edits are never re-inserted or clobbered.
+              //  - version|title: legacy fallback for entries imported before
+              //    importSourceKey existed (and for manually-authored entries
+              //    that happen to match a readme line).
+              const existingKeys = new Set<string>();
+              for (const a of existingActs as any[]) {
+                if (a.importSourceKey) existingKeys.add(a.importSourceKey);
+                const label = a.versionId ? (labelByVersionId.get(a.versionId.toString()) || '') : '';
+                existingKeys.add(`${label}|${norm(a.title)}`);
+              }
 
               const toInsertActs: any[] = [];
               for (const block of parsed) {
@@ -457,6 +505,7 @@ export class ProductService {
                     tags: ['released'],
                     ...(v ? { versionId: v._id } : {}),
                     activityDate,
+                    importSourceKey: key,
                   });
                 }
               }
@@ -528,15 +577,20 @@ export class ProductService {
     // set) transactions are unsupported and Mongo throws — in that case we fall
     // back to a non-transactional sequential cascade. Either way, errors are
     // surfaced (not silently swallowed) so a half-completed delete is visible.
+    let result: IProduct | null;
     try {
-      return await this.deleteProductTransactional(id, existing!, user);
+      result = await this.deleteProductTransactional(id, existing!, user);
     } catch (err: any) {
       if (this.isTransactionUnsupported(err)) {
         console.warn('[ProductService]: transactions unsupported (standalone mongod); falling back to sequential cascade delete.');
-        return await this.deleteProductSequential(id, user);
+        result = await this.deleteProductSequential(id, user);
+      } else {
+        throw err;
       }
-      throw err;
     }
+    // Drop the tracker's watcher for the now-deleted product.
+    void codeTrackerService.refresh();
+    return result;
   }
 
   /** Returns true when the error indicates transactions aren't supported (standalone mongod). */

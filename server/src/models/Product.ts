@@ -10,6 +10,8 @@ export interface IProduct extends Document {
   icon?: string;
   wpOrgSlug?: string;
   wpReadme?: string;
+  /** Absolute local path to the product's source repo, watched by the code-activity tracker. */
+  repoPath?: string;
   category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -30,6 +32,7 @@ const ProductSchema: Schema = new Schema(
     icon: { type: String, default: '' },
     wpOrgSlug: { type: String, default: '' },
     wpReadme: { type: String, default: '' },
+    repoPath: { type: String, default: '' },
     category: {
       type: String,
       enum: ['plugin', 'block', 'theme', 'standalone'],
