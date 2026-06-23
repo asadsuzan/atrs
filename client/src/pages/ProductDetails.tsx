@@ -508,7 +508,7 @@ export default function ProductDetails() {
         )}
 
         {activeTab === 'readme' && product?.wpReadme && (
-          <WpReadmeViewer content={product.wpReadme} />
+          <WpReadmeViewer content={product.wpReadme} wpData={wpData} />
         )}
       </div>
 
