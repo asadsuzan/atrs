@@ -32,6 +32,7 @@ const Help = lazy(() => import('./pages/Help'));
 const Users = lazy(() => import('./pages/admin/Users'));
 const CodeActivity = lazy(() => import('./pages/CodeActivity'));
 const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
+const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -229,6 +230,8 @@ function AnimatedRoutes() {
         <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
         {/* Self-gates: requires auth + mustChangePassword (see component). */}
         <Route path="/set-password" element={<SetPassword />} />
+        {/* Public hosted changelog — no auth, outside the app shell. */}
+        <Route path="/changelog/:id" element={<Suspense fallback={<PageSkeleton />}><PublicChangelog /></Suspense>} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />

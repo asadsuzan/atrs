@@ -28,6 +28,7 @@ export const updateProductSchema = z.object({
     wpOrgSlug: z.string().optional(),
     wpReadme: z.string().optional(),
     repoPath: z.string().optional(),
+    publicChangelogEnabled: z.boolean().optional(),
   }),
   params: z.object({
     id: z.string(),

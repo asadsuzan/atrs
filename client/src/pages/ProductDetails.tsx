@@ -14,6 +14,7 @@ import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
+import { ReleasePublish } from '../components/products/ReleasePublish';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -170,7 +171,7 @@ export default function ProductDetails() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
-  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [versionFilter, setVersionFilter] = useState<string>('all');
   const [editingActivity, setEditingActivity] = useState<any>(null);
@@ -250,7 +251,7 @@ export default function ProductDetails() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme') {
+    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release') {
       setActiveTab(tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -427,11 +428,17 @@ export default function ProductDetails() {
           >
             Versions
           </button>
-          <button 
+          <button
             className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'marketing' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('marketing')}
           >
             Marketing Hub
+          </button>
+          <button
+            className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'release' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('release')}
+          >
+            Release
           </button>
           {product?.wpReadme && (
             <button 
@@ -494,6 +501,10 @@ export default function ProductDetails() {
 
         {activeTab === 'marketing' && id && (
           <MarketingManager productId={id} />
+        )}
+
+        {activeTab === 'release' && id && (
+          <ReleasePublish productId={id} />
         )}
 
         {activeTab === 'readme' && product?.wpReadme && (

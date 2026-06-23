@@ -103,6 +103,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import jobRoutes from './routes/jobRoutes';
 import codeTrackerRoutes from './routes/codeTrackerRoutes';
 import readmeToolsRoutes from './routes/readmeToolsRoutes';
+import publicRoutes from './routes/publicRoutes';
 import { codeTrackerService } from './services/CodeTrackerService';
 import { exportAllData } from './controllers/ExportController';
 
@@ -116,6 +117,10 @@ app.use('/api/auth', authRoutes);
 // embedded in an <iframe> (it blocks framing). No auth — an iframe navigation
 // can't send the JWT header, and it only proxies a public page.
 app.use('/api/tools', readmeToolsRoutes);
+
+// Public: read-only endpoints for the hosted changelog page (/changelog/:id).
+// No auth — owners opt a product in via its publicChangelogEnabled flag.
+app.use('/api/public', publicRoutes);
 
 // Authenticated + active-account routes
 app.use('/api/products', requireAuth, requireActive, productRoutes);

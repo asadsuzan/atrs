@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon,
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
-  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, Code2, FileCheck2,
+  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, Code2, FileCheck2, Rocket,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
@@ -54,6 +54,7 @@ const PRODUCT_TABS: { key: string; label: string; icon: any }[] = [
   { key: 'activities', label: 'Activity Timeline', icon: Activity },
   { key: 'versions', label: 'Versions', icon: Tag },
   { key: 'marketing', label: 'Marketing Hub', icon: Megaphone },
+  { key: 'release', label: 'Release', icon: Rocket },
 ];
 
 /**

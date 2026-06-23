@@ -5,6 +5,7 @@ import { createProductSchema, updateProductSchema } from '../schemas/product.sch
 import { upsertMarketingSchema } from '../schemas/marketing.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import { ProductMarketingController } from '../controllers/ProductMarketingController';
+import * as ReleaseController from '../controllers/ReleaseController';
 
 const marketingController = new ProductMarketingController();
 
@@ -18,6 +19,7 @@ router.get('/wporg-preview', ProductController.wpOrgPreview);
 router.post('/import-from-wporg', ProductController.importFromWpOrg);
 router.post('/import-from-wporg/cancel', ProductController.cancelWpOrgImport);
 router.get('/:id', validate(idParamSchema), ProductController.getProductById);
+router.get('/:id/release', validate(idParamSchema), ReleaseController.getProductRelease);
 router.patch('/:id', validate(updateProductSchema), ProductController.updateProduct);
 router.delete('/:id', validate(idParamSchema), ProductController.deleteProduct);
 

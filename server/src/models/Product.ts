@@ -12,6 +12,8 @@ export interface IProduct extends Document {
   wpReadme?: string;
   /** Absolute local path to the product's source repo, watched by the code-activity tracker. */
   repoPath?: string;
+  /** When true, the product's changelog is served on the public /changelog/:id page. */
+  publicChangelogEnabled?: boolean;
   category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -33,6 +35,7 @@ const ProductSchema: Schema = new Schema(
     wpOrgSlug: { type: String, default: '' },
     wpReadme: { type: String, default: '' },
     repoPath: { type: String, default: '' },
+    publicChangelogEnabled: { type: Boolean, default: false },
     category: {
       type: String,
       enum: ['plugin', 'block', 'theme', 'standalone'],
