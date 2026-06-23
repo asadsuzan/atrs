@@ -23,7 +23,7 @@ export class ReportService {
     // restricted to their own data by scopeFilter.
     if (ownerId && user.role === 'admin') matchStage.ownerId = new mongoose.Types.ObjectId(ownerId);
 
-    const activities = await Activity.find(matchStage).populate('productId').populate('versionId', 'label').sort({ activityDate: -1 });
+    const activities = await Activity.find(matchStage).populate('productId').populate('versionId', 'label author').sort({ activityDate: -1 });
 
     const summary = {
       products: 0,

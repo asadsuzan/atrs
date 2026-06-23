@@ -11,13 +11,13 @@ export class ActivityRepository {
     const sortObj: any = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
     
     if (limit === -1) {
-      const data = await Activity.find(filter).sort(sortObj).populate('productId', 'name slug icon category status').populate('versionId', 'label');
+      const data = await Activity.find(filter).sort(sortObj).populate('productId', 'name slug icon category status').populate('versionId', 'label author');
       return { data, total: data.length, page: 1, totalPages: 1 };
     }
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      Activity.find(filter).sort(sortObj).skip(skip).limit(limit).populate('productId', 'name slug icon category status').populate('versionId', 'label'),
+      Activity.find(filter).sort(sortObj).skip(skip).limit(limit).populate('productId', 'name slug icon category status').populate('versionId', 'label author'),
       Activity.countDocuments(filter)
     ]);
 
@@ -25,7 +25,7 @@ export class ActivityRepository {
   }
 
   async findById(id: string): Promise<IActivity | null> {
-    return await Activity.findById(id).populate('productId', 'name slug icon category status').populate('versionId', 'label');
+    return await Activity.findById(id).populate('productId', 'name slug icon category status').populate('versionId', 'label author');
   }
 
   async update(id: string, data: Partial<IActivity>): Promise<IActivity | null> {

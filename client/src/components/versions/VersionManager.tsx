@@ -14,8 +14,9 @@ import { useConfirm } from '../../contexts/ConfirmContext';
 import { playSound } from '@/lib/sound';
 import { TableRowSkeleton } from '@/components/ui/skeletons';
 import { Pagination } from '@/components/ui/Pagination';
+import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
 
-export function VersionManager({ productId }: { productId: string }) {
+export function VersionManager({ productId, wpData }: { productId: string; wpData?: any }) {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const [isOpen, setIsOpen] = useState(false);
@@ -37,6 +38,16 @@ export function VersionManager({ productId }: { productId: string }) {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
   const pagedVersions = allVersions.slice((page - 1) * limit, page * limit);
+
+  // Map WP.org contributor usernames -> avatar URL so version authors that are
+  // plugin contributors get their exact WP.org avatar.
+  const contribAvatars: Record<string, string> = {};
+  if (wpData?.contributors) {
+    for (const [username, c] of Object.entries<any>(wpData.contributors)) {
+      if (c?.avatar) contribAvatars[username.toLowerCase()] = c.avatar;
+    }
+  }
+  const avatarFor = (author: string) => contribAvatars[author.trim().toLowerCase()];
 
   const createMutation = useMutation({
     mutationFn: createVersion,
@@ -129,7 +140,16 @@ export function VersionManager({ productId }: { productId: string }) {
                 <TableRow key={version._id}>
                   <TableCell className="font-medium">{version.label}</TableCell>
                   <TableCell>{version.releasedAt ? new Date(version.releasedAt).toLocaleDateString() : 'Unreleased'}</TableCell>
-                  <TableCell>{version.author || 'N/A'}</TableCell>
+                  <TableCell>
+                    {version.author ? (
+                      <div className="flex items-center gap-2">
+                        <AuthorAvatar author={version.author} avatarUrl={avatarFor(version.author)} />
+                        <span>{version.author}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </TableCell>
                   <TableCell className="max-w-xs truncate">{version.notes}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(version)}>

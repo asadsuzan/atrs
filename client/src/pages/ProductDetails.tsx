@@ -16,6 +16,7 @@ import { VersionManager } from '../components/versions/VersionManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { ReleasePublish } from '../components/products/ReleasePublish';
 import { MediaCarousel } from '@/components/ui/media-carousel';
+import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -26,7 +27,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void }) => {
+const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatarFor }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -90,9 +91,16 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete }: { ac
             {act.tags?.includes('unreleased') && <span className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">UNRELEASED</span>}
           </div>
           
-          <p className="text-[14px] text-muted-foreground uppercase tracking-wider font-medium mb-3">
+          <p className="text-[14px] text-muted-foreground uppercase tracking-wider font-medium mb-2">
             {new Date(act.activityDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
+
+          {act.versionId?.author && (
+            <div className="flex items-center gap-2 mb-3">
+              <AuthorAvatar author={act.versionId.author} avatarUrl={avatarFor(act.versionId.author)} className="w-5 h-5" />
+              <span className="text-[13px] text-muted-foreground font-medium">{act.versionId.author}</span>
+            </div>
+          )}
 
           <p className="text-[14px] text-muted-foreground leading-[1.6]">{act.shortDescription}</p>
 
@@ -123,7 +131,7 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete }: { ac
   );
 };
 
-const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void }) => {
+const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete, avatarFor }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined }) => {
   const [isOpen, setIsOpen] = useState(true);
   if (typeActs.length === 0) return null;
   return (
@@ -155,6 +163,7 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
                       onClick={() => onCardClick(act._id)}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      avatarFor={avatarFor}
                     />
                   ))}
                 </div>
@@ -344,6 +353,17 @@ export default function ProductDetails() {
   const improvements = activities.filter((a: any) => a.type === 'improvement') || [];
   const bugFixes = activities.filter((a: any) => a.type === 'bug-fix') || [];
 
+  // Map WP.org contributor usernames -> avatar URL so activity authors that are
+  // plugin contributors get their exact WP.org avatar (others fall back to the
+  // WP.org gravatar redirect inside AuthorAvatar).
+  const contribAvatars: Record<string, string> = {};
+  if (wpData?.contributors) {
+    for (const [username, c] of Object.entries<any>(wpData.contributors)) {
+      if (c?.avatar) contribAvatars[username.toLowerCase()] = c.avatar;
+    }
+  }
+  const avatarFor = (author: string) => contribAvatars[author.trim().toLowerCase()];
+
 
 
   return (
@@ -487,16 +507,16 @@ export default function ProductDetails() {
               <div className="text-muted-foreground">No activities found for the selected version.</div>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
-                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
-                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} />
+                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
+                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
+                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
               </DndContext>
             )}
           </div>
         )}
 
         {activeTab === 'versions' && id && (
-          <VersionManager productId={id} />
+          <VersionManager productId={id} wpData={wpData} />
         )}
 
         {activeTab === 'marketing' && id && (

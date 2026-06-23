@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ReportsSkeleton } from '@/components/ui/skeletons';
 import { MediaCarousel } from '@/components/ui/media-carousel';
+import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -64,6 +65,12 @@ const ReportActivityCard = ({ act, forceExpanded }: { act: any; forceExpanded?: 
                 <CalendarIcon className="w-3 h-3" />
                 {new Date(act.activityDate).toLocaleDateString()}
               </div>
+              {act.versionId?.author && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <AuthorAvatar author={act.versionId.author} className="w-4 h-4" />
+                  {act.versionId.author}
+                </div>
+              )}
             </div>
           </div>
           <Button variant="ghost" size="icon" className="shrink-0 -mr-2 -mt-2" aria-label={isOpen ? 'Collapse' : 'Expand'}>
