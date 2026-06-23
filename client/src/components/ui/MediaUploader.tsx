@@ -36,6 +36,11 @@ export function MediaUploader({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isHoveredOrFocusedRef = useRef(false);
+  // The window `paste` listener is registered once on mount, so it must call the
+  // *latest* upload handler — otherwise it captures the first render's closure
+  // (stale `value`/`onChange`), which on paste overwrites the parent's state
+  // with its initial values and wipes other form fields.
+  const handleFilesUploadRef = useRef<(files: File[]) => void>(() => {});
 
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -56,7 +61,7 @@ export function MediaUploader({
       }
       if (files.length > 0) {
         e.preventDefault();
-        handleFilesUpload(multiple ? files : [files[0]]);
+        handleFilesUploadRef.current(multiple ? files : [files[0]]);
       }
     };
 
@@ -137,6 +142,9 @@ export function MediaUploader({
       setIsUploading(false);
     }
   };
+  // Refresh the ref each render so the (once-registered) paste listener always
+  // invokes the current closure.
+  handleFilesUploadRef.current = handleFilesUpload;
 
   const handleClear = (e: React.MouseEvent, indexToRemove?: number) => {
     e.stopPropagation();

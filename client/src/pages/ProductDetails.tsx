@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
+import { IssueManager } from '../components/issues/IssueManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { ReleasePublish } from '../components/products/ReleasePublish';
 import { MediaCarousel } from '@/components/ui/media-carousel';
@@ -180,7 +181,7 @@ export default function ProductDetails() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
-  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release' | 'issues'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [versionFilter, setVersionFilter] = useState<string>('all');
   const [editingActivity, setEditingActivity] = useState<any>(null);
@@ -260,7 +261,7 @@ export default function ProductDetails() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release') {
+    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release' || tab === 'issues') {
       setActiveTab(tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -460,6 +461,12 @@ export default function ProductDetails() {
           >
             Release
           </button>
+          <button
+            className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'issues' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('issues')}
+          >
+            Issues
+          </button>
           {product?.wpReadme && (
             <button 
               className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'readme' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
@@ -525,6 +532,10 @@ export default function ProductDetails() {
 
         {activeTab === 'release' && id && (
           <ReleasePublish productId={id} />
+        )}
+
+        {activeTab === 'issues' && id && (
+          <IssueManager productId={id} />
         )}
 
         {activeTab === 'readme' && product?.wpReadme && (

@@ -33,6 +33,7 @@ const Users = lazy(() => import('./pages/admin/Users'));
 const CodeActivity = lazy(() => import('./pages/CodeActivity'));
 const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
 const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
+const PublicIssues = lazy(() => import('./pages/PublicIssues'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -87,7 +88,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <div className={`flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
             <h1 className="text-xl font-bold tracking-tight leading-none">ATRS</h1>
-            <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">Your Tagline Here</span>
+            <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">Automated Townhall Reporting System</span>
           </div>
         </div>
         
@@ -237,6 +238,8 @@ function AnimatedRoutes() {
         <Route path="/set-password" element={<SetPassword />} />
         {/* Public hosted changelog — no auth, outside the app shell. */}
         <Route path="/changelog/:id" element={<Suspense fallback={<PageSkeleton />}><PublicChangelog /></Suspense>} />
+        {/* Public hosted issues — no auth, outside the app shell. */}
+        <Route path="/issues/:id" element={<Suspense fallback={<PageSkeleton />}><PublicIssues /></Suspense>} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />

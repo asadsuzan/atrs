@@ -14,6 +14,8 @@ export interface IProduct extends Document {
   repoPath?: string;
   /** When true, the product's changelog is served on the public /changelog/:id page. */
   publicChangelogEnabled?: boolean;
+  /** When true, the product's issues are served on the public /issues/:id page. */
+  publicIssuesEnabled?: boolean;
   category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -36,6 +38,7 @@ const ProductSchema: Schema = new Schema(
     wpReadme: { type: String, default: '' },
     repoPath: { type: String, default: '' },
     publicChangelogEnabled: { type: Boolean, default: false },
+    publicIssuesEnabled: { type: Boolean, default: false },
     category: {
       type: String,
       enum: ['plugin', 'block', 'theme', 'standalone'],

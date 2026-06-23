@@ -55,6 +55,7 @@ const PRODUCT_TABS: { key: string; label: string; icon: any }[] = [
   { key: 'versions', label: 'Versions', icon: Tag },
   { key: 'marketing', label: 'Marketing Hub', icon: Megaphone },
   { key: 'release', label: 'Release', icon: Rocket },
+  { key: 'issues', label: 'Issues', icon: Bug },
 ];
 
 /**
