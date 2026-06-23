@@ -82,8 +82,13 @@ function Layout({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div data-tour="logo" className={`flex items-center mb-6 mt-2 transition-all duration-300 ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-2'}`}>
-          <div className="w-8 h-8 bg-primary rounded-xl shadow-sm flex items-center justify-center text-primary-foreground font-bold shrink-0">A</div>
-          <h1 className={`text-xl font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>ATRS</h1>
+          <div className="w-8 h-8  rounded-xl shadow-sm flex items-center justify-center text-primary-foreground font-bold shrink-0 overflow-hidden">
+            <img alt="ATRS" src="/favicon.svg" className="w-full h-full object-cover p-1" />
+          </div>
+          <div className={`flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+            <h1 className="text-xl font-bold tracking-tight leading-none">ATRS</h1>
+            <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">Your Tagline Here</span>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto -mx-1 px-1">
