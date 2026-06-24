@@ -27,6 +27,27 @@ export const deleteMedia = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+export const bulkDeleteMedia = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { filenames, force = false } = req.body;
+    if (!Array.isArray(filenames) || filenames.length === 0) {
+      return res.status(400).json({ message: 'filenames must be a non-empty array' });
+    }
+    const results: { deleted: string[]; failed: { filename: string; error: string }[] } = { deleted: [], failed: [] };
+    for (const filename of filenames) {
+      try {
+        await mediaService.deleteMedia(filename, force);
+        results.deleted.push(filename);
+      } catch (err: any) {
+        results.failed.push({ filename, error: err.message || 'Unknown error' });
+      }
+    }
+    res.status(200).json({ success: true, ...results });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const purgeOrphaned = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const deletedFiles = await mediaService.purgeOrphaned();

@@ -31,6 +31,11 @@ export const deleteMedia = async (filename: string, force: boolean = false): Pro
   return data;
 };
 
+export const bulkDeleteMedia = async (filenames: string[], force: boolean = false): Promise<{ success: boolean; deleted: string[]; failed: { filename: string; error: string }[] }> => {
+  const { data } = await api.post('/media/bulk-delete', { filenames, force });
+  return data;
+};
+
 export const purgeOrphanedMedia = async (): Promise<{ success: boolean; count: number; deletedFiles: string[] }> => {
   const { data } = await api.post('/media/purge-orphaned');
   return data;

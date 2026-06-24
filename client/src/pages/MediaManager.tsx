@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMediaList, deleteMedia, type IMediaFile } from '../services/media';
+import { getMediaList, deleteMedia, bulkDeleteMedia, type IMediaFile } from '../services/media';
 import { useJobStream } from '../contexts/JobStreamContext';
 import { getProducts } from '../services/products';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Image as ImageIcon, Video as VideoIcon, Search, Trash2, Copy, Check, FileQuestion, HardDrive, Info, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Image as ImageIcon, Video as VideoIcon, Search, Trash2, Copy, Check, FileQuestion, HardDrive, Info, AlertTriangle, RefreshCw, CheckSquare, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +28,9 @@ export default function MediaManager() {
   const [copiedFilename, setCopiedFilename] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IMediaFile | null>(null);
   const [isPurging, setIsPurging] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
   // Fetch Products for Filter
   const { data: productsData } = useQuery({
@@ -56,6 +59,29 @@ export default function MediaManager() {
       playSound('error');
       const errMsg = err.response?.data?.message || err.message || 'Failed to delete file';
       toast.error(errMsg);
+    }
+  });
+
+  // Bulk Delete Mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: ({ filenames, force }: { filenames: string[]; force: boolean }) => bulkDeleteMedia(filenames, force),
+    onSuccess: (result) => {
+      playSound('delete');
+      const count = result.deleted.length;
+      const failCount = result.failed.length;
+      if (failCount > 0) {
+        toast.warning(`Deleted ${count} file(s), ${failCount} failed`);
+      } else {
+        toast.success(`Deleted ${count} file(s)`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['mediaList'] });
+      setSelectedFiles(new Set());
+      setIsSelecting(false);
+      setIsBulkDeleteOpen(false);
+    },
+    onError: (err: any) => {
+      playSound('error');
+      toast.error(err.response?.data?.message || err.message || 'Bulk delete failed');
     }
   });
 
@@ -145,6 +171,38 @@ export default function MediaManager() {
     setDeleteTarget(media);
   };
 
+  // Selection helpers
+  const toggleFileSelection = useCallback((filename: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(filename)) {
+        next.delete(filename);
+      } else {
+        next.add(filename);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedFiles.size === filteredMedia.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(filteredMedia.map(m => m.filename)));
+    }
+  }, [filteredMedia, selectedFiles.size]);
+
+  const exitSelectionMode = useCallback(() => {
+    setIsSelecting(false);
+    setSelectedFiles(new Set());
+  }, []);
+
+  // Memoised counts for the bulk-delete dialog
+  const selectedMediaItems = useMemo(() => mediaList.filter(m => selectedFiles.has(m.filename)), [mediaList, selectedFiles]);
+  const selectedInUseCount = useMemo(() => selectedMediaItems.filter(m => !m.isOrphaned).length, [selectedMediaItems]);
+  const selectedOrphanedCount = useMemo(() => selectedMediaItems.filter(m => m.isOrphaned).length, [selectedMediaItems]);
+
   return (
     <PageTransition className="space-y-6">
       {/* Top Header */}
@@ -159,6 +217,13 @@ export default function MediaManager() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isLoading || isRefetching} title="Refresh Library">
             <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant={isSelecting ? 'secondary' : 'outline'}
+            onClick={() => isSelecting ? exitSelectionMode() : setIsSelecting(true)}
+          >
+            <CheckSquare className="w-4 h-4 mr-2" />
+            {isSelecting ? 'Cancel' : 'Select'}
           </Button>
           {orphanedCount > 0 && (
             <Button variant="destructive" onClick={() => setIsPurging(true)}>
@@ -275,7 +340,28 @@ export default function MediaManager() {
               {tab === 'gif' && 'GIFs'}
             </Button>
           ))}
-        </div>
+          {/* Select All Toggle (visible in selection mode) */}
+        {isSelecting && filteredMedia.length > 0 && (
+          <div className="flex items-center gap-2 border-t pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSelectAll}
+              className="gap-2"
+            >
+              {selectedFiles.size === filteredMedia.length ? (
+                <CheckSquare className="w-4 h-4 text-primary" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
+              {selectedFiles.size === filteredMedia.length ? 'Deselect All' : `Select All (${filteredMedia.length})`}
+            </Button>
+            {selectedFiles.size > 0 && (
+              <span className="text-xs text-muted-foreground">{selectedFiles.size} selected</span>
+            )}
+          </div>
+        )}
+      </div>
       </div>
 
       {/* Media Grid */}
@@ -304,8 +390,10 @@ export default function MediaManager() {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  onClick={() => setSelectedMedia(media)}
-                  className="group relative aspect-square bg-muted hover:bg-muted/80 rounded-lg border shadow-sm overflow-hidden cursor-pointer transition-all duration-300"
+                  onClick={() => isSelecting ? toggleFileSelection(media.filename) : setSelectedMedia(media)}
+                  className={`group relative aspect-square bg-muted hover:bg-muted/80 rounded-lg border shadow-sm overflow-hidden cursor-pointer transition-all duration-300 ${
+                    selectedFiles.has(media.filename) ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                  }`}
                 >
                   {/* Media Content */}
                   {isImg ? (
@@ -321,8 +409,24 @@ export default function MediaManager() {
                     </div>
                   )}
 
+                  {/* Selection Checkbox */}
+                  {isSelecting && (
+                    <div
+                      className="absolute top-2 right-2 z-10"
+                      onClick={(e) => toggleFileSelection(media.filename, e)}
+                    >
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                        selectedFiles.has(media.filename)
+                          ? 'bg-primary border-primary text-primary-foreground scale-110'
+                          : 'bg-background/80 backdrop-blur-sm border-muted-foreground/40 hover:border-primary'
+                      }`}>
+                        {selectedFiles.has(media.filename) && <Check className="w-4 h-4" />}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Overlays/Badges */}
-                  <div className="absolute top-2 left-2">
+                  <div className={`absolute top-2 ${isSelecting ? 'left-2' : 'left-2'}`}>
                     {media.isOrphaned ? (
                       <Badge className="bg-amber-500 hover:bg-amber-600 border-none text-[10px] text-white">Unused</Badge>
                     ) : (
@@ -331,37 +435,39 @@ export default function MediaManager() {
                   </div>
 
                   {/* Hover Actions */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-3 transition-opacity duration-300">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-white/20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyUrl(media.url, media.filename);
-                        }}
-                        title="Copy URL"
-                      >
-                        {copiedFilename === media.filename ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-white hover:bg-red-500/20 hover:text-red-400"
-                        onClick={(e) => handleDeleteClick(e, media)}
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  {!isSelecting && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col justify-between p-3 transition-opacity duration-300">
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white hover:bg-white/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyUrl(media.url, media.filename);
+                          }}
+                          title="Copy URL"
+                        >
+                          {copiedFilename === media.filename ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white hover:bg-red-500/20 hover:text-red-400"
+                          onClick={(e) => handleDeleteClick(e, media)}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
 
-                    <div className="truncate text-white text-xs font-medium" title={media.filename}>
-                      {media.filename}
+                      <div className="truncate text-white text-xs font-medium" title={media.filename}>
+                        {media.filename}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -555,6 +661,108 @@ export default function MediaManager() {
               onClick={startPurge}
             >
               Confirm Purge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating Bulk Action Bar */}
+      <AnimatePresence>
+        {isSelecting && selectedFiles.size > 0 && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          >
+            <div className="flex items-center gap-3 px-5 py-3 rounded-xl border bg-card shadow-2xl backdrop-blur-md">
+              <div className="flex items-center gap-2 pr-3 border-r">
+                <CheckSquare className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold">{selectedFiles.size} selected</span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setIsBulkDeleteOpen(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Delete Selected
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={exitSelectionMode}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <DialogContent className="max-w-md border-red-200 dark:border-red-950 bg-background">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Delete {selectedFiles.size} File{selectedFiles.size !== 1 ? 's' : ''}?
+            </DialogTitle>
+            <DialogDescription className="pt-1">
+              This will permanently delete the selected media files.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {selectedOrphanedCount > 0 && (
+              <div className="text-xs p-3 bg-muted rounded border space-y-1">
+                <p><span className="font-bold">{selectedOrphanedCount}</span> unused file{selectedOrphanedCount !== 1 ? 's' : ''} — safe to delete.</p>
+              </div>
+            )}
+            {selectedInUseCount > 0 && (
+              <div className="text-xs p-3 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-500 rounded border border-red-100 dark:border-red-900/20 space-y-1">
+                <p className="font-bold">⚠️ {selectedInUseCount} file{selectedInUseCount !== 1 ? 's are' : ' is'} currently in use!</p>
+                <p>Deleting them will break display links in associated products, marketing pages, or activities.</p>
+              </div>
+            )}
+            {selectedFiles.size <= 8 && (
+              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                {selectedMediaItems.map(m => (
+                  <div key={m.filename} className="text-xs p-1.5 bg-muted/50 rounded flex items-center justify-between gap-2">
+                    <span className="truncate font-medium">{m.filename}</span>
+                    {m.isOrphaned ? (
+                      <Badge variant="outline" className="text-[9px] shrink-0 border-amber-300 text-amber-600">Unused</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] shrink-0 border-red-300 text-red-600">In Use</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={bulkDeleteMutation.isPending}
+              onClick={() => {
+                const hasInUse = selectedInUseCount > 0;
+                bulkDeleteMutation.mutate({
+                  filenames: Array.from(selectedFiles),
+                  force: hasInUse
+                });
+              }}
+            >
+              {bulkDeleteMutation.isPending
+                ? 'Deleting...'
+                : selectedInUseCount > 0
+                  ? `Force Delete ${selectedFiles.size} File${selectedFiles.size !== 1 ? 's' : ''}`
+                  : `Delete ${selectedFiles.size} File${selectedFiles.size !== 1 ? 's' : ''}`}
             </Button>
           </DialogFooter>
         </DialogContent>
