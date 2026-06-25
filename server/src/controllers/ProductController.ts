@@ -124,6 +124,18 @@ export const wpOrgPreview = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+export const wpOrgPreviewBySlug = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slugs } = req.query as { slugs?: string };
+    const slugList = (slugs || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+    if (slugList.length === 0) return res.status(400).json({ message: 'slugs is required' });
+    const plugins = await productService.wpOrgPreviewBySlug(slugList, req.user!);
+    res.status(200).json(plugins);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const importFromWpOrg = async (req: Request, res: Response, next: NextFunction) => {
   console.log('[WP Import Controller] POST /import-from-wporg hit, body:', JSON.stringify(req.body));
   const { username, slugs } = req.body;

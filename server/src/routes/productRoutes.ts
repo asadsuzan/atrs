@@ -16,6 +16,7 @@ router.get('/', ProductController.getProducts);
 router.delete('/bulk', ProductController.bulkDeleteProducts);
 router.post('/bulk-delete-stream', ProductController.bulkDeleteProductsStream);
 router.get('/wporg-preview', ProductController.wpOrgPreview);
+router.get('/wporg-preview-by-slug', ProductController.wpOrgPreviewBySlug);
 router.post('/import-from-wporg', ProductController.importFromWpOrg);
 router.post('/import-from-wporg/cancel', ProductController.cancelWpOrgImport);
 router.get('/:id', validate(idParamSchema), ProductController.getProductById);

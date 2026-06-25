@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireActive } from '../middlewares/auth';
 import { notificationManager } from '../services/NotificationManager';
+import { getMyNotifications, markAsRead, markAllAsRead, deleteNotification } from '../controllers/NotificationController';
 
 const router = Router();
+
+router.get('/', requireAuth, requireActive, getMyNotifications);
+router.patch('/read-all', requireAuth, requireActive, markAllAsRead);
+router.patch('/:id/read', requireAuth, requireActive, markAsRead);
+router.delete('/:id', requireAuth, requireActive, deleteNotification);
 
 /**
  * SSE Endpoint for clients to subscribe to real-time notification streams.

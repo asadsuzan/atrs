@@ -1,17 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { getToken, api } from '@/services/api';
 import { playSound, setCachedSoundConfig } from '@/lib/sound';
+import { getMyNotifications, markAsRead as markAsReadApi, markAllAsRead as markAllAsReadApi } from '@/services/notifications';
 
 export interface Notification {
-  id: string;
+  _id?: string;
+  id?: string;
   title: string;
   message: string;
-  type: 'user-activity' | 'access-change' | 'password-reset-request' | 'system';
+  type: string;
   createdAt: Date;
   read: boolean;
+  link?: string;
 }
 
 interface NotificationContextValue {
@@ -27,11 +30,24 @@ const NotificationContext = createContext<NotificationContextValue | undefined>(
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user, refreshMe } = useAuth();
   const queryClient = useQueryClient();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const { data: dbNotifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: getMyNotifications,
+    enabled: !!user,
+  });
+
+  const [realtimeNotifications, setRealtimeNotifications] = useState<Notification[]>([]);
+
+  // Combine DB notifications with unread realtime ones
+  const notifications = [
+    ...realtimeNotifications,
+    ...dbNotifications.filter((dbN: any) => !realtimeNotifications.find(rN => rN._id === dbN._id))
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   useEffect(() => {
     if (!user) {
-      setNotifications([]);
+      setRealtimeNotifications([]);
       return;
     }
 
@@ -68,7 +84,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           read: false
         };
 
-        setNotifications((prev) => [newNotif, ...prev]);
+        setRealtimeNotifications((prev) => [newNotif, ...prev]);
 
         // Play real-time notification alert sound
         playSound('notification');
@@ -96,7 +112,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           read: false
         };
 
-        setNotifications((prev) => [newNotif, ...prev]);
+        setRealtimeNotifications((prev) => [newNotif, ...prev]);
 
         // Play real-time notification alert sound
         playSound('notification');
@@ -126,7 +142,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           createdAt: new Date(data.requestedAt || Date.now()),
           read: false,
         };
-        setNotifications((prev) => [newNotif, ...prev]);
+        setRealtimeNotifications((prev) => [newNotif, ...prev]);
         playSound('notification');
         toast.warning(newNotif.title, {
           description: `${newNotif.message} Reset it from the Users page.`,
@@ -153,6 +169,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     });
 
+    // General app notifications (mentions, system, etc)
+    eventSource.addEventListener('notification', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newNotif: Notification = {
+          ...data,
+          createdAt: new Date(data.createdAt || Date.now())
+        };
+        setRealtimeNotifications((prev) => [newNotif, ...prev]);
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        playSound('notification');
+        toast(newNotif.title, {
+          description: newNotif.message,
+          duration: 5000,
+        });
+      } catch (err) {
+        console.error('[SSE] Failed to parse notification payload:', err);
+      }
+    });
+
     // Code-activity tracker error (e.g. Ollama unreachable / model not pulled).
     eventSource.addEventListener('code-activity-error', (event) => {
       try {
@@ -175,18 +211,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const markAsReadMutation = useMutation({
+    mutationFn: markAsReadApi,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: markAllAsReadApi,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
+  });
+
   const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    setRealtimeNotifications((prev) =>
+      prev.map((n) => ((n._id === id || n.id === id) ? { ...n, read: true } : n))
     );
+    markAsReadMutation.mutate(id);
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setRealtimeNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markAllAsReadMutation.mutate();
   };
 
   const clearNotifications = () => {
-    setNotifications([]);
+    setRealtimeNotifications([]);
   };
 
   return (

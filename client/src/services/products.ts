@@ -25,7 +25,8 @@ type StreamHandlers = {
 };
 
 export const getProducts = async (params?: any) => {
-  const { data } = await api.get('/products', { params });
+  const finalParams = { limit: 1000, ...params };
+  const { data } = await api.get('/products', { params: finalParams });
   return data;
 };
 
@@ -56,6 +57,11 @@ export const bulkDeleteProducts = async (ids: string[]) => {
 
 export const wpOrgPreview = async (username: string) => {
   const { data } = await api.get('/products/wporg-preview', { params: { username } });
+  return data;
+};
+
+export const wpOrgPreviewBySlug = async (slugs: string[]) => {
+  const { data } = await api.get('/products/wporg-preview-by-slug', { params: { slugs: slugs.join(',') } });
   return data;
 };
 

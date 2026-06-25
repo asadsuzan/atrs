@@ -2,6 +2,7 @@ import { createContext, useContext, useRef, useState, type ReactNode } from 'rea
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   wpOrgPreview,
+  wpOrgPreviewBySlug,
   importFromWpOrgStream,
   cancelImportSession,
   type ImportProgress,
@@ -26,6 +27,8 @@ export type LogLine = {
   timestamp: string;
 };
 
+export type ImportMode = 'username' | 'slug';
+
 interface WpImportContextValue {
   // Window state
   isOpen: boolean;
@@ -35,7 +38,11 @@ interface WpImportContextValue {
   minimize: () => void;
   restore: () => void;
 
-  // Selection phase
+  // Which lookup method the selection step is using.
+  mode: ImportMode;
+  setMode: (m: ImportMode) => void;
+
+  // Selection phase (username method)
   username: string;
   setUsername: (v: string) => void;
   plugins: WpPlugin[];
@@ -45,6 +52,12 @@ interface WpImportContextValue {
   fetchPlugins: () => void;
   toggle: (slug: string) => void;
   toggleAll: () => void;
+
+  // Selection phase (slug method) — mirrors the username flow: fetch a preview
+  // (with "will update" badges) first, then import the selected plugins.
+  slugInput: string;
+  setSlugInput: (v: string) => void;
+  fetchSlugPlugins: () => void;
 
   // Import phase
   isImporting: boolean;
@@ -85,10 +98,12 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
+  const [mode, setModeRaw] = useState<ImportMode>('username');
   const [username, setUsernameRaw] = useState('');
   const [plugins, setPlugins] = useState<WpPlugin[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fetched, setFetched] = useState(false);
+  const [slugInput, setSlugInputRaw] = useState('');
 
   const [isImporting, setIsImporting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -115,6 +130,24 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const slugPreviewMutation = useMutation({
+    mutationFn: () => {
+      const slugs = slugInput.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+      return wpOrgPreviewBySlug(slugs);
+    },
+    onSuccess: (data: WpPlugin[]) => {
+      setPlugins(data);
+      setSelected(new Set(data.map(p => p.slug)));
+      setFetched(true);
+      if (data.length === 0) toast.info('No matching plugins found for those slugs.');
+      else playSound('success');
+    },
+    onError: () => {
+      playSound('error');
+      toast.error('Failed to fetch plugins from WordPress.org');
+    },
+  });
+
   // Editing the username invalidates a previous fetch.
   const setUsername = (v: string) => {
     setUsernameRaw(v);
@@ -122,15 +155,32 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     setPlugins([]);
   };
 
+  // Editing the slug list invalidates a previous fetch.
+  const setSlugInput = (v: string) => {
+    setSlugInputRaw(v);
+    setFetched(false);
+    setPlugins([]);
+  };
+
+  // Switching the lookup method clears any preview from the other method.
+  const setMode = (m: ImportMode) => {
+    setModeRaw(m);
+    setFetched(false);
+    setPlugins([]);
+    setSelected(new Set());
+  };
+
   const open = () => { setIsOpen(true); setIsMinimized(false); };
   const minimize = () => { setIsMinimized(true); setIsOpen(false); };
   const restore = () => { setIsMinimized(false); setIsOpen(true); };
 
   const resetAll = () => {
+    setMode('username');
     setUsernameRaw('');
     setPlugins([]);
     setSelected(new Set());
     setFetched(false);
+    setSlugInput('');
     setIsImporting(false);
     setIsCancelling(false);
     setLogs([]);
@@ -227,7 +277,10 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const startImport = () => runImport(username, Array.from(selected));
+  // Import the selected plugins from the preview list. The username is only
+  // passed through in author mode; in slug mode the selected slugs are resolved
+  // directly (no author lookup).
+  const startImport = () => runImport(mode === 'username' ? username : '', Array.from(selected));
 
   const quickImport = async ({ username: uname = '', slugs }: { username?: string; slugs: string[] }) => {
     if (slugs.length === 0) return;
@@ -258,10 +311,13 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
 
   const value: WpImportContextValue = {
     isOpen, isMinimized, open, close, minimize, restore,
+    mode, setMode,
     username, setUsername, plugins, selected, fetched,
-    previewLoading: previewMutation.isPending,
+    previewLoading: previewMutation.isPending || slugPreviewMutation.isPending,
     fetchPlugins: () => previewMutation.mutate(),
     toggle, toggleAll,
+    slugInput, setSlugInput,
+    fetchSlugPlugins: () => slugPreviewMutation.mutate(),
     isImporting, isCancelling, logs, progress, summary,
     startImport, requestCancel, quickImport,
   };

@@ -18,6 +18,10 @@ export interface IIssue extends Document {
   mediaUrls?: string[];
   foundAt?: Date;
   resolvedAt?: Date;
+  assigneeIds?: mongoose.Types.ObjectId[];
+  dueDate?: Date;
+  estimatedHours?: number;
+  actualHours?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +51,10 @@ const IssueSchema: Schema = new Schema(
     mediaUrls: [{ type: String, required: false }],
     foundAt: { type: Date, required: false },
     resolvedAt: { type: Date, required: false },
+    assigneeIds: [{ type: Schema.Types.ObjectId, ref: 'User', required: false, index: true }],
+    dueDate: { type: Date, required: false },
+    estimatedHours: { type: Number, required: false },
+    actualHours: { type: Number, required: false },
   },
   { timestamps: true }
 );

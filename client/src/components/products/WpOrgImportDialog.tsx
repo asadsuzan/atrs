@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Download, Globe, RefreshCw, Terminal, Minus } from 'lucide-react';
+import { Loader2, Download, Globe, Package, RefreshCw, Terminal, Minus } from 'lucide-react';
 import { useWpImport } from '../../contexts/WpImportContext';
 import { type ImportProgress } from '../../services/products';
+import { cn } from '@/lib/utils';
 
 const LOG_STYLES: Record<ImportProgress['type'], { color: string; icon: string }> = {
   info: { color: 'text-slate-400', icon: 'ℹ' },
@@ -18,8 +19,10 @@ const LOG_STYLES: Record<ImportProgress['type'], { color: string; icon: string }
 export function WpOrgImportDialog() {
   const {
     isOpen, close, minimize,
+    mode, setMode,
     username, setUsername, plugins, selected, fetched, previewLoading, fetchPlugins,
     toggle, toggleAll,
+    slugInput, setSlugInput, fetchSlugPlugins,
     isImporting, isCancelling, logs, progress, summary, startImport, requestCancel,
   } = useWpImport();
 
@@ -156,20 +159,81 @@ export function WpOrgImportDialog() {
           </>
         ) : (
           <>
-            <div className="flex gap-2">
-              <Input
-                placeholder="WordPress.org username (e.g. bplugins)"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && username.trim() && fetchPlugins()}
-              />
-              <Button
-                onClick={fetchPlugins}
-                disabled={!username.trim() || previewLoading}
+            {/* Method switch — import a whole catalogue by author username, or
+                pull specific plugins by slug (mirrors the onboarding chooser). */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('username')}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg border p-3 text-left transition-colors',
+                  mode === 'username' ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                )}
               >
-                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
-              </Button>
+                <Globe className={cn('w-5 h-5 shrink-0', mode === 'username' ? 'text-primary' : 'text-muted-foreground')} />
+                <div>
+                  <div className="text-sm font-medium">By username</div>
+                  <div className="text-xs text-muted-foreground">All of an author's plugins</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('slug')}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg border p-3 text-left transition-colors',
+                  mode === 'slug' ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                )}
+              >
+                <Package className={cn('w-5 h-5 shrink-0', mode === 'slug' ? 'text-primary' : 'text-muted-foreground')} />
+                <div>
+                  <div className="text-sm font-medium">By plugin slug</div>
+                  <div className="text-xs text-muted-foreground">Specific plugins</div>
+                </div>
+              </button>
             </div>
+
+            {mode === 'username' ? (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="WordPress.org username (e.g. bplugins)"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && username.trim() && fetchPlugins()}
+                  />
+                  <Button
+                    onClick={fetchPlugins}
+                    disabled={!username.trim() || previewLoading}
+                  >
+                    {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Found on the WordPress.org profile URL: wordpress.org/plugins/author/&lt;username&gt;
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Plugin slug (e.g. image-hover-effects-addon)"
+                    value={slugInput}
+                    onChange={e => setSlugInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && slugInput.trim() && fetchSlugPlugins()}
+                  />
+                  <Button
+                    onClick={fetchSlugPlugins}
+                    disabled={!slugInput.trim() || previewLoading}
+                  >
+                    {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The slug is the last part of the plugin's URL: wordpress.org/plugins/&lt;slug&gt;.
+                  You can paste several, separated by commas.
+                </p>
+              </>
+            )}
 
             {fetched && plugins.length > 0 && (
               <>

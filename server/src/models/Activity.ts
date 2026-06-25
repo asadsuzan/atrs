@@ -25,6 +25,9 @@ export interface IActivity extends Document {
   tags?: string[];
   items: IActivityItem[];
   activityDate: Date;
+  assigneeIds?: mongoose.Types.ObjectId[];
+  estimatedHours?: number;
+  actualHours?: number;
   /** True when auto-created by the code-activity tracker (draft changelog entry). */
   autoTracked?: boolean;
   /** Source file (relative to repo) that triggered an auto-tracked entry. */
@@ -97,6 +100,9 @@ const ActivitySchema: Schema = new Schema(
     mediaUrls: [{ type: String, required: false }],
     items: [ActivityItemSchema],
     activityDate: { type: Date, required: true },
+    assigneeIds: [{ type: Schema.Types.ObjectId, ref: 'User', required: false, index: true }],
+    estimatedHours: { type: Number, required: false },
+    actualHours: { type: Number, required: false },
     autoTracked: { type: Boolean, default: false, index: true },
     filePath: { type: String, required: false },
     importSourceKey: { type: String, required: false, index: true },

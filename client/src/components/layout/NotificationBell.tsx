@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bell, CheckCheck, Trash2, Activity, ShieldAlert, Key, UserCheck, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useNotifications, type Notification } from '@/contexts/NotificationContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 
@@ -9,7 +9,7 @@ export function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
 
-  const getIcon = (type: Notification['type'], message: string) => {
+  const getIcon = (type: string, message: string) => {
     switch (type) {
       case 'user-activity':
         return <Activity className="w-4 h-4 text-sky-500" />;
@@ -79,8 +79,8 @@ export function NotificationBell() {
           ) : (
             notifications.map((notif) => (
               <div
-                key={notif.id}
-                onClick={() => !notif.read && markAsRead(notif.id)}
+                key={notif._id || notif.id}
+                onClick={() => !notif.read && markAsRead(notif._id || notif.id!)}
                 className={`flex gap-3 p-4 text-left transition-colors cursor-pointer ${
                   notif.read ? 'hover:bg-muted/40 bg-card' : 'bg-primary/5 hover:bg-primary/10'
                 }`}

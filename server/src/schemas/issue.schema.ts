@@ -17,6 +17,10 @@ export const createIssueSchema = z.object({
     mediaUrls: z.array(z.string()).optional(),
     foundAt: optionalDate,
     resolvedAt: optionalDate,
+    assigneeIds: z.array(objectId).optional(),
+    dueDate: optionalDate,
+    estimatedHours: z.number().optional(),
+    actualHours: z.number().optional(),
   }),
 });
 
@@ -32,6 +36,10 @@ export const updateIssueSchema = z.object({
     mediaUrls: z.array(z.string()).optional(),
     foundAt: optionalDate,
     resolvedAt: optionalDate,
+    assigneeIds: z.array(objectId).optional(),
+    dueDate: optionalDate,
+    estimatedHours: z.number().optional(),
+    actualHours: z.number().optional(),
   }),
   params: z.object({
     id: objectId,

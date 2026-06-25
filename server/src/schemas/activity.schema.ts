@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { objectId } from './common.schema';
 
 export const createActivitySchema = z.object({
   body: z.object({
@@ -27,6 +28,9 @@ export const createActivitySchema = z.object({
       )
       .default([]),
     activityDate: z.string(),
+    assigneeIds: z.array(objectId).optional(),
+    estimatedHours: z.number().optional(),
+    actualHours: z.number().optional(),
   }),
 });
 
@@ -57,6 +61,9 @@ export const updateActivitySchema = z.object({
       )
       .optional(),
     activityDate: z.string().optional(),
+    assigneeIds: z.array(objectId).optional(),
+    estimatedHours: z.number().optional(),
+    actualHours: z.number().optional(),
   }),
   params: z.object({
     id: z.string(),

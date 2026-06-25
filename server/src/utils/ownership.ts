@@ -28,3 +28,37 @@ export function assertOwner(doc: { ownerId?: any } | null, user: AuthUser | unde
     throw createHttpError(404, 'Not found');
   }
 }
+
+/**
+ * Returns a Mongo filter that matches documents the user either owns OR is
+ * assigned to. Admins are unrestricted. Used for tasks, where a manager can
+ * assign work owned by them to another user who must still see/act on it.
+ */
+export function ownerOrAssigneeFilter(
+  user: AuthUser | undefined,
+  base: Record<string, any> = {}
+): Record<string, any> {
+  if (!user) return { ...base, ownerId: null };
+  if (user.role === 'admin') return { ...base };
+  return { ...base, $or: [{ ownerId: user.id }, { assigneeIds: user.id }] };
+}
+
+/**
+ * Throws 404 unless the user owns the document or is one of its assignees
+ * (admins always pass). Lets assignees view/update tasks assigned to them
+ * without being able to probe ids they have no relationship to.
+ */
+export function assertOwnerOrAssignee(
+  doc: { ownerId?: any; assigneeIds?: any[] } | null,
+  user: AuthUser | undefined
+): void {
+  if (!doc) throw createHttpError(404, 'Not found');
+  if (user && user.role === 'admin') return;
+  if (!user) throw createHttpError(404, 'Not found');
+  const ownerId = doc.ownerId?.toString?.() ?? String(doc.ownerId);
+  if (ownerId === user.id) return;
+  const isAssignee = (doc.assigneeIds ?? []).some(
+    (a) => (a?._id?.toString?.() ?? a?.toString?.() ?? String(a)) === user.id
+  );
+  if (!isAssignee) throw createHttpError(404, 'Not found');
+}

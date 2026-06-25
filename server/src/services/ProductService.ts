@@ -12,6 +12,7 @@ import { Version } from '../models/Version';
 import { ProductMarketing } from '../models/ProductMarketing';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
+import createHttpError from '../utils/httpError';
 import { escapeRegex } from '../utils/sanitize';
 import { parseReadmeChangelog } from '../utils/readmeChangelog';
 import { codeTrackerService } from './CodeTrackerService';
@@ -58,7 +59,7 @@ export class ProductService {
   }
 
   async getProducts(query: any, user: AuthUser): Promise<any> {
-    const filter: any = scopeFilter(user);
+    const filter: any = {};
     if (query.search) {
       filter.name = { $regex: escapeRegex(query.search), $options: 'i' };
     }
@@ -80,13 +81,16 @@ export class ProductService {
 
   async getProductById(id: string, user: AuthUser): Promise<IProduct | null> {
     const product = await this.repository.findById(id);
-    assertOwner(product, user);
+    if (!product) throw createHttpError(404, 'Product not found');
     return product;
   }
 
   async updateProduct(id: string, data: any, user: AuthUser): Promise<IProduct | null> {
     const existing = await this.repository.findById(id);
-    assertOwner(existing, user);
+    if (!existing) throw createHttpError(404, 'Product not found');
+    if (user.role !== 'admin' && existing.ownerId.toString() !== user.id) {
+      throw createHttpError(403, 'Forbidden: You do not have permission to edit this product');
+    }
     delete data.ownerId; // ownership is not editable through this path
     if (data.name) {
       data.slug = await this.uniqueSlugForOwner(data.name, existing!.ownerId.toString(), id);
@@ -299,6 +303,37 @@ export class ProductService {
     }).distinct('wpOrgSlug');
 
     return plugins.map((p: any) => {
+      const tags: string[] = Object.keys(p.tags || {});
+      const isBlock = tags.some(t =>
+        ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
+      );
+      return {
+        slug: p.slug,
+        name: p.name,
+        shortDescription: p.short_description || '',
+        icon: p.icons?.['2x'] || p.icons?.['1x'] || '',
+        banner: p.banners?.high || p.banners?.low || '',
+        tags,
+        category: isBlock ? 'block' : 'plugin',
+        alreadyImported: existingSlugs.includes(p.slug),
+      };
+    });
+  }
+
+  /**
+   * Resolve a list of slugs directly (no author lookup) into the same preview
+   * shape as {@link wpOrgPreview}, so the slug import flow can show the
+   * "select / will update" list before importing. Unknown slugs are dropped.
+   */
+  async wpOrgPreviewBySlug(slugs: string[], user: AuthUser): Promise<any[]> {
+    const resolved = (await Promise.all(slugs.map((s) => this.fetchWpOrgPluginBySlug(s)))).filter(Boolean);
+
+    const existingSlugs = await Product.find({
+      ownerId: user.id,
+      wpOrgSlug: { $in: resolved.map((p: any) => p.slug) },
+    }).distinct('wpOrgSlug');
+
+    return resolved.map((p: any) => {
       const tags: string[] = Object.keys(p.tags || {});
       const isBlock = tags.some(t =>
         ['block', 'blocks', 'gutenberg', 'gutenberg-blocks', 'gutenberg-block'].includes(t.toLowerCase())
@@ -571,7 +606,10 @@ export class ProductService {
 
   async deleteProduct(id: string, user: AuthUser): Promise<IProduct | null> {
     const existing = await this.repository.findById(id);
-    assertOwner(existing, user);
+    if (!existing) throw createHttpError(404, 'Product not found');
+    if (user.role !== 'admin' && existing.ownerId.toString() !== user.id) {
+      throw createHttpError(403, 'Forbidden: You do not have permission to delete this product');
+    }
 
     // Try a transactional cascade first. On a standalone mongod (no replica
     // set) transactions are unsupported and Mongo throws — in that case we fall

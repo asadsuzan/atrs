@@ -2,6 +2,7 @@ import { User, hashPassword } from '../models/User';
 import { signToken } from '../middlewares/auth';
 import createHttpError from '../utils/httpError';
 import { notificationManager } from './NotificationManager';
+import { Notification } from '../models/Notification';
 
 export class AuthService {
   /** Self-registration. New accounts start as `pending` and require admin approval. */
@@ -20,6 +21,21 @@ export class AuthService {
       status: 'pending',
       isRoot: false,
     });
+
+    // Notify all admins about the new registration
+    const admins = await User.find({ $or: [{ role: 'admin' }, { isRoot: true }] });
+    for (const admin of admins) {
+      const notif = new Notification({
+        userId: admin._id,
+        type: 'system',
+        title: 'New User Registration',
+        message: `${data.name} (${email}) has signed up and is waiting for approval.`,
+        link: '/users'
+      });
+      await notif.save();
+      notificationManager.sendToUser(admin._id.toString(), 'notification', notif);
+    }
+
     return user.toJSON();
   }
 
