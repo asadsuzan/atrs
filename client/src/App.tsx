@@ -44,6 +44,11 @@ import { WpImportMiniPlayer } from './components/products/WpImportMiniPlayer';
 import { JobStreamProvider } from './contexts/JobStreamContext';
 import { JobStreamDialog } from './components/jobs/JobStreamDialog';
 import { JobStreamMiniPlayer } from './components/jobs/JobStreamMiniPlayer';
+import { FramerExportProvider } from './contexts/FramerExportContext';
+import { FramerExportBoard } from './components/tools/FramerExportBoard';
+import { JobDockProvider } from './contexts/JobDockContext';
+import { WindowManagerProvider } from './contexts/WindowManagerContext';
+import { WindowLayer } from './components/windows/WindowLayer';
 import { AddProductProvider } from './contexts/AddProductContext';
 import { NotificationBell } from './components/layout/NotificationBell';
 import { SidebarNav } from './components/layout/SidebarNav';
@@ -269,18 +274,28 @@ function App() {
               <WpImportProvider>
                 <AddProductProvider>
                 <JobStreamProvider>
+                <FramerExportProvider>
+                <WindowManagerProvider>
+                <JobDockProvider>
                   <SmoothScroll>
                     <BrowserRouter>
                       <AnimatedRoutes />
                     </BrowserRouter>
                   </SmoothScroll>
+                  <WindowLayer />
                   {/* Global streaming surfaces — persist across route changes so a
-                      minimized import/job keeps streaming from any page. */}
+                      minimized import/job keeps streaming from any page. The
+                      mini-players/boards dock themselves into one draggable,
+                      non-overlapping stack (JobDockProvider). */}
                   <WpOrgImportDialog />
                   <WpImportMiniPlayer />
                   <JobStreamDialog />
                   <JobStreamMiniPlayer />
+                  <FramerExportBoard />
                   <Toaster />
+                </JobDockProvider>
+                </WindowManagerProvider>
+                </FramerExportProvider>
                 </JobStreamProvider>
                 </AddProductProvider>
               </WpImportProvider>
