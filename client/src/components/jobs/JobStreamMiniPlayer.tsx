@@ -1,5 +1,6 @@
 import { Maximize2, X, Terminal, Loader2 } from 'lucide-react';
 import { useJobStream } from '../../contexts/JobStreamContext';
+import { DockBoard } from '../../contexts/JobDockContext';
 
 /**
  * Floating picture-in-picture view of a running bulk/cascade job. Pinned to the
@@ -38,7 +39,8 @@ export function JobStreamMiniPlayer() {
   const barColor = isCancelling || summary?.cancelled || errorCount ? 'bg-amber-500' : 'bg-primary';
 
   return (
-    <div className="fixed bottom-[6.5rem] right-4 z-[60] w-80 rounded-lg border bg-card shadow-2xl animate-in slide-in-from-bottom-4 fade-in">
+    <DockBoard id="job-stream" order={1}>
+    <div className="w-full rounded-lg border bg-card shadow-2xl animate-in slide-in-from-bottom-4 fade-in">
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <Terminal className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-medium truncate flex-1">{title}</span>
@@ -96,5 +98,6 @@ export function JobStreamMiniPlayer() {
         )}
       </div>
     </div>
+    </DockBoard>
   );
 }

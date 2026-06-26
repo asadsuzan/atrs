@@ -1,5 +1,6 @@
 import { Maximize2, X, Terminal, Loader2 } from 'lucide-react';
 import { useWpImport } from '../../contexts/WpImportContext';
+import { DockBoard } from '../../contexts/JobDockContext';
 
 /**
  * Floating "picture-in-picture" view of an in-flight WP.org import. Rendered at
@@ -38,7 +39,8 @@ export function WpImportMiniPlayer() {
     : 'bg-primary';
 
   return (
-    <div className="fixed bottom-4 right-4 z-[60] w-80 rounded-lg border bg-card shadow-2xl animate-in slide-in-from-bottom-4 fade-in">
+    <DockBoard id="wp-import" order={0}>
+    <div className="w-full rounded-lg border bg-card shadow-2xl animate-in slide-in-from-bottom-4 fade-in">
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <Terminal className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-medium truncate flex-1">WordPress.org import</span>
@@ -99,5 +101,6 @@ export function WpImportMiniPlayer() {
         )}
       </div>
     </div>
+    </DockBoard>
   );
 }
