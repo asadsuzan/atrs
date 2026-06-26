@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FileText, Eye, ShieldCheck, ExternalLink, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { FileText, Eye, ShieldCheck, ExternalLink, Loader2, Maximize2, Minimize2, AppWindow } from 'lucide-react';
 import PageTransition from '../components/layout/PageTransition';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ImageFramer } from '../components/tools/ImageFramer';
+import { useWindowManager } from '../contexts/WindowManagerContext';
 
-type Tool = 'viewer' | 'validator';
+type Tool = 'viewer' | 'validator' | 'framer';
 
 const WPREADME_URL = 'https://wpreadme.com/';
 const VALIDATOR_URL = 'https://wordpress.org/plugins/developers/readme-validator/';
@@ -50,12 +52,20 @@ const TOOLS: Record<Tool, ToolConfig> = {
       </>
     ),
   },
+  framer: {
+    src: '',
+    title: 'Image Framer',
+    label: 'the image framer',
+    externalUrl: '',
+    blurb: 'Upload your plugin screenshots and wrap them in a beautiful macOS-style window frame.',
+  },
 };
 
 export default function ReadmeTools() {
   const [tool, setTool] = useState<Tool>('viewer');
   const [fullscreen, setFullscreen] = useState(false);
   const config = TOOLS[tool];
+  const { open: openWindow } = useWindowManager();
 
   // Esc exits fullscreen, and lock body scroll while the popup is open.
   useEffect(() => {
@@ -89,16 +99,41 @@ export default function ReadmeTools() {
       {/* Inline panel */}
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">{config.blurb}</p>
-        <div className="relative rounded-lg border overflow-hidden bg-card">
-          <FrameControls externalUrl={config.externalUrl} onFullscreen={() => setFullscreen(true)} />
-          <IframeWithLoader key={tool} config={config} className="h-[calc(100vh-220px)] min-h-[600px]" />
-        </div>
+        
+        {tool === 'framer' ? (
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  openWindow({
+                    id: 'image-framer',
+                    title: 'Image Framer',
+                    icon: <FileText className="w-4 h-4" />,
+                    content: <ImageFramer />,
+                    width: 1100,
+                    height: 720,
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <AppWindow className="w-4 h-4" /> Open in window
+              </button>
+            </div>
+            <ImageFramer />
+          </div>
+        ) : (
+          <div className="relative rounded-lg border overflow-hidden bg-card">
+            <FrameControls externalUrl={config.externalUrl} onFullscreen={() => setFullscreen(true)} />
+            <IframeWithLoader key={tool} config={config} className="h-[calc(100vh-220px)] min-h-[600px]" />
+          </div>
+        )}
       </div>
 
       {/* Fullscreen popup — portaled to <body> so it escapes the page's
           framer-motion transform and covers the entire viewport over every
           element (sidebar, dialogs, etc.). */}
-      {fullscreen &&
+      {fullscreen && tool !== 'framer' &&
         createPortal(
           <div className="fixed inset-0 z-[100] flex flex-col bg-background">
             <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-card shrink-0">
@@ -127,6 +162,7 @@ function ToolSwitcher({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => voi
     <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted shrink-0">
       <TabButton active={tool === 'viewer'} onClick={() => setTool('viewer')} icon={Eye} label="Viewer" />
       <TabButton active={tool === 'validator'} onClick={() => setTool('validator')} icon={ShieldCheck} label="Validator" />
+      <TabButton active={tool === 'framer'} onClick={() => setTool('framer')} icon={FileText} label="Image Framer" />
     </div>
   );
 }
