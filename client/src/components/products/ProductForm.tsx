@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { MediaUploader } from '@/components/ui/MediaUploader';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 /**
  * - `wp`: manual WordPress/CMS product — Plugin/Block/Theme category, WP.org
@@ -81,9 +82,18 @@ export function ProductForm({
     },
   });
 
+  // Browser-style draft: autosave inputs and silently restore them on return.
+  // Keyed per entity (or "new" for the create flow); media fields are excluded.
+  const draftKey = `draft:product:${initialData?.id ?? 'new'}`;
+  const { clearDraft } = useFormDraft(form, { key: draftKey, exclude: ['icon', 'banner'] });
+  const handleSubmit = (data: FormValues) => {
+    clearDraft();
+    onSubmit(data);
+  };
+
   return (
     <Form {...(form as any)}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
         <FormField
           control={form.control as any}
           name="name"
