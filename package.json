@@ -21,5 +21,9 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "gif.js": "^0.2.0",
+    "gifuct-js": "^2.1.2"
   }
 }
