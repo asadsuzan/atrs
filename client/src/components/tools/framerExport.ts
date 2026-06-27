@@ -13,6 +13,67 @@ import type { ParsedFrame } from 'gifuct-js';
 
 export type MediaKind = 'image' | 'gif' | 'video';
 export type MediaFit = 'contain' | 'cover';
+export type FrameStyle = 'macos' | 'windows' | 'browser' | 'minimal' | 'none';
+
+export const FRAME_STYLES: { value: FrameStyle; label: string }[] = [
+  { value: 'macos', label: 'macOS' },
+  { value: 'windows', label: 'Windows' },
+  { value: 'browser', label: 'Browser' },
+  { value: 'minimal', label: 'Minimal (no bar)' },
+  { value: 'none', label: 'None (just background)' },
+];
+
+/** Per-style geometry shared by the canvas renderer and the DOM preview. */
+export function frameLayout(style: FrameStyle): { hasWindow: boolean; headerH: number } {
+  switch (style) {
+    case 'windows':
+      return { hasWindow: true, headerH: 40 };
+    case 'browser':
+      return { hasWindow: true, headerH: 50 };
+    case 'minimal':
+      return { hasWindow: true, headerH: 0 };
+    case 'none':
+      return { hasWindow: false, headerH: 0 };
+    case 'macos':
+    default:
+      return { hasWindow: true, headerH: 44 };
+  }
+}
+
+// Cap GIF output so a long, large GIF can't exhaust memory while encoding.
+const MAX_GIF_DIM = 800;
+// Preview thumbnails are downscaled to this longest edge to keep many uploads light.
+const PREVIEW_MAX_DIM = 1400;
+
+const yieldToUI = () => new Promise<void>(r => setTimeout(r, 0));
+
+/**
+ * Downscale a still image to a lightweight preview blob URL (keeps the original
+ * File for full-quality export). This is the main defense against the browser
+ * decoding many huge photos at full resolution and running out of memory.
+ * Returns a plain object URL if the image is already small or on any failure.
+ */
+export async function makePreviewUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') {
+    return URL.createObjectURL(file);
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, PREVIEW_MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    if (scale >= 1) {
+      bitmap.close();
+      return URL.createObjectURL(file);
+    }
+    const c = newCanvas(Math.round(bitmap.width * scale), Math.round(bitmap.height * scale));
+    c.getContext('2d')!.drawImage(bitmap, 0, 0, c.width, c.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.85));
+    c.width = c.height = 0; // release backing store
+    return blob ? URL.createObjectURL(blob) : URL.createObjectURL(file);
+  } catch {
+    return URL.createObjectURL(file);
+  }
+}
 
 /** Destination rectangle (in chrome-canvas pixels) the media is fitted into. */
 export interface MediaBox {
@@ -67,6 +128,7 @@ export interface ChromeOptions {
   width: number;
   height: number;
   padding: number;
+  style: FrameStyle;
   outerBackground: string;
   windowBackground: string;
   title: string;
@@ -80,7 +142,6 @@ export interface ChromeOptions {
 
 // Layout constants mirror the DOM preview (rounded-xl, h-11 header, px-8/pb-8…).
 const WINDOW_RADIUS = 12;
-const HEADER_H = 44;
 const DOT_R = 6;
 const DOT_GAP = 8;
 const DOT_LEFT = 16; // header px-4
@@ -185,10 +246,36 @@ function makeFill(
  * Draw the full frame chrome to a fresh W×H canvas and return it along with the
  * rectangle where the media should be composited.
  */
+function drawTitle(ctx: CanvasRenderingContext2D, opts: ChromeOptions, left: number, right: number, cy: number, align: Align) {
+  if (!opts.title) return;
+  ctx.fillStyle = opts.titleColor;
+  ctx.font = `${opts.fontWeight} ${opts.fontSize}px ${opts.fontFamily}`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = align;
+  const ls = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+  ls.letterSpacing = `${opts.letterSpacing}px`;
+  const tx = align === 'center' ? (left + right) / 2 : align === 'right' ? right : left;
+  ctx.fillText(opts.title, tx, cy);
+  ls.letterSpacing = '0px';
+}
+
 export function renderChrome(opts: ChromeOptions): { canvas: HTMLCanvasElement; box: MediaBox } {
   const { width: W, height: H, padding } = opts;
+  const { hasWindow, headerH } = frameLayout(opts.style);
   const canvas = newCanvas(W, H);
   const ctx = canvas.getContext('2d')!;
+
+  // Outer background.
+  ctx.fillStyle = makeFill(ctx, opts.outerBackground, 0, 0, W, H);
+  ctx.fillRect(0, 0, W, H);
+
+  // "none": media sits directly on the padded background — no window/bar.
+  if (!hasWindow) {
+    return {
+      canvas,
+      box: { x: padding, y: padding, w: Math.max(1, W - padding * 2), h: Math.max(1, H - padding * 2) },
+    };
+  }
 
   const wl = padding;
   const wt = padding;
@@ -196,49 +283,56 @@ export function renderChrome(opts: ChromeOptions): { canvas: HTMLCanvasElement; 
   const wh = Math.max(1, H - padding * 2);
   const radius = Math.min(WINDOW_RADIUS, ww / 2, wh / 2);
 
-  // Outer background.
-  ctx.fillStyle = makeFill(ctx, opts.outerBackground, 0, 0, W, H);
-  ctx.fillRect(0, 0, W, H);
-
   // Window.
   roundedRectPath(ctx, wl, wt, ww, wh, radius);
   ctx.fillStyle = opts.windowBackground;
   ctx.fill();
 
-  // Traffic-light dots.
-  const dotColors = ['#ff5f56', '#ffbd2e', '#27c93f'];
-  const dotCy = wt + HEADER_H / 2;
-  dotColors.forEach((color, i) => {
-    const dotCx = wl + DOT_LEFT + DOT_R + i * (DOT_R * 2 + DOT_GAP);
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(dotCx, dotCy, DOT_R, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Title.
-  if (opts.title) {
-    ctx.fillStyle = opts.titleColor;
-    ctx.font = `${opts.fontWeight} ${opts.fontSize}px ${opts.fontFamily}`;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = opts.textAlign;
-    // letterSpacing is supported in modern Canvas2D but not always typed.
-    (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${opts.letterSpacing}px`;
-    const tx =
-      opts.textAlign === 'center'
-        ? wl + ww / 2
-        : opts.textAlign === 'right'
-          ? wl + ww - TITLE_INSET
-          : wl + TITLE_INSET;
-    ctx.fillText(opts.title, tx, dotCy);
-    (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0px';
+  const cy = wt + headerH / 2;
+  if (opts.style === 'macos' || opts.style === 'browser') {
+    // Traffic-light dots, left.
+    ['#ff5f56', '#ffbd2e', '#27c93f'].forEach((color, i) => {
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.arc(wl + DOT_LEFT + DOT_R + i * (DOT_R * 2 + DOT_GAP), cy, DOT_R, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else if (opts.style === 'windows') {
+    // Min / max / close glyphs, right.
+    ctx.strokeStyle = opts.titleColor;
+    ctx.lineWidth = 1.5;
+    const gx = wl + ww - 18;
+    [0, 1, 2].forEach(i => {
+      const x = gx - i * 22;
+      if (i === 2) { ctx.beginPath(); ctx.moveTo(x - 4, cy); ctx.lineTo(x + 4, cy); ctx.stroke(); } // min
+      else if (i === 1) ctx.strokeRect(x - 4, cy - 4, 8, 8); // max
+      else { ctx.beginPath(); ctx.moveTo(x - 4, cy - 4); ctx.lineTo(x + 4, cy + 4); ctx.moveTo(x + 4, cy - 4); ctx.lineTo(x - 4, cy + 4); ctx.stroke(); } // close
+    });
   }
 
+  if (opts.style === 'browser') {
+    // A rounded "address bar" pill carrying the title, centered.
+    const pillH = 26;
+    const pillX = wl + 72;
+    const pillW = ww - 72 - 16;
+    const pillY = wt + (headerH - pillH) / 2;
+    roundedRectPath(ctx, pillX, pillY, pillW, pillH, pillH / 2);
+    ctx.fillStyle = 'rgba(127,127,127,0.14)';
+    ctx.fill();
+    drawTitle(ctx, opts, pillX + 16, pillX + pillW - 16, pillY + pillH / 2, opts.textAlign === 'left' ? 'left' : 'center');
+  } else if (opts.style === 'macos') {
+    drawTitle(ctx, opts, wl + TITLE_INSET, wl + ww - TITLE_INSET, cy, opts.textAlign);
+  } else if (opts.style === 'windows') {
+    drawTitle(ctx, opts, wl + 14, wl + ww - 80, cy, 'left');
+  }
+
+  // Media area: directly under the bar (barred styles) or padded (minimal).
+  const topPad = headerH > 0 ? 0 : MEDIA_PAD;
   const box: MediaBox = {
     x: wl + MEDIA_PAD,
-    y: wt + HEADER_H,
+    y: wt + headerH + topPad,
     w: ww - MEDIA_PAD * 2,
-    h: wh - HEADER_H - MEDIA_PAD,
+    h: wh - headerH - topPad - MEDIA_PAD,
   };
   return { canvas, box };
 }
@@ -305,22 +399,40 @@ function toBlob(canvas: HTMLCanvasElement, mime: string, quality?: number): Prom
   });
 }
 
-/** Still image: composite once, export in the original format. */
+/** Still image: composite once (from the full-quality original), export in the original format. */
 export async function exportImage(
   chrome: HTMLCanvasElement,
   box: MediaBox,
-  previewUrl: string,
   file: File,
   radius: number,
   fit: MediaFit,
 ): Promise<Blob> {
-  const img = await loadImage(previewUrl);
   const out = newCanvas(chrome.width, chrome.height);
   const ctx = out.getContext('2d')!;
   ctx.drawImage(chrome, 0, 0);
-  drawMedia(ctx, img, img.naturalWidth, img.naturalHeight, box, radius, fit);
+  // createImageBitmap decodes off the main thread and is freed immediately,
+  // avoiding the memory spike of an <img> holding a huge decoded photo.
+  let mw = 0;
+  let mh = 0;
+  try {
+    const bitmap = await createImageBitmap(file);
+    mw = bitmap.width;
+    mh = bitmap.height;
+    drawMedia(ctx, bitmap, mw, mh, box, radius, fit);
+    bitmap.close();
+  } catch {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await loadImage(url);
+      drawMedia(ctx, img, img.naturalWidth, img.naturalHeight, box, radius, fit);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
   const mime = imageMime(file);
-  return toBlob(out, mime, mime === 'image/png' ? undefined : 0.92);
+  const blob = await toBlob(out, mime, mime === 'image/png' ? undefined : 0.92);
+  out.width = out.height = 0; // release backing store
+  return blob;
 }
 
 /** Animated GIF: composite the chrome onto every decoded frame, re-encode as GIF. */
@@ -345,15 +457,21 @@ export async function exportGif(
   const patchCanvas = newCanvas(lw, lh);
   const patchCtx = patchCanvas.getContext('2d')!;
 
-  const out = newCanvas(chrome.width, chrome.height);
+  // Cap output dimensions — a full 1280×960 GIF over many frames is huge and
+  // can exhaust memory. Scale the whole composite down to MAX_GIF_DIM.
+  const gifScale = Math.min(1, MAX_GIF_DIM / Math.max(chrome.width, chrome.height));
+  const gw = Math.max(1, Math.round(chrome.width * gifScale));
+  const gh = Math.max(1, Math.round(chrome.height * gifScale));
+
+  const out = newCanvas(gw, gh);
   const outCtx = out.getContext('2d')!;
 
   const encoder = new GIF({
     workers: 2,
     quality, // lower = better (1 best / 30 fast)
     dither: 'FloydSteinberg-serpentine', // smooths the gradient/screenshot banding
-    width: chrome.width,
-    height: chrome.height,
+    width: gw,
+    height: gh,
     workerScript: gifWorkerUrl,
     repeat: 0, // loop forever, like the source
   });
@@ -364,7 +482,8 @@ export async function exportGif(
   let prevDims: ParsedFrame['dims'] | null = null;
   let savedState: ImageData | null = null;
 
-  for (const frame of frames) {
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
     if (prevDisposal === 3 && savedState) {
       accCtx.putImageData(savedState, 0, 0);
     } else if (prevDisposal === 2 && prevDims) {
@@ -385,19 +504,29 @@ export async function exportGif(
     prevDisposal = frame.disposalType;
     prevDims = frame.dims;
 
-    // Composite chrome + the full accumulated frame, then queue it.
-    outCtx.clearRect(0, 0, out.width, out.height);
+    // Composite chrome + the accumulated frame at the capped output scale.
+    outCtx.setTransform(gifScale, 0, 0, gifScale, 0, 0);
+    outCtx.clearRect(0, 0, chrome.width, chrome.height);
     outCtx.drawImage(chrome, 0, 0);
     drawMedia(outCtx, acc, lw, lh, box, radius, fit);
-    encoder.addFrame(out, { copy: true, delay: frame.delay || 100 });
+    encoder.addFrame(outCtx, { copy: true, delay: frame.delay || 100 });
+
+    // Yield periodically so the main thread (and UI) stays responsive.
+    if ((i & 7) === 7) await yieldToUI();
   }
 
-  return new Promise<Blob>((resolve, reject) => {
+  // Release the working canvases before the encoder runs.
+  acc.width = acc.height = 0;
+  patchCanvas.width = patchCanvas.height = 0;
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
     if (onProgress) encoder.on('progress', onProgress);
     encoder.on('finished', resolve);
     encoder.on('abort', () => reject(new Error('GIF encoding aborted')));
     encoder.render();
   });
+  out.width = out.height = 0;
+  return blob;
 }
 
 /** Video: draw chrome + each video frame to a canvas and record the stream as WebM. */
@@ -465,5 +594,8 @@ export async function exportVideo(
   });
 
   recorder.stop();
-  return finished;
+  const blob = await finished;
+  out.width = out.height = 0; // release backing store
+  video.src = '';
+  return blob;
 }

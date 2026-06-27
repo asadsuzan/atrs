@@ -119,7 +119,7 @@ export function FramerExportProvider({ children }: { children: ReactNode }) {
         const bitrate = req.quality === 'high' ? 10_000_000 : 3_000_000;
         blob = await fx.exportVideo(chrome, box, item.previewUrl, req.radius, req.fit, bitrate, onProgress);
       } else {
-        blob = await fx.exportImage(chrome, box, item.previewUrl, item.file, req.radius, req.fit);
+        blob = await fx.exportImage(chrome, box, item.file, req.radius, req.fit);
         onProgress(1);
       }
 

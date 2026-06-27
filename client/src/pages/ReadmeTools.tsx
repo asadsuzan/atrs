@@ -26,6 +26,13 @@ interface ToolConfig {
 }
 
 const TOOLS: Record<Tool, ToolConfig> = {
+   framer: {
+    src: '',
+    title: 'Image Framer',
+    label: 'the image framer',
+    externalUrl: '',
+    blurb: 'Upload your plugin screenshots and wrap them in a beautiful macOS-style window frame.',
+  },
   viewer: {
     src: WPREADME_URL,
     title: 'wpreadme.com — Readme Viewer',
@@ -52,17 +59,11 @@ const TOOLS: Record<Tool, ToolConfig> = {
       </>
     ),
   },
-  framer: {
-    src: '',
-    title: 'Image Framer',
-    label: 'the image framer',
-    externalUrl: '',
-    blurb: 'Upload your plugin screenshots and wrap them in a beautiful macOS-style window frame.',
-  },
+ 
 };
 
 export default function ReadmeTools() {
-  const [tool, setTool] = useState<Tool>('viewer');
+  const [tool, setTool] = useState<Tool>('framer');
   const [fullscreen, setFullscreen] = useState(false);
   const config = TOOLS[tool];
   const { open: openWindow } = useWindowManager();
@@ -160,9 +161,10 @@ export default function ReadmeTools() {
 function ToolSwitcher({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }) {
   return (
     <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted shrink-0">
+       <TabButton active={tool === 'framer'} onClick={() => setTool('framer')} icon={FileText} label="Image Framer" />
       <TabButton active={tool === 'viewer'} onClick={() => setTool('viewer')} icon={Eye} label="Viewer" />
       <TabButton active={tool === 'validator'} onClick={() => setTool('validator')} icon={ShieldCheck} label="Validator" />
-      <TabButton active={tool === 'framer'} onClick={() => setTool('framer')} icon={FileText} label="Image Framer" />
+     
     </div>
   );
 }

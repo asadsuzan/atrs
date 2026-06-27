@@ -23,7 +23,15 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getMediaKind, type MediaFit, type MediaKind } from './framerExport';
+import {
+  getMediaKind,
+  makePreviewUrl,
+  frameLayout,
+  FRAME_STYLES,
+  type MediaFit,
+  type MediaKind,
+  type FrameStyle,
+} from './framerExport';
 import { useFramerExport, KIND_META } from '../../contexts/FramerExportContext';
 
 interface FramedImage {
@@ -115,6 +123,7 @@ export function ImageFramer() {
   const [windowBackground, setWindowBackground] = useState('#ffffff');
   const [imageRadius, setImageRadius] = useState('12');
   const [mediaFit, setMediaFit] = useState<MediaFit>('contain');
+  const [frameStyle, setFrameStyle] = useState<FrameStyle>('macos');
 
   // Output size — every downloaded image is rendered to exactly these pixels.
   const [outputWidth, setOutputWidth] = useState('1280');
@@ -148,18 +157,20 @@ export function ImageFramer() {
   const previewScale = previewWidth ? Math.min(1, previewWidth / W) : 1;
   const currentPreset = SIZE_PRESETS.find(p => p.w === W && p.h === H)?.label ?? 'Custom';
 
-  const addFiles = (files: FileList | File[]) => {
+  const addFiles = async (files: FileList | File[]) => {
     const mediaFiles = Array.from(files).filter(
       f => f.type.startsWith('image/') || f.type.startsWith('video/'),
     );
     if (mediaFiles.length === 0) return;
-    const newImages = mediaFiles.map(file => ({
-      id: crypto.randomUUID(),
-      file,
-      previewUrl: URL.createObjectURL(file),
-      title: frameTitle,
-    }));
-    setImages(prev => [...prev, ...newImages]);
+    // Build downscaled previews one at a time so a big batch of large photos
+    // doesn't decode them all at full resolution simultaneously (OOM/crash).
+    for (const file of mediaFiles) {
+      const previewUrl = await makePreviewUrl(file);
+      setImages(prev => [
+        ...prev,
+        { id: crypto.randomUUID(), file, previewUrl, title: frameTitle },
+      ]);
+    }
   };
 
   const updateTitle = (id: string, title: string) => {
@@ -202,6 +213,7 @@ export function ImageFramer() {
         width: W,
         height: H,
         padding: Number(padding) || 0,
+        style: frameStyle,
         outerBackground,
         windowBackground,
         titleColor,
@@ -332,6 +344,16 @@ export function ImageFramer() {
         {/* Frame */}
         <div className="space-y-3 pt-3 border-t">
           <SectionHeader icon={FrameIcon} title="Frame" />
+          <Field label="Frame Style">
+            <Select value={frameStyle} onValueChange={(v) => setFrameStyle(v as FrameStyle)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {FRAME_STYLES.map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Padding (px)" htmlFor="padding">
               <Input id="padding" type="number" value={padding} onChange={(e) => setPadding(e.target.value)} />
@@ -482,41 +504,16 @@ export function ImageFramer() {
                         transform: `scale(${previewScale})`,
                       }}
                     >
-                        <div
-                          className="rounded-xl overflow-hidden flex flex-col w-full h-full shadow-2xl"
-                          style={{ backgroundColor: windowBackground }}
-                        >
-                          <div className="flex items-center px-4 relative shrink-0" style={{ height: '44px' }}>
-                            <div className="flex gap-2 absolute left-4">
-                              <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
-                              <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
-                              <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
-                            </div>
-                            <div className="flex-1 px-16" style={titleStyle}>
-                              {img.title}
-                            </div>
-                          </div>
-                          <div className="flex-1 min-h-0 flex items-center justify-center px-8 pb-8">
-                            {getMediaKind(img.file) === 'video' ? (
-                              <video
-                                src={img.previewUrl}
-                                muted
-                                loop
-                                autoPlay
-                                playsInline
-                                className={mediaFitClass}
-                                style={{ borderRadius: `${imageRadius}px` }}
-                              />
-                            ) : (
-                              <img
-                                src={img.previewUrl}
-                                alt="Preview"
-                                className={mediaFitClass}
-                                style={{ borderRadius: `${imageRadius}px` }}
-                              />
-                            )}
-                          </div>
-                        </div>
+                        <PreviewChrome
+                          frameStyle={frameStyle}
+                          windowBackground={windowBackground}
+                          titleStyle={titleStyle}
+                          title={img.title}
+                          isVideo={getMediaKind(img.file) === 'video'}
+                          previewUrl={img.previewUrl}
+                          mediaFitClass={mediaFitClass}
+                          imageRadius={imageRadius}
+                        />
                       </div>
                     </div>
                   </div>
@@ -616,6 +613,90 @@ function DownloadPanel({
           Download {count > 1 ? (separateFiles ? `${count} files` : 'ZIP') : ''}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Live WYSIWYG preview of the frame chrome, matching renderChrome per style. */
+function PreviewChrome({
+  frameStyle,
+  windowBackground,
+  titleStyle,
+  title,
+  isVideo,
+  previewUrl,
+  mediaFitClass,
+  imageRadius,
+}: {
+  frameStyle: FrameStyle;
+  windowBackground: string;
+  titleStyle: React.CSSProperties;
+  title: string;
+  isVideo: boolean;
+  previewUrl: string;
+  mediaFitClass: string;
+  imageRadius: string;
+}) {
+  const { hasWindow, headerH } = frameLayout(frameStyle);
+
+  const media = isVideo ? (
+    <video src={previewUrl} muted loop autoPlay playsInline className={mediaFitClass} style={{ borderRadius: `${imageRadius}px` }} />
+  ) : (
+    <img src={previewUrl} alt="Preview" decoding="async" loading="lazy" className={mediaFitClass} style={{ borderRadius: `${imageRadius}px` }} />
+  );
+
+  const dots = (size: string) => (
+    <div className="flex gap-2">
+      <div className={`${size} rounded-full bg-[#ff5f56]`} />
+      <div className={`${size} rounded-full bg-[#ffbd2e]`} />
+      <div className={`${size} rounded-full bg-[#27c93f]`} />
+    </div>
+  );
+
+  let bar: React.ReactNode = null;
+  if (frameStyle === 'macos') {
+    bar = (
+      <div className="flex items-center px-4 relative shrink-0" style={{ height: headerH }}>
+        <div className="absolute left-4">{dots('w-3 h-3')}</div>
+        <div className="flex-1 px-16" style={titleStyle}>{title}</div>
+      </div>
+    );
+  } else if (frameStyle === 'windows') {
+    bar = (
+      <div className="flex items-center gap-2 px-3 shrink-0" style={{ height: headerH }}>
+        <div className="flex-1 truncate" style={{ ...titleStyle, textAlign: 'left' }}>{title}</div>
+        <div className="flex items-center gap-3 text-base leading-none shrink-0" style={{ color: titleStyle.color }}>
+          <span>—</span>
+          <span className="text-xs">▢</span>
+          <span>✕</span>
+        </div>
+      </div>
+    );
+  } else if (frameStyle === 'browser') {
+    bar = (
+      <div className="flex items-center gap-3 px-4 shrink-0" style={{ height: headerH }}>
+        {dots('w-2.5 h-2.5')}
+        <div className="flex-1 h-6 rounded-full bg-foreground/10 flex items-center px-3 overflow-hidden">
+          <span className="truncate w-full" style={{ ...titleStyle, textAlign: titleStyle.textAlign === 'left' ? 'left' : 'center' }}>{title}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const mediaArea = (
+    <div className={`flex-1 min-h-0 flex items-center justify-center ${headerH > 0 ? 'px-8 pb-8' : hasWindow ? 'p-8' : ''}`}>
+      {media}
+    </div>
+  );
+
+  if (!hasWindow) {
+    return <div className="w-full h-full flex flex-col">{mediaArea}</div>;
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden flex flex-col w-full h-full shadow-2xl" style={{ backgroundColor: windowBackground }}>
+      {bar}
+      {mediaArea}
     </div>
   );
 }
