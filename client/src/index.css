@@ -206,6 +206,53 @@
     background-color: hsl(var(--foreground) / 0.28);
   }
 
+  /* Rich-text content — shared by the editor surface and read-only display so
+     formatting renders identically to how it was authored. */
+  .rich-content {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .rich-content p { margin: 0 0 0.6em; }
+  .rich-content > :last-child { margin-bottom: 0; }
+  .rich-content h3 { font-size: 1.05em; font-weight: 600; margin: 0.8em 0 0.4em; letter-spacing: -0.01em; }
+  .rich-content h4 { font-size: 1em; font-weight: 600; margin: 0.7em 0 0.35em; }
+  .rich-content ul,
+  .rich-content ol { margin: 0 0 0.6em; padding-left: 1.4em; }
+  .rich-content ul { list-style: disc; }
+  .rich-content ol { list-style: decimal; }
+  .rich-content li { margin: 0.15em 0; }
+  .rich-content a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .rich-content a:hover { opacity: 0.85; }
+  .rich-content strong, .rich-content b { font-weight: 600; }
+  .rich-content blockquote {
+    margin: 0 0 0.6em;
+    padding-left: 0.9em;
+    border-left: 3px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+  .rich-content code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.875em;
+    background-color: hsl(var(--muted));
+    padding: 0.1em 0.35em;
+    border-radius: calc(var(--radius) - 4px);
+  }
+  .rich-content pre {
+    margin: 0 0 0.6em;
+    padding: 0.7em 0.9em;
+    background-color: hsl(var(--muted));
+    border-radius: calc(var(--radius) - 2px);
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  .rich-content pre code { background: transparent; padding: 0; }
+
   /* Frosted-glass surface — translucent fill + blur, the signature macOS
      material. Falls back to a solid card colour where backdrop-filter is
      unsupported. */

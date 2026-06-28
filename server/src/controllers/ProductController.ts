@@ -1,10 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { ProductService } from '../services/ProductService';
+import { WpStatsService } from '../services/WpStatsService';
 import { importSessionManager } from '../services/ImportSessionManager';
 import { runStreamJob } from '../utils/sseStream';
+import { getStaleAlertDays } from '../utils/appConfig';
 
 const productService = new ProductService();
+const wpStatsService = new WpStatsService();
 
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -31,6 +34,30 @@ export const getProductById = async (req: Request, res: Response, next: NextFunc
       return res.status(404).json({ message: 'Product not found' });
     }
     res.status(200).json(product);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Products with no changelog update within the configured window (owner-scoped). */
+export const getStaleProducts = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = getStaleAlertDays();
+    const result = await productService.getStaleProducts(req.user!, days);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Live WordPress.org ecosystem stats for a product's plugin (owner-scoped). */
+export const getProductWpStats = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const product = await productService.getProductById(req.params.id as string, req.user!);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product.wpOrgSlug) return res.status(200).json({ slug: null });
+    const stats = await wpStatsService.getStats(product.wpOrgSlug);
+    res.status(200).json(stats);
   } catch (error) {
     next(error);
   }

@@ -5,6 +5,12 @@ export const getVersions = async (productId: string) => {
   return data;
 };
 
+/** All versions across the owner's products, with the product populated. */
+export const getAllVersions = async () => {
+  const { data } = await api.get('/versions');
+  return data;
+};
+
 export const createVersion = async (version: any) => {
   const { data } = await api.post('/versions', version);
   return data;

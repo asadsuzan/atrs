@@ -36,7 +36,7 @@ const readEnvFile = (): Record<string, string> => {
 
 export const updateConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { server, sounds, navigation, codeTracker } = req.body;
+    const { server, sounds, navigation, codeTracker, staleAlert } = req.body;
 
     // Load existing config to merge
     let currentConfig: any = {
@@ -51,7 +51,8 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         volume: 0.5
       },
       navigation: { mode: 'expanded' },
-      codeTracker: { enabled: false, model: 'qwen2.5-coder' }
+      codeTracker: { enabled: false, model: 'qwen2.5-coder' },
+      staleAlert: { days: 7 }
     };
 
     if (fs.existsSync(configPath)) {
@@ -124,6 +125,11 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         model: (typeof codeTracker?.model === 'string' && codeTracker.model.trim())
           ? codeTracker.model.trim()
           : (currentConfig.codeTracker?.model || 'qwen2.5-coder'),
+      },
+      staleAlert: {
+        days: (typeof staleAlert?.days === 'number' && staleAlert.days >= 1)
+          ? Math.min(Math.floor(staleAlert.days), 365)
+          : (currentConfig.staleAlert?.days ?? 7),
       }
     };
 

@@ -85,6 +85,46 @@ export class ProductService {
     return product;
   }
 
+  /**
+   * Products that haven't had a changelog entry in the last `days` days (or
+   * never have one) — surfaced on the dashboard as an "update reminder".
+   * "Last updated" = the product's most recent activity date. Owner-scoped.
+   */
+  async getStaleProducts(user: AuthUser, days: number): Promise<{ days: number; products: any[] }> {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const products = await Product.find(scopeFilter(user))
+      .select('name slug icon category status updatedAt')
+      .lean();
+    if (products.length === 0) return { days, products: [] };
+
+    const ids = products.map((p: any) => p._id);
+    const agg = await Activity.aggregate([
+      { $match: { productId: { $in: ids } } },
+      { $group: { _id: '$productId', last: { $max: '$activityDate' } } },
+    ]);
+    const lastMap = new Map<string, Date>(agg.map((a: any) => [String(a._id), a.last]));
+
+    const stale = products
+      .map((p: any) => ({
+        _id: String(p._id),
+        name: p.name,
+        slug: p.slug,
+        icon: p.icon || '',
+        category: p.category,
+        status: p.status,
+        lastActivityAt: lastMap.get(String(p._id)) || null,
+      }))
+      .filter((p) => !p.lastActivityAt || new Date(p.lastActivityAt) < cutoff)
+      .sort((a, b) => {
+        // Most stale first; "never updated" (null) sorts to the very top.
+        const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
+        const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
+        return ta - tb;
+      });
+
+    return { days, products: stale };
+  }
+
   async updateProduct(id: string, data: any, user: AuthUser): Promise<IProduct | null> {
     const existing = await this.repository.findById(id);
     if (!existing) throw createHttpError(404, 'Product not found');
@@ -458,6 +498,7 @@ export class ProductService {
                 ownerId: product.ownerId,
                 label: tag.label,
                 notes: tag.notes,
+                status: 'released',
                 releasedAt: tag.releasedAt,
                 author: tag.author,
               });

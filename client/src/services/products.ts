@@ -35,6 +35,47 @@ export const getProductById = async (id: string) => {
   return data;
 };
 
+export interface WpStats {
+  slug: string | null;
+  links?: { wporg: string; ranking: string; hive: string; patchstack: string; pt: string };
+  wporg?: {
+    activeInstalls: number | null;
+    downloaded: number | null;
+    rating: number | null;
+    numRatings: number | null;
+    supportThreads: number | null;
+    supportThreadsResolved: number | null;
+    lastUpdated: string | null;
+    version: string | null;
+  } | null;
+  ranking?: number | null;
+  hive?: { memory: string | null; speedSeconds: number | null } | null;
+  patchstack?: { present: number | null; patched: number | null } | null;
+  fetchedAt?: string;
+}
+
+/** Live WP.org ecosystem stats (installs, rank, hive, patchstack, …) for a product. */
+export const getProductWpStats = async (id: string): Promise<WpStats> => {
+  const { data } = await api.get(`/products/${id}/wp-stats`);
+  return data;
+};
+
+export interface StaleProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  category: string;
+  status: string;
+  lastActivityAt: string | null;
+}
+
+/** Products not updated within the configured window (the dashboard alert). */
+export const getStaleProducts = async (): Promise<{ days: number; products: StaleProduct[] }> => {
+  const { data } = await api.get('/products/stale');
+  return data;
+};
+
 export const createProduct = async (product: any) => {
   const { data } = await api.post('/products', product);
   return data;

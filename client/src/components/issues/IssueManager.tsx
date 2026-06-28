@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getIssues, createIssue, updateIssue, deleteIssue, type Issue, type IssueStatus, type IssueSeverity } from '../../services/issues';
 import { getProductById, updateProduct } from '../../services/products';
+import { getVersions } from '../../services/versions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { htmlToPlainText } from '@/lib/richText';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -63,7 +65,7 @@ const emptyForm = { title: '', description: '', status: 'open' as IssueStatus, s
 
 const isVideoUrl = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
 
-export function IssueManager({ productId }: { productId: string }) {
+export function IssueManager({ productId, focusIssueId, onFocusHandled }: { productId: string; focusIssueId?: string | null; onFocusHandled?: () => void }) {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const [isOpen, setIsOpen] = useState(false);
@@ -74,6 +76,9 @@ export function IssueManager({ productId }: { productId: string }) {
 
   const { data: product } = useQuery({ queryKey: ['product', productId], queryFn: () => getProductById(productId) });
   const { data: issues, isLoading } = useQuery({ queryKey: ['issues', productId], queryFn: () => getIssues(productId) });
+  const { data: versions } = useQuery({ queryKey: ['versions', productId], queryFn: () => getVersions(productId) });
+
+  const versionLabels: string[] = (versions || []).map((v: any) => v.label);
 
   const published = !!product?.publicIssuesEnabled;
   const publicUrl = `${window.location.origin}/issues/${productId}`;
@@ -88,6 +93,27 @@ export function IssueManager({ productId }: { productId: string }) {
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
   useEffect(() => { setPage(1); }, [statusFilter]);
   const paged = filtered.slice((page - 1) * limit, page * limit);
+
+  // Deep-link from a changelog card: clear the filter so the issue is reachable,
+  // jump to its page, then scroll to and briefly highlight the row.
+  useEffect(() => { if (focusIssueId) setStatusFilter('all'); }, [focusIssueId]);
+  useEffect(() => {
+    if (!focusIssueId || statusFilter !== 'all' || allIssues.length === 0) return;
+    const idx = allIssues.findIndex((i) => i._id === focusIssueId);
+    if (idx < 0) { onFocusHandled?.(); return; }
+    const targetPage = Math.floor(idx / limit) + 1;
+    if (page !== targetPage) { setPage(targetPage); return; }
+    const t = setTimeout(() => {
+      const el = document.getElementById(`issue-${focusIssueId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-inset');
+        setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-inset'), 2000);
+      }
+      onFocusHandled?.();
+    }, 80);
+    return () => clearTimeout(t);
+  }, [focusIssueId, statusFilter, allIssues, limit, page]);
 
   const openCounts = {
     open: allIssues.filter((i) => i.status === 'open').length,
@@ -276,7 +302,7 @@ export function IssueManager({ productId }: { productId: string }) {
               <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">No issues with the selected status.</TableCell></TableRow>
             ) : (
               paged.map((issue) => (
-                <TableRow key={issue._id}>
+                <TableRow key={issue._id} id={`issue-${issue._id}`} className="scroll-mt-24 transition-shadow">
                   <TableCell className="max-w-xs">
                     <div className="font-medium truncate flex items-center gap-1.5">
                       {issue.title}
@@ -286,7 +312,7 @@ export function IssueManager({ productId }: { productId: string }) {
                         </span>
                       )}
                     </div>
-                    {issue.description && <div className="text-xs text-muted-foreground truncate">{issue.description}</div>}
+                    {htmlToPlainText(issue.description || '') && <div className="text-xs text-muted-foreground truncate">{htmlToPlainText(issue.description || '')}</div>}
                     {issue.mediaUrls && issue.mediaUrls.length > 0 && (
                       <div className="flex items-center gap-1 mt-1.5">
                         {issue.mediaUrls.slice(0, 4).map((url, i) => (
@@ -350,9 +376,15 @@ export function IssueManager({ productId }: { productId: string }) {
             </div>
             <div>
               <label className="text-sm font-medium">Description (optional)</label>
-              <Textarea placeholder="Steps to reproduce, expected vs actual behaviour..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+              <RichTextEditor
+                ariaLabel="Issue description"
+                placeholder="Steps to reproduce, expected vs actual behaviour..."
+                value={formData.description}
+                onChange={(v) => setFormData({ ...formData, description: v })}
+                className="mt-1"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Severity</label>
                 <Select value={formData.severity} onValueChange={(v) => setFormData({ ...formData, severity: v as IssueSeverity })}>
@@ -372,10 +404,25 @@ export function IssueManager({ productId }: { productId: string }) {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Affected version (optional)</label>
-                <Input placeholder="e.g. 2.0.3" value={formData.versionLabel} onChange={(e) => setFormData({ ...formData, versionLabel: e.target.value })} />
+                <Select
+                  value={formData.versionLabel || '__none__'}
+                  onValueChange={(v) => setFormData({ ...formData, versionLabel: v === '__none__' ? '' : v })}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select version" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {/* Keep a previously-set label selectable even if its version was removed. */}
+                    {formData.versionLabel && !versionLabels.includes(formData.versionLabel) && (
+                      <SelectItem value={formData.versionLabel}>{formData.versionLabel}</SelectItem>
+                    )}
+                    {versionLabels.map((label) => (
+                      <SelectItem key={label} value={label}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">Reporter (optional)</label>

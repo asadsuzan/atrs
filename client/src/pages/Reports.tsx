@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { RichText } from '@/components/ui/RichText';
+import { htmlToPlainText } from '@/lib/richText';
 
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { jsPDF } from 'jspdf';
@@ -91,7 +93,7 @@ const ReportActivityCard = ({ act, forceExpanded }: { act: any; forceExpanded?: 
                   </div>
                 );
               })()}
-              <p className="text-sm text-muted-foreground">{act.shortDescription}</p>
+              <RichText html={act.shortDescription} className="text-sm text-muted-foreground" />
 
               {act.items && act.items.length > 0 && (
                 <div className="mt-6 space-y-3 border-t pt-4">
@@ -108,7 +110,7 @@ const ReportActivityCard = ({ act, forceExpanded }: { act: any; forceExpanded?: 
                         );
                       })()}
                       <h6 className="font-medium text-sm text-foreground">{item.title}</h6>
-                      {item.description && <p className="text-xs text-muted-foreground leading-relaxed mt-1">{item.description}</p>}
+                      <RichText html={item.description} className="text-xs text-muted-foreground leading-relaxed mt-1" />
                     </div>
                   ))}
                 </div>
@@ -410,7 +412,7 @@ export default function Reports() {
             act.title,
             act.versionId?.label || '',
             act.activityDate ? new Date(act.activityDate).toLocaleDateString() : '',
-            act.shortDescription,
+            htmlToPlainText(act.shortDescription || ''),
           ].map(escapeCsv).join(','));
         });
       });

@@ -16,9 +16,14 @@ export class VersionService {
     return version;
   }
 
-  async getVersions(productId: string, user: AuthUser): Promise<IVersion[]> {
-    const filter = scopeFilter(user, { productId });
-    return await Version.find(filter).sort({ releasedAt: -1, createdAt: -1 });
+  async getVersions(productId: string | undefined, user: AuthUser): Promise<IVersion[]> {
+    // With a productId, return that product's versions. Without one, return
+    // every version the user owns and populate the product so the dashboard
+    // can group and link them.
+    const filter = productId ? scopeFilter(user, { productId }) : scopeFilter(user);
+    const query = Version.find(filter).sort({ releasedAt: -1, createdAt: -1 });
+    if (!productId) query.populate('productId', 'name slug icon');
+    return await query;
   }
 
   async getVersionById(id: string, user: AuthUser): Promise<IVersion | null> {

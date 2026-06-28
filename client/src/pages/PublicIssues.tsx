@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Rocket, GitBranch, Globe, Loader2, Bug } from 'lucide-react';
 import { getPublicIssues, type Issue, type IssueStatus, type IssueSeverity } from '../services/issues';
 import { MediaCarousel } from '@/components/ui/media-carousel';
+import { RichText } from '@/components/ui/RichText';
 
 const STATUS_META: Record<IssueStatus, { label: string; cls: string }> = {
   open: { label: 'Open', cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
@@ -43,7 +44,7 @@ function IssueRow({ issue }: { issue: Issue }) {
           <Pill cls={STATUS_META[issue.status].cls}>{STATUS_META[issue.status].label}</Pill>
         </div>
       </div>
-      {issue.description && <p className="text-sm text-muted-foreground mt-2 leading-relaxed whitespace-pre-line">{issue.description}</p>}
+      <RichText html={issue.description} className="text-sm text-muted-foreground mt-2 leading-relaxed" />
       {issue.mediaUrls && issue.mediaUrls.length > 0 && (
         <div className="mt-3">
           <MediaCarousel urls={issue.mediaUrls} title={issue.title} />
@@ -113,7 +114,7 @@ export default function PublicIssues() {
               <p className="text-sm text-muted-foreground flex items-center gap-1.5"><Bug className="w-4 h-4" /> Known issues</p>
             </div>
           </div>
-          {product.description && <p className="text-muted-foreground mt-4 max-w-2xl">{product.description}</p>}
+          <RichText html={product.description} className="text-muted-foreground mt-4 max-w-2xl" />
           <div className="flex items-center gap-4 mt-4 text-sm">
             {product.wpOrgSlug && (
               <a href={`https://wordpress.org/plugins/${product.wpOrgSlug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">

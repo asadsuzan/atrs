@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { useFormDraft } from '@/hooks/useFormDraft';
 
@@ -115,7 +115,12 @@ export function ProductForm({
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Brief description of the product..." {...field} />
+                <RichTextEditor
+                  ariaLabel="Product description"
+                  placeholder="Brief description of the product..."
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -171,7 +176,7 @@ export function ProductForm({
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Standalone has a fixed category, so the select is hidden. */}
           {!isStandalone && (
             <FormField
@@ -221,7 +226,7 @@ export function ProductForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control as any}
             name="icon"

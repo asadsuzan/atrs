@@ -14,11 +14,10 @@ export const createVersion = async (req: Request, res: Response, next: NextFunct
 
 export const getVersions = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // productId is optional: omit it to get every version across the owner's
+    // products (used by the dashboard aggregate), with the product populated.
     const { productId } = req.query;
-    if (!productId) {
-      return res.status(400).json({ message: 'productId is required' });
-    }
-    const versions = await versionService.getVersions(productId as string, req.user!);
+    const versions = await versionService.getVersions(productId as string | undefined, req.user!);
     res.status(200).json(versions);
   } catch (error) {
     next(error);

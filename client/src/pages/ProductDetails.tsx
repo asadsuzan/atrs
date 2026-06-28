@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getProductById } from '../services/products';
 import { getActivities, reorderActivity, updateActivity, deleteActivity } from '../services/activities';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ActivityForm } from '../components/activities/ActivityForm';
-import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Tag, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Tag, Edit2, Trash2, Bug, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
@@ -18,6 +18,7 @@ import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { ReleasePublish } from '../components/products/ReleasePublish';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
+import { RichText } from '@/components/ui/RichText';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -28,7 +29,24 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatarFor }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined }) => {
+// Issue status / severity → badge classes, dark-mode aware (mirrors the Issue Tracker).
+const ISSUE_STATUS_BADGE: Record<string, string> = {
+  open: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  'in-progress': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  resolved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+  closed: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700/50 dark:text-zinc-300',
+};
+const ISSUE_SEVERITY_DOT: Record<string, string> = {
+  low: 'bg-sky-500',
+  medium: 'bg-amber-500',
+  high: 'bg-orange-500',
+  critical: 'bg-red-500',
+};
+const ISSUE_STATUS_LABEL: Record<string, string> = {
+  open: 'Open', 'in-progress': 'In Progress', resolved: 'Resolved', closed: 'Closed',
+};
+
+const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatarFor, onIssueClick }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -87,9 +105,9 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
           <div className="flex flex-wrap items-center gap-2 mb-2 pr-8">
             <h4 className="font-semibold text-[18px] text-foreground leading-tight">{act.title}</h4>
             {act.versionId?.label && <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">{act.versionId.label}</span>}
-            {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
-            {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
-            {act.tags?.includes('unreleased') && <span className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">UNRELEASED</span>}
+            {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
+            {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
+            {act.tags?.includes('unreleased') && <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> UNRELEASED</span>}
           </div>
           
           <p className="text-[14px] text-muted-foreground uppercase tracking-wider font-medium mb-2">
@@ -103,7 +121,47 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
             </div>
           )}
 
-          <p className="text-[14px] text-muted-foreground leading-[1.6]">{act.shortDescription}</p>
+          <RichText html={act.shortDescription} className="text-[14px] text-muted-foreground leading-[1.6]" />
+
+          {/* Resolved issues — linked from the Issue Tracker for bug-fix entries */}
+          {Array.isArray(act.relatedIssueIds) && act.relatedIssueIds.length > 0 && (
+            <div className="mt-5">
+              <h5 className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                <Bug className="w-3.5 h-3.5" /> Resolved {act.relatedIssueIds.length === 1 ? 'issue' : 'issues'}
+                <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal">{act.relatedIssueIds.length}</span>
+              </h5>
+              <div className="space-y-1.5">
+                {act.relatedIssueIds.map((issue: any) => {
+                  const issueId = issue?._id || issue;
+                  return (
+                    <button
+                      key={issueId}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onIssueClick(issueId); }}
+                      title={issue?.title ? `View issue: ${issue.title}` : 'View issue'}
+                      className="w-full flex items-center gap-2.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left transition-colors hover:bg-muted hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    >
+                      <span
+                        className={cn('w-1.5 h-1.5 rounded-full shrink-0', ISSUE_SEVERITY_DOT[issue?.severity] || 'bg-muted-foreground')}
+                        title={issue?.severity ? `${issue.severity} severity` : undefined}
+                      />
+                      <span className="flex-1 text-[13px] text-foreground truncate">
+                        {issue?.title || 'Untitled issue'}
+                      </span>
+                      {issue?.versionLabel && (
+                        <span className="hidden sm:inline text-[11px] text-muted-foreground font-medium shrink-0">{issue.versionLabel}</span>
+                      )}
+                      {issue?.status && (
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase shrink-0', ISSUE_STATUS_BADGE[issue.status] || 'bg-muted text-muted-foreground')}>
+                          {ISSUE_STATUS_LABEL[issue.status] || issue.status}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Sub-items */}
           {act.items && act.items.length > 0 && (
@@ -121,7 +179,7 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
                     );
                   })()}
                   <h6 className="font-semibold text-[15px] text-foreground">{item.title}</h6>
-                  {item.description && <p className="text-[14px] text-muted-foreground leading-[1.6] mt-1.5">{item.description}</p>}
+                  <RichText html={item.description} className="text-[14px] text-muted-foreground leading-[1.6] mt-1.5" />
                 </div>
               ))}
             </div>
@@ -132,8 +190,11 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
   );
 };
 
-const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete, avatarFor }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined }) => {
+const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete, avatarFor, onIssueClick }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void }) => {
   const [isOpen, setIsOpen] = useState(true);
+  // Clip only while the height animation runs; once open, allow overflow so an
+  // active card's scale/ring/shadow aren't sliced off at the grid edges.
+  const [animating, setAnimating] = useState(false);
   if (typeActs.length === 0) return null;
   return (
     <div className="space-y-4 mb-10">
@@ -146,12 +207,14 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
       </h3>
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
+            onAnimationStart={() => setAnimating(true)}
+            onAnimationComplete={() => setAnimating(false)}
+            style={{ overflow: animating ? 'hidden' : 'visible' }}
           >
             <div className="mt-4 pt-2 pb-4">
               <SortableContext items={typeActs.map(a => a._id)} strategy={rectSortingStrategy}>
@@ -165,6 +228,7 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
                       onEdit={onEdit}
                       onDelete={onDelete}
                       avatarFor={avatarFor}
+                      onIssueClick={onIssueClick}
                     />
                   ))}
                 </div>
@@ -185,6 +249,10 @@ export default function ProductDetails() {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [versionFilter, setVersionFilter] = useState<string>('all');
   const [editingActivity, setEditingActivity] = useState<any>(null);
+  // Set when a linked issue is clicked from a changelog card — switches to the
+  // Issues tab and tells IssueManager which issue to scroll to and highlight.
+  const [focusIssueId, setFocusIssueId] = useState<string | null>(null);
+  const handleIssueClick = (issueId: string) => { setActiveTab('issues'); setFocusIssueId(issueId); };
 
   const updateMutation = useMutation({
     mutationFn: updateActivity,
@@ -249,11 +317,29 @@ export default function ProductDetails() {
     enabled: !!product?.wpOrgSlug,
   });
 
-  const { data: activitiesData, isLoading: activitiesLoading } = useQuery({
+  // The timeline lazy-loads in pages (infinite scroll + "Load More") instead of
+  // fetching every entry up front.
+  const ACTIVITIES_PAGE_SIZE = 9;
+  const {
+    data: activitiesPages,
+    isLoading: activitiesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['activities', id],
-    queryFn: () => getActivities({ productId: id, limit: -1, sortBy: 'displayOrder', sortOrder: 'asc' }),
+    queryFn: ({ pageParam }) => getActivities({ productId: id, page: pageParam, limit: ACTIVITIES_PAGE_SIZE, sortBy: 'displayOrder', sortOrder: 'asc' }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: any) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
     enabled: !!id,
   });
+  const allActivities: any[] = activitiesPages?.pages.flatMap((p: any) => p.data) ?? [];
+  const totalActivities: number = activitiesPages?.pages?.[0]?.total ?? 0;
+
+  // Sentinel for infinite scroll; observed only when the Activity tab is open and
+  // no version filter is active (a filter narrows the loaded set, so we fall back
+  // to the manual "Load More" button to avoid auto-loading the whole list).
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const location = useLocation();
 
@@ -264,11 +350,18 @@ export default function ProductDetails() {
     if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release' || tab === 'issues') {
       setActiveTab(tab);
     }
+    // Deep-link straight to a specific issue (e.g. from the dashboard): open the
+    // Issues tab and let IssueManager scroll to / highlight it.
+    const issueId = searchParams.get('issue');
+    if (issueId) {
+      setActiveTab('issues');
+      setFocusIssueId(issueId);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
-    if (activitiesData && location.hash && activeTab === 'activities') {
+    if (allActivities.length && location.hash && activeTab === 'activities') {
       const targetId = location.hash.replace('#', '');
       const timer = setTimeout(() => {
         const element = document.getElementById(targetId);
@@ -282,7 +375,23 @@ export default function ProductDetails() {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [activitiesData, location.hash, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allActivities.length, location.hash, activeTab]);
+
+  // Auto-load the next page when the sentinel scrolls into view.
+  useEffect(() => {
+    if (activeTab !== 'activities' || versionFilter !== 'all' || !hasNextPage) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage();
+      },
+      { rootMargin: '300px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeTab, versionFilter, hasNextPage, isFetchingNextPage, fetchNextPage, allActivities.length]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -294,7 +403,7 @@ export default function ProductDetails() {
     // Dropping outside any sortable target -> no-op (over is null).
     if (!over || active.id === over.id) return;
 
-    const list: any[] = activitiesData?.data || [];
+    const list: any[] = allActivities;
     const act = list.find((a: any) => a._id === active.id);
     const overAct = list.find((a: any) => a._id === over.id);
     if (!act || !overAct) return;
@@ -315,10 +424,19 @@ export default function ProductDetails() {
     }
   };
 
-  const exportChangelog = () => {
-    if (!activitiesData?.data) return;
+  const exportChangelog = async () => {
+    // Export always covers the full changelog, not just the loaded pages.
+    let all: any[] = [];
+    try {
+      const res = await getActivities({ productId: id, limit: -1, sortBy: 'displayOrder', sortOrder: 'asc' });
+      all = res?.data || [];
+    } catch {
+      toast.error('Failed to export changelog');
+      return;
+    }
+    if (!all.length) return;
     let markdown = `# Changelog - ${product?.name}\n\n`;
-    activitiesData.data.forEach((act: any) => {
+    all.forEach((act: any) => {
       markdown += `## ${act.title}\n`;
       const versionPart = act.versionId?.label ? ` | Version: ${act.versionId.label}` : '';
       markdown += `*Date: ${new Date(act.activityDate).toLocaleDateString()} | Type: ${act.type}${versionPart}*\n\n`;
@@ -335,8 +453,6 @@ export default function ProductDetails() {
 
   if (productLoading) return <ProductDetailsSkeleton />;
   if (!product) return <div>Product not found</div>;
-
-  const allActivities = activitiesData?.data || [];
 
   // Distinct version labels present across this product's activities, used to
   // populate the changelog version filter ("__none__" groups unversioned ones).
@@ -382,7 +498,7 @@ export default function ProductDetails() {
             <img src={product.banner} alt={`${product.name} Banner`} className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className="w-full h-[375px] bg-blue-50/50 flex flex-col items-center justify-center text-muted-foreground border-b relative overflow-hidden">
+          <div className="w-full h-[375px] bg-muted/30 flex flex-col items-center justify-center text-muted-foreground border-b relative overflow-hidden">
              <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.6))] dark:bg-grid-slate-700/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]" style={{ backgroundSize: '30px 30px', backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)'}}></div>
              <div className="z-10 text-xl font-semibold opacity-50">{product.name}</div>
           </div>
@@ -390,9 +506,9 @@ export default function ProductDetails() {
 
         <div className="p-6 flex flex-col md:flex-row md:items-start gap-6">
           {product.icon ? (
-            <img src={product.icon} alt="Icon" className="w-[100px] h-[100px] rounded-md object-cover flex-shrink-0 bg-white border shadow-sm" />
+            <img src={product.icon} alt="Icon" className="w-[100px] h-[100px] rounded-md object-cover flex-shrink-0 bg-muted border shadow-sm" />
           ) : (
-            <div className="w-[100px] h-[100px] rounded-md bg-zinc-800 flex items-center justify-center text-white font-bold flex-shrink-0 text-3xl">
+            <div className="w-[100px] h-[100px] rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold flex-shrink-0 text-3xl">
                {product.name.substring(0, 2).toUpperCase()}
             </div>
           )}
@@ -402,9 +518,9 @@ export default function ProductDetails() {
                {wpData && wpData.name ? wpData.name : product.name.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
             </h1>
             <p className="text-sm text-muted-foreground">
-               By <span className="text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer">{wpData && wpData.author ? wpData.author.replace(/(<([^>]+)>)/gi, "") : 'bPlugins'}</span>
+               By <span className="text-primary font-medium hover:underline cursor-pointer">{wpData && wpData.author ? wpData.author.replace(/(<([^>]+)>)/gi, "") : 'bPlugins'}</span>
             </p>
-            {product.description && <p className="text-muted-foreground text-sm mt-2">{product.description}</p>}
+            <RichText html={product.description} className="text-muted-foreground text-sm mt-2" />
             
             <div className="flex gap-4 mt-3 pt-2">
               <Badge variant="outline" className="capitalize">{product.category}</Badge>
@@ -510,14 +626,41 @@ export default function ProductDetails() {
               <ProductActivitiesSkeleton />
             ) : allActivities.length === 0 ? (
               <div className="text-muted-foreground">No activities recorded for this product yet.</div>
-            ) : activities.length === 0 ? (
-              <div className="text-muted-foreground">No activities found for the selected version.</div>
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
-                <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
-                <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} />
-              </DndContext>
+              <>
+                {activities.length === 0 ? (
+                  <div className="text-muted-foreground">
+                    No activities found for the selected version{hasNextPage ? ' yet — load more to keep looking.' : '.'}
+                  </div>
+                ) : (
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
+                    <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
+                    <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
+                  </DndContext>
+                )}
+
+                {/* Lazy-load footer: sentinel (auto), spinner, and a manual Load More */}
+                {versionFilter === 'all' && hasNextPage && <div ref={loadMoreRef} aria-hidden className="h-px" />}
+                {isFetchingNextPage && (
+                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading more…
+                  </div>
+                )}
+                {hasNextPage && !isFetchingNextPage && (
+                  <div className="flex justify-center pt-2 pb-4">
+                    <Button variant="outline" onClick={() => fetchNextPage()}>
+                      Load more
+                      <span className="ml-1.5 text-muted-foreground">({Math.max(totalActivities - allActivities.length, 0)} more)</span>
+                    </Button>
+                  </div>
+                )}
+                {!hasNextPage && totalActivities > ACTIVITIES_PAGE_SIZE && (
+                  <p className="text-center text-xs text-muted-foreground pt-2 pb-4">
+                    All {totalActivities} entries loaded.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -535,7 +678,7 @@ export default function ProductDetails() {
         )}
 
         {activeTab === 'issues' && id && (
-          <IssueManager productId={id} />
+          <IssueManager productId={id} focusIssueId={focusIssueId} onFocusHandled={() => setFocusIssueId(null)} />
         )}
 
         {activeTab === 'readme' && product?.wpReadme && (

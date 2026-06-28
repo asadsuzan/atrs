@@ -177,12 +177,12 @@ export function MediaLibraryDialog({
                     {isImg ? (
                       <img src={media.url} alt={media.filename} className="w-full h-full object-cover" />
                     ) : isVid ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/90 text-white relative">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground relative">
                         <VideoIcon className="w-6 h-6 text-primary" />
                         <video src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" muted />
                       </div>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white">
+                      <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
                         <FileQuestion className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}

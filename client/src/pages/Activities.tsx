@@ -12,8 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ActivityForm } from '../components/activities/ActivityForm';
-import { Plus, Edit2, Trash2, ArrowUpDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, ArrowUpDown, Bug } from 'lucide-react';
 import { Pagination } from '@/components/ui/Pagination';
+import { ViewToggle, type ViewMode } from '@/components/ui/ViewToggle';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -27,6 +28,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { useJobStream } from '../contexts/JobStreamContext';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChangelogCardSkeleton } from '@/components/ui/skeletons';
 
 export default function Activities() {
   const { confirm } = useConfirm();
@@ -37,6 +39,7 @@ export default function Activities() {
   const [type, setType] = useLocalStorage<string>('atrs_activities_type', 'all');
   const [tier, setTier] = useLocalStorage<string>('atrs_activities_tier', 'all');
   const [tagFilter, setTagFilter] = useLocalStorage<string>('atrs_activities_tag', 'all');
+  const [versioned, setVersioned] = useLocalStorage<string>('atrs_activities_versioned', 'all');
   const [search, setSearch] = useLocalStorage<string>('atrs_activities_search', '');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [startDate, setStartDate] = useLocalStorage<string>('atrs_activities_startDate', '');
@@ -47,6 +50,7 @@ export default function Activities() {
   const [ownerId, setOwnerId] = useState('all');
   const [sortBy, setSortBy] = useLocalStorage<string>('atrs_activities_sortBy', 'activityDate');
   const [sortOrder, setSortOrder] = useLocalStorage<string>('atrs_activities_sortOrder', 'desc');
+  const [view, setView] = useLocalStorage<ViewMode>('atrs_activities_view', 'table');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
   const { openAddProductFirst } = useAddProduct();
@@ -56,6 +60,7 @@ export default function Activities() {
   if (type && type !== 'all') queryParams.type = type;
   if (type === 'feature' && tier && tier !== 'all') queryParams.tier = tier;
   if (tagFilter && tagFilter !== 'all') queryParams.tags = tagFilter;
+  if (versioned && versioned !== 'all') queryParams.versioned = versioned;
   if (debouncedSearch) queryParams.search = debouncedSearch;
   if (startDate) queryParams.startDate = startDate;
   if (endDate) queryParams.endDate = endDate;
@@ -73,7 +78,7 @@ export default function Activities() {
   // actions can never operate on rows that are no longer visible.
   useEffect(() => {
     setSelectedIds([]);
-  }, [page, debouncedSearch, productId, type, tier, tagFilter, startDate, endDate, sortBy, sortOrder, ownerId]);
+  }, [page, debouncedSearch, productId, type, tier, tagFilter, versioned, startDate, endDate, sortBy, sortOrder, ownerId]);
 
   // Allow the sidebar (and other links) to pre-filter by product via ?productId=.
   const [searchParams] = useSearchParams();
@@ -81,6 +86,16 @@ export default function Activities() {
     const pid = searchParams.get('productId');
     if (pid) {
       setProductId(pid);
+      setPage(1);
+    }
+    const v = searchParams.get('versioned');
+    if (v === 'none' || v === 'has' || v === 'all') {
+      setVersioned(v);
+      setPage(1);
+    }
+    const tag = searchParams.get('tag');
+    if (tag === 'released' || tag === 'unreleased') {
+      setTagFilter(tag);
       setPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,6 +216,19 @@ export default function Activities() {
     }
   };
 
+  // Shared edit/delete handlers so the table and card views behave identically.
+  const openEditActivity = (activity: any) => setEditingActivity({
+    ...activity,
+    productId: activity.productId?._id,
+    activityDate: format(new Date(activity.activityDate), 'yyyy-MM-dd'),
+    tags: activity.tags || [],
+  });
+  const confirmDeleteActivity = async (activity: any) => {
+    if (await confirm({ title: 'Delete Changelog Entry', description: 'Are you sure you want to permanently delete this changelog entry?' })) {
+      deleteMutation.mutate(activity._id);
+    }
+  };
+
   return (
     <PageTransition className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -283,6 +311,16 @@ export default function Activities() {
               <SelectItem value="unreleased">Unreleased</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={versioned} onValueChange={(v) => { setVersioned(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-[150px] flex-shrink-0">
+              <SelectValue placeholder="All Versions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Versions</SelectItem>
+              <SelectItem value="none">Unversioned</SelectItem>
+              <SelectItem value="has">Versioned</SelectItem>
+            </SelectContent>
+          </Select>
           {isAdmin && (
             <Select value={ownerId} onValueChange={(v) => { setOwnerId(v); setPage(1); }}>
               <SelectTrigger className="h-9 w-[160px] flex-shrink-0">
@@ -337,7 +375,7 @@ export default function Activities() {
               </Button>
             )}
           </div>
-          {(search || productId !== 'all' || type !== 'all' || tagFilter !== 'all' || startDate || endDate) && (
+          {(search || productId !== 'all' || type !== 'all' || tagFilter !== 'all' || versioned !== 'all' || startDate || endDate) && (
             <Button
               variant="ghost"
               size="sm"
@@ -348,6 +386,7 @@ export default function Activities() {
                 setType('all');
                 setTier('all');
                 setTagFilter('all');
+                setVersioned('all');
                 setOwnerId('all');
                 setStartDate('');
                 setEndDate('');
@@ -360,6 +399,24 @@ export default function Activities() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          {view === 'grid' && activities.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+              <Checkbox
+                checked={activities.length > 0 && selectedIds.length === activities.length}
+                data-state={selectedIds.length > 0 && selectedIds.length < activities.length ? 'indeterminate' : undefined}
+                onCheckedChange={handleSelectAll}
+                aria-label="Select all on page"
+              />
+              Select all
+            </label>
+          )}
+        </div>
+        <ViewToggle value={view} onChange={setView} />
+      </div>
+
+      {view === 'table' && (
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
@@ -464,7 +521,12 @@ export default function Activities() {
                         <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">RELEASED</Badge>
                       )}
                       {activity.tags?.includes('unreleased') && (
-                        <Badge variant="default" className="bg-slate-500 hover:bg-slate-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">UNRELEASED</Badge>
+                        <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white border-none uppercase text-[10px] px-1.5 py-0 h-4 shrink-0">UNRELEASED</Badge>
+                      )}
+                      {activity.relatedIssueIds?.length > 0 && (
+                        <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 h-4 shrink-0 border-red-200 text-red-700 dark:text-red-300" title={`Resolves ${activity.relatedIssueIds.length} issue(s)`}>
+                          <Bug className="w-2.5 h-2.5" /> {activity.relatedIssueIds.length}
+                        </Badge>
                       )}
                     </div>
                   </TableCell>
@@ -491,6 +553,78 @@ export default function Activities() {
           </TableBody>
         </Table>
       </div>
+      )}
+
+      {view === 'grid' && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => <ChangelogCardSkeleton key={i} />)
+          ) : isError ? (
+            <div className="col-span-full border rounded-md bg-card p-8 text-center text-destructive">Failed to load changelogs. Please try again.</div>
+          ) : activities.length === 0 ? (
+            <div className="col-span-full border rounded-md bg-card p-10 text-center text-muted-foreground">No changelogs found.</div>
+          ) : (
+            activities.map((activity: any, index: number) => (
+              <motion.div
+                key={activity._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.04, 0.3) }}
+                className={`group relative flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${selectedIds.includes(activity._id) ? 'ring-2 ring-primary/50' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <Badge variant="outline" className={`capitalize ${getTypeColor(activity.type)}`}>{activity.type.replace('-', ' ')}</Badge>
+                  <Checkbox
+                    checked={selectedIds.includes(activity._id)}
+                    onCheckedChange={(checked: boolean) => handleSelectOne(activity._id, checked)}
+                    aria-label="Select row"
+                  />
+                </div>
+
+                <Link
+                  to={`/products/${activity.productId?._id}#activity-${activity._id}`}
+                  className="mt-2 font-semibold leading-snug line-clamp-2 hover:text-primary hover:underline"
+                >
+                  {activity.title}
+                </Link>
+                <p className="text-xs text-muted-foreground mt-1 truncate">{activity.productId?.name || 'Unknown'}</p>
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {activity.versionId?.label && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{activity.versionId.label}</Badge>
+                  )}
+                  {activity.tier === 'pro' && (
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white border-none uppercase text-[10px] px-1.5 py-0">PRO</Badge>
+                  )}
+                  {activity.tags?.includes('released') && (
+                    <Badge variant="default" className="bg-green-500 hover:bg-green-600 text-white border-none uppercase text-[10px] px-1.5 py-0">RELEASED</Badge>
+                  )}
+                  {activity.tags?.includes('unreleased') && (
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white border-none uppercase text-[10px] px-1.5 py-0">UNRELEASED</Badge>
+                  )}
+                  {activity.relatedIssueIds?.length > 0 && (
+                    <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 border-red-200 text-red-700 dark:text-red-300">
+                      <Bug className="w-2.5 h-2.5" /> {activity.relatedIssueIds.length}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="mt-auto border-t pt-3 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(activity.activityDate).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${activity.title}`} onClick={() => openEditActivity(activity)}>
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${activity.title}`} onClick={() => confirmDeleteActivity(activity)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      )}
 
       {totalPages > 0 && (
         <Pagination

@@ -73,8 +73,17 @@ function ReleaseBlockView({ block }: { block: ReleaseBlock }) {
   return (
     <div className="rounded-xl border bg-card p-5">
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h4 className="text-lg font-semibold tracking-tight">{block.label}</h4>
-        {date && <span className="text-xs text-muted-foreground">{date}</span>}
+        <div className="flex items-center gap-2 flex-wrap">
+          <h4 className="text-lg font-semibold tracking-tight">{block.label}</h4>
+          {block.unreleased && block.label !== 'Unreleased' && (
+            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Unreleased
+            </span>
+          )}
+        </div>
+        {date
+          ? <span className="text-xs text-muted-foreground shrink-0">{date}</span>
+          : block.unreleased && <span className="text-xs text-muted-foreground shrink-0">Not yet released</span>}
       </div>
       {block.notes && <p className="text-sm text-muted-foreground mb-3">{block.notes}</p>}
       <div className="space-y-3">
@@ -91,6 +100,11 @@ function ReleaseBlockView({ block }: { block: ReleaseBlock }) {
                     <span>
                       <span className="text-foreground">{it.title}</span>
                       {it.tier === 'pro' && <span className="ml-1.5 bg-amber-100 text-amber-800 rounded px-1 py-0.5 text-[9px] font-bold uppercase">Pro</span>}
+                      {!block.unreleased && it.tags?.includes('unreleased') && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider align-middle">
+                          <span className="w-1 h-1 rounded-full bg-amber-500" /> Unreleased
+                        </span>
+                      )}
                       {it.shortDescription && it.shortDescription !== it.title && (
                         <span className="text-muted-foreground"> — {it.shortDescription}</span>
                       )}

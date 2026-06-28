@@ -36,6 +36,7 @@ export default function Settings() {
   const [configForm, setConfigForm] = useState({ serverPort: '5000', mongodbUri: '' });
   const [navMode, setNavMode] = useState<NavMode>('expanded');
   const [trackerForm, setTrackerForm] = useState({ enabled: false, model: 'qwen2.5-coder' });
+  const [staleDays, setStaleDays] = useState(7);
   const [isRestarting, setIsRestarting] = useState(false);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
@@ -77,6 +78,7 @@ export default function Settings() {
           model: configData.codeTracker.model || 'qwen2.5-coder',
         });
       }
+      if (configData.staleAlert?.days) setStaleDays(Number(configData.staleAlert.days));
       if (configData.sounds) {
         setSoundsForm({
           enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
@@ -114,6 +116,14 @@ export default function Settings() {
       if (variables.codeTracker) {
         toast.success("Code Activity Tracker settings saved");
         queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
+        refetch();
+        return;
+      }
+
+      // Stale-product reminder window: no restart; refresh the dashboard widget.
+      if (variables.staleAlert) {
+        toast.success("Update reminder settings saved");
+        queryClient.invalidateQueries({ queryKey: ['staleProducts'] });
         refetch();
         return;
       }
@@ -175,6 +185,12 @@ export default function Settings() {
 
   const handleSaveTracker = () => {
     saveMutation.mutate({ codeTracker: trackerForm });
+  };
+
+  const handleSaveStale = () => {
+    const days = Math.min(Math.max(Math.round(Number(staleDays) || 7), 1), 365);
+    setStaleDays(days);
+    saveMutation.mutate({ staleAlert: { days } });
   };
 
   const handleClearLocalData = async () => {
@@ -298,8 +314,8 @@ export default function Settings() {
                   </div>
                   
                   {isSelected && (
-                    <div className="absolute top-2 right-2 bg-white rounded-full p-0.5 shadow-md">
-                      <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />
+                    <div className="absolute top-2 right-2 bg-primary rounded-full p-0.5 shadow-md">
+                      <Check className="w-3.5 h-3.5 text-primary-foreground" strokeWidth={3} />
                     </div>
                   )}
                 </div>
@@ -455,6 +471,36 @@ export default function Settings() {
 
       {isAdmin && (
       <div className="pt-8 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">Product Update Reminders</h3>
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <p className="text-sm text-muted-foreground">
+            The dashboard flags products that haven't had a changelog update within this window, as a reminder to keep them current.
+          </p>
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Flag as stale after</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={staleDays}
+                  onChange={(e) => setStaleDays(Number(e.target.value))}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">days without an update</span>
+              </div>
+            </div>
+            <Button onClick={handleSaveStale} disabled={saveMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" /> Save
+            </Button>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {isAdmin && (
+      <div className="pt-8 border-b pb-8">
         <h3 className="text-xl font-bold mb-4">System Configuration</h3>
         <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -525,7 +571,7 @@ export default function Settings() {
               <button
                 type="button"
                 onClick={() => setSoundsForm({...soundsForm, enabled: !soundsForm.enabled})}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${soundsForm.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${soundsForm.enabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${soundsForm.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>

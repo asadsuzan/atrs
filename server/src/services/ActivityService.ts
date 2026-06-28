@@ -1,6 +1,7 @@
 import { ActivityRepository } from '../repositories/ActivityRepository';
 import { IActivity } from '../models/Activity';
 import { Product } from '../models/Product';
+import { Issue } from '../models/Issue';
 import { AuditLogService } from './AuditLogService';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
@@ -23,7 +24,24 @@ export class ActivityService {
     assertOwner(product, user);
     const activity = await this.repository.create({ ...data, ownerId: product!.ownerId });
     await auditLogService.logEvent('CREATE', 'ACTIVITY', activity._id.toString(), activity.title, `Logged a new ${activity.type}`, { id: user.id, name: user.name });
+    await this.resolveLinkedIssues(activity, product!.ownerId);
     return activity;
+  }
+
+  /**
+   * When a bug-fix changelog entry references issues, mark those issues as
+   * resolved (dated to the changelog entry) — logging the fix is the act of
+   * closing the issue out. Only touches still-open issues so re-saves and
+   * manual re-openings are respected. Scoped to the product's owner.
+   */
+  private async resolveLinkedIssues(activity: IActivity | null, ownerId: any): Promise<void> {
+    if (!activity || activity.type !== 'bug-fix') return;
+    const issueIds = (activity.relatedIssueIds || []).map((id: any) => (id?._id ? id._id : id));
+    if (issueIds.length === 0) return;
+    await Issue.updateMany(
+      { _id: { $in: issueIds }, ownerId, status: { $in: ['open', 'in-progress'] } },
+      { $set: { status: 'resolved', resolvedAt: activity.activityDate || new Date() } }
+    );
   }
 
   async getActivities(query: any, user: AuthUser): Promise<any> {
@@ -34,6 +52,9 @@ export class ActivityService {
     if (query.tags) filter.tags = query.tags;
     if (query.priority) filter.priority = query.priority;
     if (query.versionId) filter.versionId = query.versionId;
+    // Filter by version-assignment state: "none" = unversioned, "has" = assigned.
+    if (query.versioned === 'none') filter.versionId = { $in: [null] };
+    else if (query.versioned === 'has') filter.versionId = { $ne: null };
     if (query.ownerId && user.role === 'admin') {
       filter.ownerId = query.ownerId;
     }
@@ -74,6 +95,7 @@ export class ActivityService {
 
     if (activity) {
       await auditLogService.logEvent('UPDATE', 'ACTIVITY', activity._id.toString(), activity.title, `Updated ${activity.type}`, { id: user.id, name: user.name });
+      await this.resolveLinkedIssues(activity, activity.ownerId);
 
       if (oldActivity) {
         const getMediaUrls = (act: any) => {

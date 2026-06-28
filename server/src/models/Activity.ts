@@ -18,6 +18,8 @@ export interface IActivity extends Document {
   priority?: 'low' | 'medium' | 'high' | 'critical';
   referenceUrl?: string;
   versionId?: mongoose.Types.ObjectId;
+  /** Issues this changelog entry resolves (bug-fix entries only). */
+  relatedIssueIds?: mongoose.Types.ObjectId[];
   displayOrder?: number;
   mediaType?: 'image' | 'gif' | 'video';
   mediaUrl?: string;
@@ -90,6 +92,7 @@ const ActivitySchema: Schema = new Schema(
       ref: 'Version',
       required: false,
     },
+    relatedIssueIds: [{ type: Schema.Types.ObjectId, ref: 'Issue', required: false }],
     displayOrder: { type: Number, required: false },
     mediaType: {
       type: String,

@@ -15,6 +15,7 @@ export interface ReleaseBlock {
   label: string;
   releasedAt: string | null;
   notes?: string;
+  unreleased?: boolean;
   groups: Record<ReleaseType, ReleaseItem[]>;
   counts: Record<ReleaseType, number>;
   total: number;

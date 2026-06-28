@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCodeFeed, getCodeTrackerStatus, type CodeActivity } from '../services/codeTracker';
+import { htmlToPlainText } from '@/lib/richText';
 import { useAuth } from '../contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -163,8 +164,8 @@ function FeedRow({ act, highlight }: { act: CodeActivity; highlight?: boolean })
           <Badge variant="outline" className={`text-[10px] ${meta.color}`}>{meta.label}</Badge>
           {act.tags?.includes('unreleased') && <Badge variant="secondary" className="text-[10px]">draft</Badge>}
         </div>
-        {act.shortDescription && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{act.shortDescription}</p>
+        {htmlToPlainText(act.shortDescription || '') && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{htmlToPlainText(act.shortDescription || '')}</p>
         )}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
           <span className="font-medium">{productName(act.productId)}</span>

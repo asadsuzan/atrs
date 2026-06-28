@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../../services/products';
 import { getVersions } from '../../services/versions';
+import { getIssues, type Issue } from '../../services/issues';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
@@ -25,6 +26,7 @@ const formSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   referenceUrl: z.string().nullable().optional(),
   versionId: z.string().nullable().optional(),
+  relatedIssueIds: z.array(z.string()).optional(),
   mediaType: z.enum(['image', 'gif', 'video']).nullable().optional().or(z.literal('')),
   mediaUrl: z.string().nullable().optional(),
   mediaUrls: z.array(z.string()).optional(),
@@ -54,6 +56,7 @@ export function ActivityForm({
   const processedInitialData = initialData ? {
     ...initialData,
     versionId: typeof initialData.versionId === 'object' ? initialData.versionId?._id : (initialData.versionId || ''),
+    relatedIssueIds: (initialData.relatedIssueIds || []).map((i: any) => (typeof i === 'object' ? i?._id : i)).filter(Boolean),
     mediaUrls: initialData.mediaUrls && initialData.mediaUrls.length > 0 ? initialData.mediaUrls : (initialData.mediaUrl ? [initialData.mediaUrl] : []),
     items: (initialData.items || []).map((item: any) => ({
       ...item,
@@ -72,6 +75,7 @@ export function ActivityForm({
       priority: 'medium',
       referenceUrl: '',
       versionId: '',
+      relatedIssueIds: [],
       mediaType: '',
       mediaUrls: [],
       tags: [],
@@ -95,6 +99,13 @@ export function ActivityForm({
   });
   const versions = versionsData || [];
 
+  const { data: issuesData } = useQuery({
+    queryKey: ['issues', selectedProductId],
+    queryFn: () => getIssues(selectedProductId),
+    enabled: !!selectedProductId,
+  });
+  const issues: Issue[] = issuesData || [];
+
   const { fields, append, remove } = useFieldArray({
     name: "items",
     control: form.control,
@@ -105,8 +116,9 @@ export function ActivityForm({
       <form onSubmit={form.handleSubmit((data) => {
         data.mediaUrl = ''; // Clear legacy field
         data.items = data.items.map(item => ({ ...item, mediaUrl: '' })); // Clear legacy field
+        if (data.type !== 'bug-fix') data.relatedIssueIds = []; // Issue links only apply to bug fixes
         onSubmit(data);
-      })} className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+      })} className="space-y-4 px-1">
         <FormField
           control={form.control as any}
           name="productId"
@@ -130,7 +142,7 @@ export function ActivityForm({
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control as any}
             name="type"
@@ -235,7 +247,7 @@ export function ActivityForm({
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control as any}
             name="referenceUrl"
@@ -274,6 +286,52 @@ export function ActivityForm({
           />
         </div>
 
+        {form.watch('type') === 'bug-fix' && (
+          <FormField
+            control={form.control as any}
+            name="relatedIssueIds"
+            render={({ field }: any) => {
+              const selected: string[] = field.value || [];
+              const toggle = (id: string) => {
+                field.onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+              };
+              return (
+                <FormItem>
+                  <FormLabel>Resolved Issues (Optional)</FormLabel>
+                  <p className="text-xs text-muted-foreground -mt-1 mb-1">
+                    Link the issues this fix resolves. Linked open issues are marked <span className="font-medium">resolved</span> when you save.
+                  </p>
+                  <FormControl>
+                    {!selectedProductId ? (
+                      <p className="text-sm text-muted-foreground">Select a product first.</p>
+                    ) : issues.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No issues logged for this product.</p>
+                    ) : (
+                      <div className="max-h-40 overflow-y-auto rounded-md border divide-y">
+                        {issues.map((issue) => (
+                          <label key={issue._id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 text-sm">
+                            <input
+                              type="checkbox"
+                              className="accent-primary"
+                              checked={selected.includes(issue._id)}
+                              onChange={() => toggle(issue._id)}
+                            />
+                            <span className="flex-1 truncate">{issue.title}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 bg-muted text-muted-foreground shrink-0">
+                              {issue.status}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+        )}
+
         <FormField
           control={form.control as any}
           name="shortDescription"
@@ -281,7 +339,12 @@ export function ActivityForm({
             <FormItem>
               <FormLabel>Short Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Brief summary of the change..." {...field} />
+                <RichTextEditor
+                  ariaLabel="Short description"
+                  placeholder="Brief summary of the change..."
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -339,10 +402,15 @@ export function ActivityForm({
               <div className="flex-1 space-y-4">
                 <div className="space-y-2">
                   <Input placeholder="Item Title" {...form.register(`items.${index}.title` as const)} />
-                  <Textarea placeholder="Item Description" {...form.register(`items.${index}.description` as const)} />
+                  <RichTextEditor
+                    ariaLabel="Item description"
+                    placeholder="Item Description"
+                    value={form.watch(`items.${index}.description`) || ''}
+                    onChange={(v) => form.setValue(`items.${index}.description`, v, { shouldDirty: true })}
+                  />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control as any}
                     name={`items.${index}.mediaType`}
@@ -407,7 +475,7 @@ export function ActivityForm({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 border p-4 rounded-md">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border p-4 rounded-md">
           <FormField
             control={form.control as any}
             name="mediaType"

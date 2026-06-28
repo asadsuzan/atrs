@@ -8,6 +8,8 @@
  * in, here we render one out, using prefixes the importer round-trips.
  */
 
+import { htmlToText, htmlToInlineText } from './html';
+
 export type ReleaseType = 'feature' | 'improvement' | 'bug-fix';
 
 export interface ReleaseItem {
@@ -25,6 +27,8 @@ export interface ReleaseBlock {
   /** ISO date string, or null when unknown / unreleased. */
   releasedAt: string | null;
   notes?: string;
+  /** True for versions explicitly marked unreleased, or the unversioned block. */
+  unreleased?: boolean;
   groups: Record<ReleaseType, ReleaseItem[]>;
   counts: Record<ReleaseType, number>;
   total: number;
@@ -55,6 +59,7 @@ interface RawVersion {
   _id: any;
   label: string;
   notes?: string;
+  status?: string;
   releasedAt?: Date | string | null;
 }
 
@@ -91,6 +96,7 @@ function finalizeBlock(
   releasedAt: string | null,
   notes: string | undefined,
   acts: RawActivity[],
+  unreleased = false,
 ): ReleaseBlock {
   const groups = emptyGroups();
   for (const a of acts) {
@@ -106,6 +112,7 @@ function finalizeBlock(
     label,
     releasedAt,
     notes: notes || undefined,
+    unreleased,
     groups,
     counts,
     total: acts.length,
@@ -150,11 +157,13 @@ export function assembleRelease(versions: RawVersion[], activities: RawActivity[
     const acts = byVersion.get(String(v._id)) || [];
     if (acts.length === 0) continue; // skip versions with no changelog entries
     const released = v.releasedAt ? new Date(v.releasedAt).toISOString() : latestDate(acts);
-    releases.push(finalizeBlock(String(v._id), v.label, released, v.notes, acts));
+    releases.push(finalizeBlock(String(v._id), v.label, released, v.notes, acts, v.status === 'unreleased'));
   }
 
-  // Newest first: by release date desc, then label desc (numeric-aware).
+  // Unreleased versions first (they're upcoming), then newest first by release
+  // date desc, then label desc (numeric-aware).
   releases.sort((a, b) => {
+    if (!!a.unreleased !== !!b.unreleased) return a.unreleased ? -1 : 1;
     const ta = a.releasedAt ? Date.parse(a.releasedAt) : 0;
     const tb = b.releasedAt ? Date.parse(b.releasedAt) : 0;
     if (tb !== ta) return tb - ta;
@@ -163,7 +172,7 @@ export function assembleRelease(versions: RawVersion[], activities: RawActivity[
 
   const unreleased =
     unversioned.length > 0
-      ? finalizeBlock(null, 'Unreleased', null, undefined, unversioned)
+      ? finalizeBlock(null, 'Unreleased', null, undefined, unversioned, true)
       : null;
 
   return { releases, unreleased };
@@ -190,8 +199,11 @@ export function toReadmeChangelog(assembled: AssembledRelease): string {
   const lines: string[] = ['== Changelog =='];
   for (const block of assembled.releases) {
     const date = wpDate(block.releasedAt);
+    // Keep the marker inside the `= ... =` header so the readme importer still
+    // parses the version label (text after the closing `=` would break it).
+    const tag = block.unreleased ? (date ? ' (Unreleased)' : ' - Unreleased') : '';
     lines.push('');
-    lines.push(date ? `= ${block.label} - ${date} =` : `= ${block.label} =`);
+    lines.push(date ? `= ${block.label} - ${date}${tag} =` : `= ${block.label}${tag} =`);
     for (const t of TYPE_ORDER) {
       for (const item of block.groups[t]) {
         lines.push(`* ${TYPE_KEYWORD[t]}: ${item.title}`);
@@ -207,18 +219,24 @@ export function toMarkdown(productName: string, assembled: AssembledRelease): st
 
   const renderBlock = (block: ReleaseBlock) => {
     const date = wpDate(block.releasedAt);
-    out.push(date ? `## ${block.label} — ${date}` : `## ${block.label}`);
-    if (block.notes) out.push('', block.notes);
+    // Tag versioned-but-unreleased blocks; the unversioned block is already
+    // titled "Unreleased" so it needs no extra marker.
+    const unrel = block.unreleased && block.label !== 'Unreleased';
+    const head = date ? `## ${block.label} — ${date}` : `## ${block.label}`;
+    out.push(unrel ? `${head} (Unreleased)` : head);
+    const notes = htmlToText(block.notes || '');
+    if (notes) out.push('', notes);
     for (const t of TYPE_ORDER) {
       const items = block.groups[t];
       if (items.length === 0) continue;
       out.push('', `### ${TYPE_HEADING[t]}`);
       for (const item of items) {
-        const desc =
-          item.shortDescription && item.shortDescription.trim() && item.shortDescription !== item.title
-            ? ` — ${item.shortDescription.trim()}`
-            : '';
-        out.push(`- **${item.title}**${desc}`);
+        const sd = htmlToInlineText(item.shortDescription || '');
+        const desc = sd && sd !== item.title ? ` — ${sd}` : '';
+        // Mark individual unreleased entries (when the whole block isn't already
+        // flagged unreleased, which would make per-item markers redundant).
+        const itemUnrel = !block.unreleased && item.tags?.includes('unreleased') ? ' _(Unreleased)_' : '';
+        out.push(`- **${item.title}**${desc}${itemUnrel}`);
       }
     }
     out.push('');

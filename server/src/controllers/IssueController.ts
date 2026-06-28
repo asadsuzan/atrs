@@ -16,11 +16,10 @@ export const createIssue = async (req: Request, res: Response, next: NextFunctio
 
 export const getIssues = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // productId is optional: omit it to get every issue across the owner's
+    // products (used by the dashboard aggregate), with the product populated.
     const { productId } = req.query;
-    if (!productId) {
-      return res.status(400).json({ message: 'productId is required' });
-    }
-    const issues = await issueService.getIssues(productId as string, req.user!);
+    const issues = await issueService.getIssues(productId as string | undefined, req.user!);
     res.status(200).json(issues);
   } catch (error) {
     next(error);

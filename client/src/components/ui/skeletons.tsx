@@ -34,6 +34,49 @@ export function TableRowSkeleton({ cols }: { cols: number }) {
   );
 }
 
+/** A shimmer card matching the Products grid card. */
+export function ProductCardSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-12 w-12 rounded-lg" />
+        <Skeleton className="h-4 w-4 rounded" />
+      </div>
+      <Skeleton className="h-4 w-3/4 mt-3" />
+      <div className="flex gap-2 mt-3">
+        <Skeleton className="h-5 w-14 rounded-full" />
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+      <div className="mt-4 border-t pt-3 flex items-center justify-between">
+        <div className="flex gap-3"><Skeleton className="h-4 w-4 rounded" /><Skeleton className="h-4 w-4 rounded" /></div>
+        <Skeleton className="h-7 w-14 rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+/** A shimmer card matching the Changelogs grid card. */
+export function ChangelogCardSkeleton() {
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-4 w-4 rounded" />
+      </div>
+      <Skeleton className="h-4 w-3/4 mt-3" />
+      <Skeleton className="h-3 w-1/2 mt-2" />
+      <div className="flex gap-2 mt-3">
+        <Skeleton className="h-4 w-12 rounded-full" />
+        <Skeleton className="h-4 w-16 rounded-full" />
+      </div>
+      <div className="mt-4 border-t pt-3 flex items-center justify-between">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-7 w-14 rounded-md" />
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────────
    GENERIC PAGE SKELETON (route-level fallback)
 ───────────────────────────────────────────── */

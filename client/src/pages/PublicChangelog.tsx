@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Rocket, GitBranch, Globe, Loader2 } from 'lucide-react';
 import { getPublicChangelog, type ReleaseType, type ReleaseBlock } from '../services/release';
+import { RichText } from '@/components/ui/RichText';
+import { htmlToPlainText } from '@/lib/richText';
 
 const TYPE_META: Record<ReleaseType, { label: string; dot: string; text: string }> = {
   feature: { label: 'Features', dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
@@ -24,9 +26,14 @@ function VersionEntry({ block }: { block: ReleaseBlock }) {
       <span className="absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full bg-primary ring-4 ring-background" />
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-xl font-bold tracking-tight">{block.label}</h2>
+        {block.unreleased && block.label !== 'Unreleased' && (
+          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Unreleased
+          </span>
+        )}
         {date && <span className="text-sm text-muted-foreground">{date}</span>}
       </div>
-      {block.notes && <p className="text-sm text-muted-foreground mt-2">{block.notes}</p>}
+      <RichText html={block.notes} className="text-sm text-muted-foreground mt-2" />
       <div className="mt-4 space-y-4">
         {TYPE_ORDER.map((t) => {
           const items = block.groups[t];
@@ -40,9 +47,15 @@ function VersionEntry({ block }: { block: ReleaseBlock }) {
                     <span className={`mt-2 w-1.5 h-1.5 rounded-full shrink-0 ${TYPE_META[t].dot}`} />
                     <span>
                       <span className="text-foreground font-medium">{it.title}</span>
-                      {it.shortDescription && it.shortDescription !== it.title && (
-                        <span className="text-muted-foreground"> — {it.shortDescription}</span>
+                      {!block.unreleased && it.tags?.includes('unreleased') && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider align-middle">
+                          <span className="w-1 h-1 rounded-full bg-amber-500" /> Unreleased
+                        </span>
                       )}
+                      {(() => {
+                        const sd = htmlToPlainText(it.shortDescription || '');
+                        return sd && sd !== it.title ? <span className="text-muted-foreground"> — {sd}</span> : null;
+                      })()}
                     </span>
                   </li>
                 ))}
@@ -108,7 +121,7 @@ export default function PublicChangelog() {
               <p className="text-sm text-muted-foreground">Changelog &amp; release notes</p>
             </div>
           </div>
-          {product.description && <p className="text-muted-foreground mt-4 max-w-2xl">{product.description}</p>}
+          <RichText html={product.description} className="text-muted-foreground mt-4 max-w-2xl" />
           <div className="flex items-center gap-4 mt-4 text-sm">
             {product.wpOrgSlug && (
               <a href={`https://wordpress.org/plugins/${product.wpOrgSlug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">

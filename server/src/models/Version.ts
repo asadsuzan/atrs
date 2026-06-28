@@ -5,6 +5,7 @@ export interface IVersion extends Document {
   productId: mongoose.Types.ObjectId;
   label: string;
   notes?: string;
+  status: 'released' | 'unreleased';
   releasedAt?: Date;
   author?: string;
   createdAt: Date;
@@ -21,6 +22,7 @@ const VersionSchema: Schema = new Schema(
     },
     label: { type: String, required: true },
     notes: { type: String, default: '' },
+    status: { type: String, enum: ['released', 'unreleased'], default: 'released' },
     releasedAt: { type: Date, required: false },
     author: { type: String, default: '' },
   },

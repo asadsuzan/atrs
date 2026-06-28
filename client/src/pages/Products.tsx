@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductForm } from '../components/products/ProductForm';
 import { ProductsEmptyState } from '../components/products/ProductsEmptyState';
+import { ProductWpStats } from '../components/products/ProductWpStats';
 import { Pagination } from '@/components/ui/Pagination';
+import { ViewToggle, type ViewMode } from '@/components/ui/ViewToggle';
 import { useWpImport } from '../contexts/WpImportContext';
 import { useAddProduct } from '../contexts/AddProductContext';
 import { useJobStream } from '../contexts/JobStreamContext';
@@ -26,6 +28,7 @@ import PageTransition from '../components/layout/PageTransition';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ProductCardSkeleton } from '@/components/ui/skeletons';
 
 export default function Products() {
   const { confirm } = useConfirm();
@@ -38,6 +41,7 @@ export default function Products() {
   const [ownerId, setOwnerId] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useLocalStorage('atrs_products_limit', 10);
+  const [view, setView] = useLocalStorage<ViewMode>('atrs_products_view', 'grid');
   const { open: openWpImport } = useWpImport();
   const { openAddProduct } = useAddProduct();
   const { runJob, isRunning: isJobRunning } = useJobStream();
@@ -217,6 +221,24 @@ export default function Products() {
         <ProductsEmptyState onAdd={openAddProduct} onImport={openWpImport} />
       ) : (
       <>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          {view === 'grid' && products.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+              <Checkbox
+                checked={allOnPageSelected}
+                data-state={someOnPageSelected && !allOnPageSelected ? 'indeterminate' : undefined}
+                onCheckedChange={toggleSelectAll}
+                aria-label="Select all on page"
+              />
+              Select all
+            </label>
+          )}
+        </div>
+        <ViewToggle value={view} onChange={setView} />
+      </div>
+
+      {view === 'table' && (
       <div className="border rounded-md bg-card">
         <Table>
           <TableHeader>
@@ -285,7 +307,7 @@ export default function Products() {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <Link to={`/products/${product._id}`} className="hover:underline text-blue-600">
+                    <Link to={`/products/${product._id}`} className="hover:underline text-primary">
                       {product.name}
                     </Link>
                   </TableCell>
@@ -330,6 +352,84 @@ export default function Products() {
           </TableBody>
         </Table>
       </div>
+      )}
+
+      {view === 'grid' && (
+        isError ? (
+          <div className="border rounded-md bg-card p-8 text-center text-destructive">Failed to load products. Please try again.</div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {isLoading ? (
+              Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+            ) : (
+              products.map((product: any, index: number) => (
+                <motion.div
+                  key={product._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(index * 0.04, 0.3) }}
+                  className={`group relative flex flex-col rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${selectedIds.has(product._id) ? 'ring-2 ring-primary/50' : ''}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    {product.icon ? (
+                      <img src={product.icon} alt={product.name} className="w-12 h-12 rounded-lg object-cover bg-muted border" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground border">No</div>
+                    )}
+                    <Checkbox
+                      checked={selectedIds.has(product._id)}
+                      onCheckedChange={() => toggleOne(product._id)}
+                      aria-label={`Select ${product.name}`}
+                    />
+                  </div>
+
+                  <Link
+                    to={`/products/${product._id}`}
+                    className="mt-3 font-semibold leading-snug line-clamp-2 hover:text-primary hover:underline"
+                  >
+                    {product.name}
+                  </Link>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className="capitalize">{product.category}</Badge>
+                    <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="capitalize">{product.status}</Badge>
+                  </div>
+
+                  {product.wpOrgSlug && <ProductWpStats productId={product._id} />}
+
+                  <div className="mt-auto border-t pt-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <a href={product.githubUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="GitHub Repository">
+                        <GitBranch className="w-4 h-4" />
+                      </a>
+                      {product.wpOrgSlug && (
+                        <a href={`https://wordpress.org/plugins/${product.wpOrgSlug}`} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="WordPress.org Page">
+                          <Globe className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${product.name}`} onClick={() => setEditingProduct(product)}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${product.name}`} onClick={async () => {
+                        if (await confirm({
+                          title: 'Delete Product',
+                          description: 'Are you sure you want to permanently delete this product? This will also delete all associated activities, versions, marketing data, and media files. This action cannot be undone.'
+                        })) {
+                          deleteMutation.mutate(product._id);
+                        }
+                      }}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        )
+      )}
 
       <Pagination
         page={page}

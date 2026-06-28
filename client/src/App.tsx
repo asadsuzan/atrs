@@ -54,6 +54,7 @@ import { NotificationBell } from './components/layout/NotificationBell';
 import { SidebarNav } from './components/layout/SidebarNav';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { GetStarted } from './components/onboarding/GetStarted';
+import { StaleProductAlert } from './components/products/StaleProductAlert';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
 import { AuthBootSkeleton, PageSkeleton } from './components/ui/skeletons';
@@ -202,6 +203,7 @@ function ProtectedLayout() {
     <Layout>
       <CommandPalette />
       <GetStarted />
+      <StaleProductAlert />
       <Suspense fallback={<PageSkeleton />}>
         {/* Animate only the page content, keyed by path, so the surrounding
             Layout (sidebar — its scroll position and expanded nav panels) stays

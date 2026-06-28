@@ -37,6 +37,15 @@ export const getIssues = async (productId: string): Promise<Issue[]> => {
   return data;
 };
 
+/** All issues across the owner's products, with the product populated. */
+export interface IssueWithProduct extends Issue {
+  productId: string | { _id: string; name: string; slug: string; icon?: string };
+}
+export const getAllIssues = async (): Promise<IssueWithProduct[]> => {
+  const { data } = await api.get('/issues');
+  return data;
+};
+
 export const createIssue = async (issue: any) => {
   const { data } = await api.post('/issues', issue);
   return data;

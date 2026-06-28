@@ -18,5 +18,8 @@
   "codeTracker": {
     "enabled": true,
     "model": "llama3"
+  },
+  "staleAlert": {
+    "days": 7
   }
 }

@@ -399,12 +399,12 @@ export default function MediaManager() {
                   {isImg ? (
                     <img src={media.url} alt={media.filename} className="w-full h-full object-cover select-none" />
                   ) : isVid ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/90 text-white select-none relative">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground select-none relative">
                       <VideoIcon className="w-10 h-10 text-primary" />
                       <video src={media.url} className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" muted />
                     </div>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white select-none">
+                    <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground select-none">
                       <FileQuestion className="w-10 h-10 text-muted-foreground" />
                     </div>
                   )}
@@ -486,7 +486,7 @@ export default function MediaManager() {
           {selectedMedia && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
               {/* Left Column: Preview */}
-              <div className="aspect-video md:aspect-square bg-slate-900 border rounded-lg overflow-hidden flex items-center justify-center relative">
+              <div className="aspect-video md:aspect-square bg-muted border rounded-lg overflow-hidden flex items-center justify-center relative">
                 {getMediaType(selectedMedia.mimeType) === 'image' || getMediaType(selectedMedia.mimeType) === 'gif' ? (
                   <img src={selectedMedia.url} alt={selectedMedia.filename} className="max-w-full max-h-full object-contain" />
                 ) : getMediaType(selectedMedia.mimeType) === 'video' ? (

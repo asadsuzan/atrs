@@ -22,9 +22,14 @@ export class IssueService {
     return issue;
   }
 
-  async getIssues(productId: string, user: AuthUser): Promise<IIssue[]> {
-    const filter = scopeFilter(user, { productId });
-    return await Issue.find(filter).sort({ createdAt: -1 });
+  async getIssues(productId: string | undefined, user: AuthUser): Promise<IIssue[]> {
+    // With a productId, return that product's issues. Without one, return every
+    // issue the user owns and populate the product so the dashboard can group
+    // and link them.
+    const filter = productId ? scopeFilter(user, { productId }) : scopeFilter(user);
+    const query = Issue.find(filter).sort({ createdAt: -1 });
+    if (!productId) query.populate('productId', 'name slug icon');
+    return await query;
   }
 
   async getIssueById(id: string, user: AuthUser): Promise<IIssue | null> {

@@ -1,20 +1,55 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 import { getMonthlyReport, getTrendData } from '../services/reports';
-import { getProducts } from '../services/products';
-import { getActivities } from '../services/activities';
+import { getProducts, getStaleProducts, type StaleProduct } from '../services/products';
+import { getActivities, updateActivity } from '../services/activities';
 import { getAuditLogs } from '../services/auditLogs';
+import { getAllIssues, type IssueWithProduct } from '../services/issues';
+import { getAllVersions } from '../services/versions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { playSound } from '@/lib/sound';
+import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid, AlertTriangle, Rocket, CircleCheck, Tag, Clock } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
 import { TrendChart } from '../components/reports/TrendChart';
 import { DashboardSkeleton } from '@/components/ui/skeletons';
+import { QuickIssueDialog } from '../components/issues/QuickIssueDialog';
+import { classifyStale } from '../components/products/StaleProductAlert';
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500', high: 'bg-orange-500', medium: 'bg-amber-500', low: 'bg-sky-500',
+};
+const TYPE_DOT: Record<string, string> = {
+  feature: 'bg-blue-500', improvement: 'bg-purple-500', 'bug-fix': 'bg-red-500',
+};
 
 export default function Dashboard() {
+  const [quickIssueOpen, setQuickIssueOpen] = useState(false);
+  const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const assignVersion = useMutation({
+    mutationFn: ({ id, productId, versionId }: { id: string; productId: string; versionId: string }) =>
+      updateActivity({ id, productId, versionId }),
+    onMutate: (vars) => setAssigningId(vars.id),
+    onSuccess: (_res, vars) => {
+      playSound('success');
+      toast.success('Version assigned');
+      queryClient.invalidateQueries({ queryKey: ['dashboardActivities'] });
+      queryClient.invalidateQueries({ queryKey: ['release', vars.productId] });
+      queryClient.invalidateQueries({ queryKey: ['allVersions'] });
+    },
+    onError: () => { playSound('error'); toast.error('Could not assign version'); },
+    onSettled: () => setAssigningId(null),
+  });
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
@@ -42,6 +77,23 @@ export default function Dashboard() {
   const { data: trendData, isLoading: isTrendLoading, isError: isTrendError } = useQuery({
     queryKey: ['dashboardTrend'],
     queryFn: () => getTrendData({ months: 6 }),
+  });
+
+  // Issues load independently so a slow/failed issues fetch never blocks the
+  // rest of the dashboard.
+  const { data: issuesData, isLoading: isIssuesLoading } = useQuery({
+    queryKey: ['allIssues'],
+    queryFn: () => getAllIssues(),
+  });
+
+  const { data: versionsData } = useQuery({
+    queryKey: ['allVersions'],
+    queryFn: () => getAllVersions(),
+  });
+
+  const { data: staleData, isLoading: isStaleLoading } = useQuery({
+    queryKey: ['staleProducts'],
+    queryFn: () => getStaleProducts(),
   });
 
   if (isReportLoading || isProductsLoading || isActivitiesLoading || isAuditLogsLoading || isTrendLoading) {
@@ -87,6 +139,69 @@ export default function Dashboard() {
   const improvePct = Math.round((totalImprovements / grandTotal) * 100);
   const bugPct = grandTotal > 1 ? (100 - featurePct - improvePct) : Math.round((totalBugs / grandTotal) * 100);
 
+  // --- Issues (across all products) ---
+  const allIssues: IssueWithProduct[] = issuesData || [];
+  const productNameOf = (pid: any) => (typeof pid === 'object' && pid ? pid.name : allProducts.find((p: any) => p._id === pid)?.name) || 'Unknown';
+  const productIdOf = (pid: any) => (typeof pid === 'object' && pid ? pid._id : pid);
+  const openIssues = allIssues
+    .filter((i) => i.status === 'open' || i.status === 'in-progress')
+    .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9));
+  const criticalCount = openIssues.filter((i) => i.severity === 'critical').length;
+
+  // --- Pending release, grouped by product: unreleased changelog entries
+  // (activities tagged "unreleased") plus versions explicitly marked unreleased.
+  type Pending = { id: string; name: string; entries: number; versions: number; versionLabels: string[] };
+  const pendingMap: Record<string, Pending> = {};
+  const ensurePending = (rawId: any, name?: string): Pending | null => {
+    const id = rawId?._id || rawId;
+    if (!id) return null;
+    const key = String(id);
+    if (!pendingMap[key]) {
+      pendingMap[key] = {
+        id: key,
+        name: name || allProducts.find((p: any) => p._id === key)?.name || 'Unknown',
+        entries: 0, versions: 0, versionLabels: [],
+      };
+    }
+    return pendingMap[key];
+  };
+
+  const unreleasedActs = allActivities.filter((a: any) => a.tags?.includes('unreleased'));
+  unreleasedActs.forEach((a: any) => {
+    const p = ensurePending(a.productId, a.productId?.name);
+    if (p) p.entries += 1;
+  });
+
+  const allVersions: any[] = versionsData || [];
+  allVersions
+    .filter((v: any) => v.status === 'unreleased')
+    .forEach((v: any) => {
+      const p = ensurePending(v.productId, v.productId?.name);
+      if (p) { p.versions += 1; if (v.label) p.versionLabels.push(v.label); }
+    });
+
+  const pendingByProduct = Object.values(pendingMap).sort(
+    (a, b) => (b.entries + b.versions) - (a.entries + a.versions)
+  );
+  const totalUnreleasedVersions = allVersions.filter((v: any) => v.status === 'unreleased').length;
+
+  // --- Unversioned changelog entries (no version assigned) — quick triage ---
+  const unversionedActs = allActivities
+    .filter((a: any) => !a.versionId)
+    .sort((a: any, b: any) => new Date(b.activityDate).getTime() - new Date(a.activityDate).getTime());
+
+  // --- Stale products (no changelog update within the configured window) ---
+  const staleProducts: StaleProduct[] = staleData?.products || [];
+  const staleDays = staleData?.days ?? 7;
+  const criticalStale = staleProducts.map((p) => classifyStale(p, staleDays)).filter((c) => c.level === 'critical');
+
+  // Versions grouped by product, so each unversioned entry can be assigned inline.
+  const versionsByProduct: Record<string, { _id: string; label: string }[]> = {};
+  allVersions.forEach((v: any) => {
+    const pid = String(v.productId?._id || v.productId);
+    (versionsByProduct[pid] ||= []).push({ _id: v._id, label: v.label });
+  });
+
   const getLogLink = (log: any) => {
     if (log.action === 'DELETE') return '#';
     if (log.entityType === 'PRODUCT') return `/products/${log.entityId}`;
@@ -125,12 +240,57 @@ export default function Dashboard() {
           <Button variant="outline" size="sm" asChild>
             <Link to="/activities"><ActivityIcon className="w-4 h-4 mr-2" /> Log Activity</Link>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setQuickIssueOpen(true)}
+            disabled={allProducts.length === 0}
+          >
+            <Bug className="w-4 h-4 mr-2" /> Report Issue
+          </Button>
           <Button size="sm" asChild>
             <Link to="/reports"><FileText className="w-4 h-4 mr-2" /> View Reports</Link>
           </Button>
         </div>
       </div>
-      
+
+      {/* Priority alert banner — urgent products overdue for a changelog update */}
+      <AnimatePresence>
+        {criticalStale.length > 0 && !staleBannerDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="relative flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 pr-10">
+              <span className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-red-500" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-500">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                  {criticalStale.length} product{criticalStale.length > 1 ? 's' : ''} urgently need updating
+                </p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  No changelog activity in {staleDays}+ days
+                  {criticalStale.length <= 3 && <>: <span className="font-medium text-foreground">{criticalStale.map((c) => c.name).join(', ')}</span></>}.
+                  Review them in <span className="font-medium text-foreground">Needs Updating</span> below.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStaleBannerDismissed(true)}
+                className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                <span className="block text-lg leading-none">×</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Monthly Summary */}
       <motion.div 
         variants={staggerContainer}
@@ -221,8 +381,244 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
 
+      {/* Action Center — triage open issues, ship unreleased work, assign versions, refresh stale products */}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {/* Open Issues */}
+        <Card className="flex flex-col">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center text-base">
+                <AlertTriangle className="w-5 h-5 mr-2 text-amber-500" /> Open Issues
+              </CardTitle>
+              <CardDescription>
+                {isIssuesLoading
+                  ? 'Loading issues…'
+                  : openIssues.length === 0
+                    ? 'No open issues — nicely done.'
+                    : `${openIssues.length} open${criticalCount > 0 ? ` · ${criticalCount} critical` : ''} across your products.`}
+              </CardDescription>
+            </div>
+            <Button size="sm" onClick={() => setQuickIssueOpen(true)} disabled={allProducts.length === 0}>
+              <Bug className="w-4 h-4 mr-1.5" /> Report
+            </Button>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {isIssuesLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-muted/50 animate-pulse" />)}
+              </div>
+            ) : openIssues.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <CircleCheck className="w-8 h-8 mb-2 text-emerald-500" />
+                <p className="text-sm">All clear. Nothing needs attention right now.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {openIssues.slice(0, 5).map((issue) => (
+                  <Link
+                    key={issue._id}
+                    to={`/products/${productIdOf(issue.productId)}?tab=issues&issue=${issue._id}`}
+                    className="flex items-center gap-2.5 rounded-lg border border-border bg-card/50 px-3 py-2 transition-colors hover:bg-muted/50"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${SEVERITY_DOT[issue.severity] || 'bg-muted-foreground'}`} title={`${issue.severity} severity`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate leading-tight">{issue.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{productNameOf(issue.productId)}</p>
+                    </div>
+                    {issue.status === 'in-progress' && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">In Progress</Badge>
+                    )}
+                  </Link>
+                ))}
+                {openIssues.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">+{openIssues.length - 5} more open</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pending Release */}
+        <Card className="flex flex-col">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center text-base">
+              <Rocket className="w-5 h-5 mr-2 text-primary" /> Pending Release
+            </CardTitle>
+            <CardDescription>
+              {pendingByProduct.length === 0
+                ? 'Everything is released — nothing pending.'
+                : `${totalUnreleased + totalUnreleasedVersions} unreleased ${totalUnreleased + totalUnreleasedVersions === 1 ? 'item' : 'items'} waiting to ship across ${pendingByProduct.length} ${pendingByProduct.length === 1 ? 'product' : 'products'}.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {pendingByProduct.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <CircleCheck className="w-8 h-8 mb-2 text-emerald-500" />
+                <p className="text-sm">No unreleased changes. You're all shipped.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {pendingByProduct.slice(0, 5).map((p) => (
+                  <div key={p.id} className="rounded-lg border border-border bg-card/50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium truncate leading-tight">{p.name}</p>
+                      <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-none text-[10px] uppercase tracking-wider shrink-0">Unreleased</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {p.entries > 0 && (
+                        <Link
+                          to={`/activities?productId=${p.id}&tag=unreleased`}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                          title="View these unreleased changelog entries"
+                        >
+                          {p.entries} {p.entries === 1 ? 'entry' : 'entries'} <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                      {p.versions > 0 && (
+                        <Link
+                          to={`/products/${p.id}?tab=versions&versionStatus=unreleased`}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                          title={p.versionLabels.length ? p.versionLabels.join(', ') : 'View unreleased versions'}
+                        >
+                          {p.versions} {p.versions === 1 ? 'version' : 'versions'} <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {pendingByProduct.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">+{pendingByProduct.length - 5} more products</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Unversioned changelog entries */}
+        <Card className="flex flex-col">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center text-base">
+              <Tag className="w-5 h-5 mr-2 text-primary" /> Unversioned Entries
+            </CardTitle>
+            <CardDescription>
+              {unversionedActs.length === 0
+                ? 'Every changelog entry is assigned to a version.'
+                : `${unversionedActs.length} changelog ${unversionedActs.length === 1 ? 'entry has' : 'entries have'} no version yet.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {unversionedActs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <CircleCheck className="w-8 h-8 mb-2 text-emerald-500" />
+                <p className="text-sm">All entries are versioned.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {unversionedActs.slice(0, 5).map((act: any) => {
+                  const pid = String(act.productId?._id || act.productId);
+                  const prodVersions = versionsByProduct[pid] || [];
+                  const busy = assigningId === act._id;
+                  return (
+                    <div key={act._id} className="flex items-center gap-2.5 rounded-lg border border-border bg-card/50 px-3 py-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYPE_DOT[act.type] || 'bg-muted-foreground'}`} />
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/products/${pid}#activity-${act._id}`}
+                          className="block text-sm font-medium truncate leading-tight hover:text-primary hover:underline"
+                          title="Open in the Activity Timeline"
+                        >
+                          {act.title}
+                        </Link>
+                        <p className="text-xs text-muted-foreground truncate">{act.productId?.name || productNameOf(act.productId)}</p>
+                      </div>
+                      {prodVersions.length === 0 ? (
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs shrink-0" asChild title="This product has no versions yet">
+                          <Link to={`/products/${pid}?tab=versions`}>Add version</Link>
+                        </Button>
+                      ) : (
+                        <Select
+                          disabled={busy}
+                          onValueChange={(versionId) => assignVersion.mutate({ id: act._id, productId: pid, versionId })}
+                        >
+                          <SelectTrigger className="h-7 w-[136px] text-xs shrink-0" aria-label={`Assign a version to ${act.title}`}>
+                            <SelectValue placeholder={busy ? 'Assigning…' : 'Assign version'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {prodVersions.map((v) => <SelectItem key={v._id} value={v._id}>{v.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  );
+                })}
+                {unversionedActs.length > 5 && (
+                  <Button variant="ghost" size="sm" className="w-full mt-1" asChild>
+                    <Link to="/activities?versioned=none">View all {unversionedActs.length} unversioned <ArrowRight className="w-4 h-4 ml-1.5" /></Link>
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Needs Updating — products with no changelog in the configured window */}
+        <Card className="flex flex-col">
+          <CardHeader className="space-y-1">
+            <CardTitle className="flex items-center text-base">
+              <Clock className="w-5 h-5 mr-2 text-amber-500" /> Needs Updating
+            </CardTitle>
+            <CardDescription>
+              {isStaleLoading
+                ? 'Checking for stale products…'
+                : staleProducts.length === 0
+                  ? `All products updated within ${staleDays} days.`
+                  : `${staleProducts.length} not updated in ${staleDays}+ days.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {isStaleLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-muted/50 animate-pulse" />)}
+              </div>
+            ) : staleProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                <CircleCheck className="w-8 h-8 mb-2 text-emerald-500" />
+                <p className="text-sm">Everything's fresh — no products need attention.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {staleProducts.slice(0, 5).map((p) => (
+                  <Link
+                    key={p._id}
+                    to={`/products/${p._id}?tab=activities`}
+                    className="flex items-center gap-2.5 rounded-lg border border-border bg-card/50 px-3 py-2 transition-colors hover:bg-muted/50"
+                    title="Open the changelog to add an update"
+                  >
+                    {p.icon
+                      ? <img src={p.icon} alt="" className="w-7 h-7 rounded-md object-cover bg-muted shrink-0" />
+                      : <div className="w-7 h-7 rounded-md bg-muted shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate leading-tight">{p.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.lastActivityAt
+                          ? `Updated ${formatDistanceToNow(new Date(p.lastActivityAt), { addSuffix: true })}`
+                          : 'No changelog yet'}
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </Link>
+                ))}
+                {staleProducts.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">+{staleProducts.length - 5} more</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-7 lg:grid-cols-7">
-        
+
         {/* Left Column (Span 4) */}
         <div className="md:col-span-4 space-y-6">
           <Card>
@@ -378,6 +774,12 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <QuickIssueDialog
+        open={quickIssueOpen}
+        onOpenChange={setQuickIssueOpen}
+        products={allProducts}
+      />
     </PageTransition>
   );
 }
