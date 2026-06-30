@@ -502,20 +502,23 @@ export class ProductService {
                 releasedAt: tag.releasedAt,
                 author: tag.author,
               });
-            } else if (!existing.releasedAt || !existing.notes || !existing.author) {
-              // Existing version missing metadata — update.
-              bulkOps.push({
-                updateOne: {
-                  filter: { _id: existing._id },
-                  update: {
-                    $set: {
-                      ...(tag.releasedAt ? { releasedAt: tag.releasedAt } : {}),
-                      ...(tag.notes ? { notes: tag.notes } : {}),
-                      ...(tag.author ? { author: tag.author } : {}),
-                    },
-                  },
-                },
-              });
+            } else {
+              // The version exists in ATRS AND is present among WordPress.org's
+              // release tags — so it is, by definition, released. Reconcile:
+              //   - flip a locally "unreleased" version to "released" (a version
+              //     drafted here before it shipped — now confirmed live), and
+              //   - backfill any missing releasedAt / notes / author metadata.
+              const set: any = {};
+              if (existing.status === 'unreleased') {
+                set.status = 'released';
+                set.releasedAt = tag.releasedAt ?? existing.releasedAt ?? new Date();
+              }
+              if (tag.releasedAt && !existing.releasedAt) set.releasedAt = tag.releasedAt;
+              if (tag.notes && !existing.notes) set.notes = tag.notes;
+              if (tag.author && !existing.author) set.author = tag.author;
+              if (Object.keys(set).length > 0) {
+                bulkOps.push({ updateOne: { filter: { _id: existing._id }, update: { $set: set } } });
+              }
             }
           }
 
@@ -528,7 +531,39 @@ export class ProductService {
             await Version.bulkWrite(bulkOps);
             console.log(`[WP Import] ${plugin.slug}: updated ${bulkOps.length} versions`);
           }
-          emit({ ...pctx, type: 'success', step: 'version-sync', message: `Versions synced: ${toInsert.length} inserted, ${bulkOps.length} updated` });
+
+          // Reconcile changelog entries the same way: any activity still flagged
+          // "unreleased" that belongs to a version WordPress.org now reports as
+          // released is, by definition, released too. Preserve other tags by
+          // swapping just the unreleased→released tag (not overwriting the array).
+          let reconciledActs = 0;
+          const releasedLabels = new Set(tracTags.map((t) => t.label));
+          const releasedVersionIds = existingVersions
+            .filter((v: any) => releasedLabels.has(v.label))
+            .map((v: any) => v._id);
+          if (releasedVersionIds.length > 0) {
+            const stale = await Activity.find({
+              productId: product._id,
+              versionId: { $in: releasedVersionIds },
+              tags: 'unreleased',
+            })
+              .select('_id')
+              .lean();
+            if (stale.length > 0) {
+              const staleIds = stale.map((a: any) => a._id);
+              await Activity.updateMany({ _id: { $in: staleIds } }, { $pull: { tags: 'unreleased' } });
+              await Activity.updateMany({ _id: { $in: staleIds } }, { $addToSet: { tags: 'released' } });
+              reconciledActs = staleIds.length;
+              console.log(`[WP Import] ${plugin.slug}: reconciled ${reconciledActs} unreleased→released changelog entries`);
+            }
+          }
+
+          emit({
+            ...pctx,
+            type: 'success',
+            step: 'version-sync',
+            message: `Versions synced: ${toInsert.length} inserted, ${bulkOps.length} updated${reconciledActs > 0 ? `, ${reconciledActs} entries marked released` : ''}`,
+          });
         } else {
           emit({ ...pctx, type: 'info', step: 'version-sync', message: `No version tags to sync` });
           console.log(`[WP Import] ${plugin.slug}: skipping version sync (product=${!!product}, tracTags=${tracTags.length})`);
@@ -572,6 +607,11 @@ export class ProductService {
                   const key = `${block.version}|${norm(item.title)}`;
                   if (existingKeys.has(key)) continue;
                   existingKeys.add(key);
+                  // The readme rarely tags every line with an explicit
+                  // "Fix:/Add:" prefix, so the type is often a guess. Flag any
+                  // entry whose type wasn't derived from an explicit prefix
+                  // (confidence below "high") for quick human review.
+                  const needsReview = item.confidence !== 'high';
                   toInsertActs.push({
                     productId: product._id,
                     ownerId: product.ownerId,
@@ -582,6 +622,9 @@ export class ProductService {
                     ...(v ? { versionId: v._id } : {}),
                     activityDate,
                     importSourceKey: key,
+                    needsReview,
+                    importConfidence: item.confidence,
+                    ...(needsReview ? { reviewReason: 'uncertain-type' } : {}),
                   });
                 }
               }

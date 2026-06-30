@@ -32,6 +32,7 @@ const Help = lazy(() => import('./pages/Help'));
 const Users = lazy(() => import('./pages/admin/Users'));
 const CodeActivity = lazy(() => import('./pages/CodeActivity'));
 const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
+const Review = lazy(() => import('./pages/Review'));
 const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
 const PublicIssues = lazy(() => import('./pages/PublicIssues'));
 import { ThemeProvider } from './contexts/ThemeProvider';
@@ -256,6 +257,7 @@ function AnimatedRoutes() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/code-activity" element={<CodeActivity />} />
           <Route path="/readme-tools" element={<ReadmeTools />} />
+          <Route path="/review" element={<Review />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />

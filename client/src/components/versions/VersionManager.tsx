@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getVersions, createVersion, updateVersion, deleteVersion } from '../../services/versions';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createVersion, updateVersion, deleteVersion } from '../../services/versions';
+import { useProductVersions } from '../../hooks/useVersions';
+import { VersionBadge } from './VersionBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
@@ -27,10 +29,9 @@ export function VersionManager({ productId, wpData }: { productId: string; wpDat
 
   const [formData, setFormData] = useState({ label: '', notes: '', status: 'released', releasedAt: '', author: '' });
 
-  const { data: versions, isLoading } = useQuery({
-    queryKey: ['versions', productId],
-    queryFn: () => getVersions(productId),
-  });
+  // Single source: decorated + canonically ordered (unreleased first, then
+  // newest released; exactly one flagged `isLatest`).
+  const { versions, isLoading } = useProductVersions(productId);
 
   // Search + status filter. Status can be deep-linked via ?versionStatus=.
   const [searchParams] = useSearchParams();
@@ -45,7 +46,7 @@ export function VersionManager({ productId, wpData }: { productId: string; wpDat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const allVersions: any[] = versions || [];
+  const allVersions = versions;
   const q = search.trim().toLowerCase();
   const filtered = allVersions.filter((v: any) => {
     const matchesStatus =
@@ -194,11 +195,10 @@ export function VersionManager({ productId, wpData }: { productId: string; wpDat
                 <TableRow key={version._id}>
                   <TableCell className="font-medium">{version.label}</TableCell>
                   <TableCell>
-                    {version.status === 'unreleased' ? (
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Unreleased</span>
-                    ) : (
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Released</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <VersionBadge kind={version.isUnreleased ? 'unreleased' : 'released'} />
+                      {version.isLatest && <VersionBadge kind="latest" />}
+                    </div>
                   </TableCell>
                   <TableCell>{version.releasedAt ? new Date(version.releasedAt).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>

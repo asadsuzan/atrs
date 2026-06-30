@@ -13,6 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
+import { VersionBadge } from '../components/versions/VersionBadge';
+import { useProductVersions } from '../hooks/useVersions';
+import { compareVersionDesc } from '../lib/versions';
 import { IssueManager } from '../components/issues/IssueManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { ReleasePublish } from '../components/products/ReleasePublish';
@@ -46,7 +49,7 @@ const ISSUE_STATUS_LABEL: Record<string, string> = {
   open: 'Open', 'in-progress': 'In Progress', resolved: 'Resolved', closed: 'Closed',
 };
 
-const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatarFor, onIssueClick }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void }) => {
+const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatarFor, onIssueClick, latestLabel }: { act: any, isActive: boolean, onClick: () => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void, latestLabel?: string }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: act._id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -105,9 +108,20 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
           <div className="flex flex-wrap items-center gap-2 mb-2 pr-8">
             <h4 className="font-semibold text-[18px] text-foreground leading-tight">{act.title}</h4>
             {act.versionId?.label && <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">{act.versionId.label}</span>}
+            {act.versionId?.label && latestLabel && act.versionId.label === latestLabel && <VersionBadge kind="latest" />}
             {act.tier === 'pro' && <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">PRO</span>}
-            {act.tags?.includes('released') && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">RELEASED</span>}
-            {act.tags?.includes('unreleased') && <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> UNRELEASED</span>}
+            {act.tags?.includes('released') && <VersionBadge kind="released" />}
+            {act.tags?.includes('unreleased') && <VersionBadge kind="unreleased" />}
+            {act.needsReview && (
+              <Link
+                to="/review"
+                onClick={(e) => e.stopPropagation()}
+                title="Imported type was guessed — review it"
+                className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Needs review
+              </Link>
+            )}
           </div>
           
           <p className="text-[14px] text-muted-foreground uppercase tracking-wider font-medium mb-2">
@@ -190,7 +204,7 @@ const SortableActivityCard = ({ act, isActive, onClick, onEdit, onDelete, avatar
   );
 };
 
-const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete, avatarFor, onIssueClick }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void }) => {
+const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onCardClick, onEdit, onDelete, avatarFor, onIssueClick, latestLabel }: { title: string, items: any[], colorClass: string, activeCardId: string | null, onCardClick: (id: string) => void, onEdit: (act: any) => void, onDelete: (act: any) => void, avatarFor: (author: string) => string | undefined, onIssueClick: (issueId: string) => void, latestLabel?: string }) => {
   const [isOpen, setIsOpen] = useState(true);
   // Clip only while the height animation runs; once open, allow overflow so an
   // active card's scale/ring/shadow aren't sliced off at the grid edges.
@@ -229,6 +243,7 @@ const ActivitySection = ({ title, items: typeActs, colorClass, activeCardId, onC
                       onDelete={onDelete}
                       avatarFor={avatarFor}
                       onIssueClick={onIssueClick}
+                      latestLabel={latestLabel}
                     />
                   ))}
                 </div>
@@ -245,6 +260,9 @@ export default function ProductDetails() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
+  // Single source for this product's versions — drives the filter options and
+  // the "Latest" flag on activity cards (shared with VersionManager's cache).
+  const { versions: productVersions } = useProductVersions(id);
   const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release' | 'issues'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [versionFilter, setVersionFilter] = useState<string>('all');
@@ -454,11 +472,21 @@ export default function ProductDetails() {
   if (productLoading) return <ProductDetailsSkeleton />;
   if (!product) return <div>Product not found</div>;
 
-  // Distinct version labels present across this product's activities, used to
-  // populate the changelog version filter ("__none__" groups unversioned ones).
-  const versionOptions: string[] = Array.from(
-    new Set(allActivities.map((a: any) => a.versionId?.label).filter(Boolean) as string[])
-  ).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  // The version filter is populated from the product's real version list, so
+  // every version shows (even ones with no activities yet) with its Latest /
+  // Unreleased badge. Any orphan labels still on activities are appended.
+  const activityLabels = Array.from(
+    new Set(allActivities.map((a: any) => a.versionId?.label).filter(Boolean) as string[]),
+  );
+  const knownLabels = new Set(productVersions.map((v) => v.label));
+  const versionOptions = [
+    ...productVersions.map((v) => ({ label: v.label, isUnreleased: v.isUnreleased, isLatest: v.isLatest })),
+    ...activityLabels
+      .filter((l) => !knownLabels.has(l))
+      .sort(compareVersionDesc)
+      .map((label) => ({ label, isUnreleased: false, isLatest: false })),
+  ];
+  const latestLabel = productVersions.find((v) => v.isLatest)?.label;
   const hasUnversioned = allActivities.some((a: any) => !a.versionId?.label);
 
   const activities = allActivities.filter((a: any) => {
@@ -605,11 +633,12 @@ export default function ProductDetails() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All versions</SelectItem>
-                      {versionOptions.map((label, i) => (
-                        <SelectItem key={label} value={label}>
+                      {versionOptions.map((opt) => (
+                        <SelectItem key={opt.label} value={opt.label}>
                           <span className="flex items-center gap-2">
-                            {label}
-                            {i === 0 && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">Latest</span>}
+                            {opt.label}
+                            {opt.isUnreleased && <VersionBadge kind="unreleased" size="xs" />}
+                            {opt.isLatest && <VersionBadge kind="latest" size="xs" />}
                           </span>
                         </SelectItem>
                       ))}
@@ -634,9 +663,9 @@ export default function ProductDetails() {
                   </div>
                 ) : (
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
-                    <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
-                    <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} />
+                    <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
+                    <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
+                    <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
                   </DndContext>
                 )}
 

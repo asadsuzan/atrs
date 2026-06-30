@@ -55,6 +55,7 @@ export class ActivityService {
     // Filter by version-assignment state: "none" = unversioned, "has" = assigned.
     if (query.versioned === 'none') filter.versionId = { $in: [null] };
     else if (query.versioned === 'has') filter.versionId = { $ne: null };
+    if (query.needsReview === 'true' || query.needsReview === true) filter.needsReview = true;
     if (query.ownerId && user.role === 'admin') {
       filter.ownerId = query.ownerId;
     }

@@ -5,6 +5,7 @@ import { Rocket, GitBranch, Globe, Loader2 } from 'lucide-react';
 import { getPublicChangelog, type ReleaseType, type ReleaseBlock } from '../services/release';
 import { RichText } from '@/components/ui/RichText';
 import { htmlToPlainText } from '@/lib/richText';
+import { VersionBadge } from '../components/versions/VersionBadge';
 
 const TYPE_META: Record<ReleaseType, { label: string; dot: string; text: string }> = {
   feature: { label: 'Features', dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
@@ -26,11 +27,7 @@ function VersionEntry({ block }: { block: ReleaseBlock }) {
       <span className="absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full bg-primary ring-4 ring-background" />
       <div className="flex items-baseline gap-3 flex-wrap">
         <h2 className="text-xl font-bold tracking-tight">{block.label}</h2>
-        {block.unreleased && block.label !== 'Unreleased' && (
-          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 ring-1 ring-amber-500/30 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Unreleased
-          </span>
-        )}
+        {block.unreleased && block.label !== 'Unreleased' && <VersionBadge kind="unreleased" />}
         {date && <span className="text-sm text-muted-foreground">{date}</span>}
       </div>
       <RichText html={block.notes} className="text-sm text-muted-foreground mt-2" />

@@ -97,7 +97,17 @@ export function FramerExportProvider({ children }: { children: ReactNode }) {
     // Lazy-load the encoders (gif.js/gifuct) — keeps them out of the main bundle.
     const fx = await import('../components/tools/framerExport');
 
-    // Composite one item onto a canvas-drawn chrome and re-encode, keeping its type.
+    // Decode the (optional) scene background image once for the whole batch.
+    let bgImage: HTMLImageElement | undefined;
+    if (req.chromeBase.backgroundImageUrl) {
+      try {
+        bgImage = await fx.decodeImage(req.chromeBase.backgroundImageUrl);
+      } catch {
+        /* fall back to the CSS background */
+      }
+    }
+
+    // Composite one item onto a canvas-drawn scene and re-encode, keeping its type.
     const renderOne = async (
       item: ExportItem,
       onProgress: (p: number) => void,
@@ -109,17 +119,21 @@ export function FramerExportProvider({ children }: { children: ReactNode }) {
         /* non-fatal */
       }
 
-      const { canvas: chrome, box } = fx.renderChrome({ ...chromeBase, title: item.title });
       const kind = fx.getMediaKind(item.file);
+      // A finer warp grid for stills; coarser for motion (re-warped every frame).
+      const render = fx.renderChrome(
+        { ...chromeBase, title: item.title },
+        { bgImage, warpDetail: kind === 'image' ? 24 : 12 },
+      );
 
       let blob: Blob;
       if (kind === 'gif') {
-        blob = await fx.exportGif(chrome, box, item.file, req.radius, req.fit, req.quality === 'high' ? 3 : 10, onProgress);
+        blob = await fx.exportGif(render, item.file, req.radius, req.fit, req.quality === 'high' ? 3 : 10, onProgress);
       } else if (kind === 'video') {
         const bitrate = req.quality === 'high' ? 10_000_000 : 3_000_000;
-        blob = await fx.exportVideo(chrome, box, item.previewUrl, req.radius, req.fit, bitrate, onProgress);
+        blob = await fx.exportVideo(render, item.previewUrl, req.radius, req.fit, bitrate, onProgress);
       } else {
-        blob = await fx.exportImage(chrome, box, item.file, req.radius, req.fit);
+        blob = await fx.exportImage(render, item.file, req.radius, req.fit);
         onProgress(1);
       }
 

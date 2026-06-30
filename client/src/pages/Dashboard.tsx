@@ -8,7 +8,8 @@ import { getProducts, getStaleProducts, type StaleProduct } from '../services/pr
 import { getActivities, updateActivity } from '../services/activities';
 import { getAuditLogs } from '../services/auditLogs';
 import { getAllIssues, type IssueWithProduct } from '../services/issues';
-import { getAllVersions } from '../services/versions';
+import { useAllVersions } from '../hooks/useVersions';
+import { VersionBadge } from '../components/versions/VersionBadge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,10 +87,8 @@ export default function Dashboard() {
     queryFn: () => getAllIssues(),
   });
 
-  const { data: versionsData } = useQuery({
-    queryKey: ['allVersions'],
-    queryFn: () => getAllVersions(),
-  });
+  // Single source for all products' versions (decorated + grouped per product).
+  const { raw: versionsData, byProduct: versionsByProduct } = useAllVersions();
 
   const { data: staleData, isLoading: isStaleLoading } = useQuery({
     queryKey: ['staleProducts'],
@@ -195,12 +194,8 @@ export default function Dashboard() {
   const staleDays = staleData?.days ?? 7;
   const criticalStale = staleProducts.map((p) => classifyStale(p, staleDays)).filter((c) => c.level === 'critical');
 
-  // Versions grouped by product, so each unversioned entry can be assigned inline.
-  const versionsByProduct: Record<string, { _id: string; label: string }[]> = {};
-  allVersions.forEach((v: any) => {
-    const pid = String(v.productId?._id || v.productId);
-    (versionsByProduct[pid] ||= []).push({ _id: v._id, label: v.label });
-  });
+  // `versionsByProduct` (decorated + per-product Latest/Unreleased flags) now
+  // comes from the shared useAllVersions hook above.
 
   const getLogLink = (log: any) => {
     if (log.action === 'DELETE') return '#';
@@ -544,7 +539,15 @@ export default function Dashboard() {
                             <SelectValue placeholder={busy ? 'Assigning…' : 'Assign version'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {prodVersions.map((v) => <SelectItem key={v._id} value={v._id}>{v.label}</SelectItem>)}
+                            {prodVersions.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                <span className="flex items-center gap-2">
+                                  {v.label}
+                                  {v.isUnreleased && <VersionBadge kind="unreleased" size="xs" />}
+                                  {v.isLatest && <VersionBadge kind="latest" size="xs" />}
+                                </span>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       )}

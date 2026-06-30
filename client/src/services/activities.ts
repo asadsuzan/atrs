@@ -26,7 +26,8 @@ export const deleteActivity = async (id: string) => {
 };
 
 export const bulkUpdateActivities = async (ids: string[], update: any) => {
-  const { data } = await api.patch('/activities/bulk-update', { ids, update });
+  // POST matches the server route; a PATCH would be swallowed by `/:id`.
+  const { data } = await api.post('/activities/bulk-update', { ids, update });
   return data;
 };
 

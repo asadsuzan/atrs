@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon,
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
-  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, Code2, FileCheck2, Rocket
+  PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, Code2, FileCheck2, Rocket, ClipboardCheck
 } from 'lucide-react';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
@@ -237,6 +237,13 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
   });
   const products: any[] = productsData?.data || [];
 
+  // Count of changelog entries flagged for type review (drives the nav badge).
+  const { data: reviewData } = useQuery({
+    queryKey: ['activities', 'needs-review-count'],
+    queryFn: () => getActivities({ needsReview: true, limit: 1 }),
+  });
+  const reviewCount: number = reviewData?.total || 0;
+
   // Admins see every owner's products, so we group the nested items by user.
   const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });
   const userNameMap = useMemo(() => new Map((users as any[]).map((u) => [u._id, u.name])), [users]);
@@ -432,6 +439,26 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
           )}
         </>
       )}
+
+      {/* Review queue — entries whose imported type needs confirming. */}
+      <Link
+        to="/review"
+        data-tour="nav-/review"
+        title={isCollapsed ? 'Review queue' : undefined}
+        className={`${rowBase} relative ${isCollapsed ? 'justify-center px-0' : 'px-3 gap-2'} ${isPathActive('/review') ? activeCls : idleCls}`}
+      >
+        <ClipboardCheck className={`shrink-0 transition-all duration-300 ${isCollapsed ? 'w-6 h-6' : 'w-4 h-4'}`} />
+        {!isCollapsed && <span className="whitespace-nowrap overflow-hidden flex-1">Review queue</span>}
+        {reviewCount > 0 && (
+          isCollapsed ? (
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" aria-label={`${reviewCount} need review`} />
+          ) : (
+            <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold tabular-nums">
+              {reviewCount}
+            </span>
+          )
+        )}
+      </Link>
 
       <LeafLink to="/media" icon={ImageIcon} label="Media Library" />
 

@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getProducts } from '../../services/products';
-import { getVersions } from '../../services/versions';
+import { useProductVersions } from '../../hooks/useVersions';
+import { VersionBadge } from '../versions/VersionBadge';
 import { getIssues, type Issue } from '../../services/issues';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -92,12 +93,7 @@ export function ActivityForm({
   }, [initialData?._id]);
 
   const selectedProductId = form.watch('productId');
-  const { data: versionsData } = useQuery({ 
-    queryKey: ['versions', selectedProductId], 
-    queryFn: () => getVersions(selectedProductId),
-    enabled: !!selectedProductId
-  });
-  const versions = versionsData || [];
+  const { versions } = useProductVersions(selectedProductId);
 
   const { data: issuesData } = useQuery({
     queryKey: ['issues', selectedProductId],
@@ -275,8 +271,14 @@ export function ActivityForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {versions.map((v: any) => (
-                      <SelectItem key={v._id} value={v._id}>{v.label}</SelectItem>
+                    {versions.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <span className="flex items-center gap-2">
+                          {v.label}
+                          {v.isUnreleased && <VersionBadge kind="unreleased" size="xs" />}
+                          {v.isLatest && <VersionBadge kind="latest" size="xs" />}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

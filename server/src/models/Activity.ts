@@ -41,6 +41,16 @@ export interface IActivity extends Document {
    * manual edits are never clobbered or duplicated.
    */
   importSourceKey?: string;
+  /**
+   * Flags an entry whose data was auto-derived with low certainty and warrants a
+   * human glance — currently set when a WordPress.org changelog line's type was
+   * guessed (no explicit "Fix:/Add:" prefix). Cleared once a user confirms it.
+   */
+  needsReview?: boolean;
+  /** Why the entry needs review (e.g. 'uncertain-type'). */
+  reviewReason?: string;
+  /** Confidence of the import-time type classification, if applicable. */
+  importConfidence?: 'high' | 'medium' | 'low';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,6 +119,9 @@ const ActivitySchema: Schema = new Schema(
     autoTracked: { type: Boolean, default: false, index: true },
     filePath: { type: String, required: false },
     importSourceKey: { type: String, required: false, index: true },
+    needsReview: { type: Boolean, default: false, index: true },
+    reviewReason: { type: String, required: false },
+    importConfidence: { type: String, enum: ['high', 'medium', 'low'], required: false },
   },
   { timestamps: true }
 );

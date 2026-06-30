@@ -66,6 +66,7 @@ export const updateActivitySchema = z.object({
     assigneeIds: z.array(objectId).optional(),
     estimatedHours: z.number().optional(),
     actualHours: z.number().optional(),
+    needsReview: z.boolean().optional(),
   }),
   params: z.object({
     id: z.string(),

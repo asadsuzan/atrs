@@ -15,10 +15,11 @@ export interface ActivityBulkUpdateInput {
   addTags?: string[];
   removeTags?: string[];
   activityDate?: string;
+  needsReview?: boolean;
 }
 
 /** Fields that may be assigned via $set. */
-const SET_FIELDS = ['type', 'tier', 'priority', 'versionId'] as const;
+const SET_FIELDS = ['type', 'tier', 'priority', 'versionId', 'needsReview'] as const;
 
 export interface MongoUpdateDoc {
   $set?: Record<string, unknown>;

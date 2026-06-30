@@ -16,6 +16,8 @@ import { RichText } from '@/components/ui/RichText';
 import { htmlToPlainText } from '@/lib/richText';
 
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useAllVersions } from '../hooks/useVersions';
+import { VersionBadge } from '../components/versions/VersionBadge';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import pptxgen from 'pptxgenjs';
@@ -196,6 +198,9 @@ export default function Reports() {
   const [endDate, setEndDate] = useLocalStorage<string>('atrs_reports_endDate', '');
   const [useCustomRange, setUseCustomRange] = useState(false);
   const [versionFilter, setVersionFilter] = useState<string>('all');
+  // Single source: label→status across all products, so the (cross-product,
+  // label-keyed) version filter can badge "Unreleased" options consistently.
+  const { labelInfo } = useAllVersions();
 
   // Annual Report State
   const [annualYear, setAnnualYear] = useState(currentDate.getFullYear().toString());
@@ -577,7 +582,8 @@ export default function Reports() {
                       <SelectItem key={label} value={label}>
                         <span className="flex items-center gap-2">
                           {label}
-                          {i === 0 && <span className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">Latest</span>}
+                          {labelInfo.get(label)?.isUnreleased && <VersionBadge kind="unreleased" size="xs" />}
+                          {i === 0 && <VersionBadge kind="latest" size="xs" />}
                         </span>
                       </SelectItem>
                     ))}

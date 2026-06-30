@@ -18,6 +18,7 @@ export const bulkUpdateActivitiesSchema = z.object({
       addTags: z.array(z.string()).optional(),
       removeTags: z.array(z.string()).optional(),
       activityDate: z.string().optional(),
+      needsReview: z.boolean().optional(),
     }).strict(),
   }).strict(),
 });

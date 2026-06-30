@@ -1,0 +1,49 @@
+{
+  "slug": "offcanvas-block",
+  "buildCommand": "npm run build",
+  "zipCommand": "npm run plugin-zip",
+  "reuseNodeModules": true,
+  "install": true,
+  "forkIgnore": ["node_modules", ".git", "build", "*.zip"],
+  "siblingDeps": ["../bpl-tools"],
+  "variants": {
+    "free": {
+      "remove": ["vendor/freemius", "includes/LicenseActivation.php"]
+    },
+    "pro": {
+      "remove": ["vendor/freemius-lite"],
+      "zipSuffix": "-pro"
+    }
+  },
+  "stripMarkersIn": [
+    "src/**/*.{js,jsx,ts,tsx,scss}",
+    "*.php",
+    "includes/**/*.php"
+  ],
+  "jsonPatches": {
+    "block.json": {
+      "free": {
+        "remove": [
+          "attributes.offCanvasSettings.default.options.smartTrigger",
+          "attributes.offCanvasSettings.default.options.isFAB",
+          "attributes.offCanvasStyles.default.fab"
+        ]
+      }
+    }
+  },
+  "textEdits": {
+    "index.php": {
+      "free": [
+        { "drop": "@fs_premium_only" },
+        { "drop": "@fs_free_only" }
+      ]
+    }
+  },
+  "verifyIgnore": ["vendor/**"],
+  "verifyFreeHasNo": [
+    "LicenseActivation",
+    "@pro:start",
+    "@pro:end",
+    "is__premium_only"
+  ]
+}
