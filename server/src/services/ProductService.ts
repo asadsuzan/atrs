@@ -86,6 +86,36 @@ export class ProductService {
   }
 
   /**
+   * Public (no auth): all active products that have opted into at least one
+   * public surface (changelog or issues). Powers the public /explore directory.
+   * Returns a minimal, safe projection — no owner or internal fields — across
+   * all owners, sorted by name.
+   */
+  async getPublicProducts(): Promise<any[]> {
+    const products = await Product.find({
+      status: 'active',
+      $or: [{ publicChangelogEnabled: true }, { publicIssuesEnabled: true }],
+    })
+      .select('name slug description icon banner category githubUrl wpOrgSlug publicChangelogEnabled publicIssuesEnabled')
+      .sort({ name: 1 })
+      .lean();
+
+    return products.map((p: any) => ({
+      id: String(p._id),
+      name: p.name,
+      slug: p.slug,
+      description: p.description || '',
+      icon: p.icon || '',
+      banner: p.banner || '',
+      category: p.category,
+      githubUrl: p.githubUrl || '',
+      wpOrgSlug: p.wpOrgSlug || '',
+      publicChangelogEnabled: !!p.publicChangelogEnabled,
+      publicIssuesEnabled: !!p.publicIssuesEnabled,
+    }));
+  }
+
+  /**
    * Products that haven't had a changelog entry in the last `days` days (or
    * never have one) — surfaced on the dashboard as an "update reminder".
    * "Last updated" = the product's most recent activity date. Owner-scoped.

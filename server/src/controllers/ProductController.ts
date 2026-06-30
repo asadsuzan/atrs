@@ -27,6 +27,16 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+/** Public (no auth): the directory of products with a public surface enabled. */
+export const getPublicProducts = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const products = await productService.getPublicProducts();
+    res.status(200).json({ products });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getProductById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const product = await productService.getProductById(req.params.id as string, req.user!);

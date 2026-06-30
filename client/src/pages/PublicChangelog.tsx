@@ -148,7 +148,9 @@ export default function PublicChangelog() {
 
       {/* Powered-by footer (the growth loop) */}
       <footer className="border-t">
-        <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-center">
+        <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-center gap-4">
+          <Link to="/explore" className="text-xs text-muted-foreground hover:text-foreground transition-colors">All products</Link>
+          <span className="text-muted-foreground/40">·</span>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <Rocket className="w-3.5 h-3.5" /> Powered by ATRS
           </Link>

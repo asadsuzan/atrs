@@ -38,3 +38,22 @@ export function htmlToText(input: string): string {
 export function htmlToInlineText(input: string): string {
   return htmlToText(input).replace(/\s+/g, ' ').trim();
 }
+
+/** Escapes the five HTML-significant characters so untrusted text is safe to render. */
+export function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Turns untrusted plain text into safe display HTML: strips any markup by
+ * escaping it, then preserves line breaks as <br>. Used for public-submitted
+ * issue descriptions, which are rendered as HTML on the public page.
+ */
+export function plainTextToSafeHtml(input: string): string {
+  return escapeHtml(input).replace(/\r\n|\r|\n/g, '<br>');
+}
