@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createVersion, updateVersion, deleteVersion } from '../../services/versions';
+import { syncProductReleases } from '../../services/github';
 import { useProductVersions } from '../../hooks/useVersions';
 import { VersionBadge } from './VersionBadge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import { Edit2, Trash2, Plus, Search, GitBranch } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -21,7 +22,7 @@ import { TableRowSkeleton } from '@/components/ui/skeletons';
 import { Pagination } from '@/components/ui/Pagination';
 import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
 
-export function VersionManager({ productId, wpData }: { productId: string; wpData?: any }) {
+export function VersionManager({ productId, wpData, githubUrl }: { productId: string; wpData?: any; githubUrl?: string }) {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const [isOpen, setIsOpen] = useState(false);
@@ -119,6 +120,21 @@ export function VersionManager({ productId, wpData }: { productId: string; wpDat
     }
   });
 
+  const syncMutation = useMutation({
+    mutationFn: () => syncProductReleases(productId),
+    onSuccess: (res) => {
+      playSound('success');
+      const parts = [`${res.created} added`];
+      if (res.updated) parts.push(`${res.updated} updated`);
+      toast.success(`Synced ${res.repo}: ${parts.join(', ')} (${res.total} release${res.total === 1 ? '' : 's'} found)`);
+      queryClient.invalidateQueries({ queryKey: ['versions', productId] });
+    },
+    onError: (err: any) => {
+      playSound('error');
+      toast.error(err?.response?.data?.message || 'GitHub sync failed');
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // An unreleased version has no release date — send null to clear any existing one.
@@ -146,9 +162,21 @@ export function VersionManager({ productId, wpData }: { productId: string; wpDat
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Versions</h3>
-        <Button onClick={() => { setEditingVersion(null); setFormData({ label: '', notes: '', status: 'released', releasedAt: '', author: '' }); setIsOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> Add Version
-        </Button>
+        <div className="flex items-center gap-2">
+          {githubUrl && githubUrl.includes('github.com') && (
+            <Button
+              variant="outline"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              title="Pull GitHub Releases into versions"
+            >
+              <GitBranch className="w-4 h-4 mr-2" /> {syncMutation.isPending ? 'Syncing…' : 'Sync from GitHub'}
+            </Button>
+          )}
+          <Button onClick={() => { setEditingVersion(null); setFormData({ label: '', notes: '', status: 'released', releasedAt: '', author: '' }); setIsOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> Add Version
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">

@@ -16,6 +16,16 @@ export interface IUser extends Document {
   /** Set when the user requests a reset from the login screen; cleared on reset. */
   passwordResetRequested: boolean;
   passwordResetRequestedAt?: Date;
+  /**
+   * The user's GitHub Personal Access Token, encrypted at rest (see utils/crypto).
+   * `select: false` so it is never returned by default queries or serialized to
+   * the client. Grants access to whatever repos the token's scopes allow —
+   * including private and organization-owned repos.
+   */
+  githubToken?: string;
+  /** GitHub login (username) resolved when the token was connected; safe to display. */
+  githubLogin?: string;
+  githubConnectedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -47,12 +57,17 @@ const UserSchema: Schema = new Schema(
     mustChangePassword: { type: Boolean, default: false },
     passwordResetRequested: { type: Boolean, default: false },
     passwordResetRequestedAt: { type: Date },
+    // Never selected/serialized by default — must be explicitly `.select('+githubToken')`.
+    githubToken: { type: String, select: false },
+    githubLogin: { type: String },
+    githubConnectedAt: { type: Date },
   },
   {
     timestamps: true,
     toJSON: {
       transform(_doc, ret: Record<string, unknown>) {
         delete ret.passwordHash;
+        delete ret.githubToken;
         delete ret.__v;
         return ret;
       },

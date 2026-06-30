@@ -695,7 +695,7 @@ export default function ProductDetails() {
         )}
 
         {activeTab === 'versions' && id && (
-          <VersionManager productId={id} wpData={wpData} />
+          <VersionManager productId={id} wpData={wpData} githubUrl={product?.githubUrl} />
         )}
 
         {activeTab === 'marketing' && id && (
