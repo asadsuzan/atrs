@@ -86,16 +86,13 @@ export class ProductService {
   }
 
   /**
-   * Public (no auth): all active products that have opted into at least one
-   * public surface (changelog or issues). Powers the public /explore directory.
-   * Returns a minimal, safe projection — no owner or internal fields — across
-   * all owners, sorted by name.
+   * Public (no auth): every active product across all owners. Powers the public
+   * /explore directory. Returns a minimal, safe projection — no owner or
+   * internal fields — sorted by name. Each product's changelog/issues links are
+   * surfaced per-card only when that product has opted into them.
    */
   async getPublicProducts(): Promise<any[]> {
-    const products = await Product.find({
-      status: 'active',
-      $or: [{ publicChangelogEnabled: true }, { publicIssuesEnabled: true }],
-    })
+    const products = await Product.find({ status: 'active' })
       .select('name slug description icon banner category githubUrl wpOrgSlug publicChangelogEnabled publicIssuesEnabled')
       .sort({ name: 1 })
       .lean();
