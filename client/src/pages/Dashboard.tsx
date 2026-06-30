@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { playSound } from '@/lib/sound';
-import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid, AlertTriangle, Rocket, CircleCheck, Tag, Clock } from 'lucide-react';
+import { Package, PlusCircle, Wrench, Bug, FileText, Activity as ActivityIcon, ArrowRight, Play, ServerOff, Puzzle, LayoutGrid, AlertTriangle, Rocket, CircleCheck, Tag, Clock, Globe, Copy, Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
 import { TrendChart } from '../components/reports/TrendChart';
@@ -33,6 +33,20 @@ const TYPE_DOT: Record<string, string> = {
 
 export default function Dashboard() {
   const [quickIssueOpen, setQuickIssueOpen] = useState(false);
+  const [copiedPublic, setCopiedPublic] = useState(false);
+
+  // Quick access to the public-facing product directory.
+  const publicDirectoryUrl = `${window.location.origin}/explore`;
+  const copyPublicUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(publicDirectoryUrl);
+      setCopiedPublic(true);
+      playSound('click');
+      setTimeout(() => setCopiedPublic(false), 1800);
+    } catch {
+      toast.error('Could not copy link');
+    }
+  };
   const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -243,6 +257,26 @@ export default function Dashboard() {
           >
             <Bug className="w-4 h-4 mr-2" /> Report Issue
           </Button>
+          {/* Public site quick access: open the directory + copy its shareable link. */}
+          <div className="inline-flex items-center rounded-md border overflow-hidden">
+            <a
+              href="/explore"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 h-9 px-3 text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <Globe className="w-4 h-4" /> Public Site
+            </a>
+            <button
+              type="button"
+              onClick={copyPublicUrl}
+              title="Copy public directory link"
+              aria-label="Copy public directory link"
+              className="inline-flex items-center justify-center h-9 w-9 border-l hover:bg-accent transition-colors"
+            >
+              {copiedPublic ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
           <Button size="sm" asChild>
             <Link to="/reports"><FileText className="w-4 h-4 mr-2" /> View Reports</Link>
           </Button>
