@@ -30,6 +30,7 @@ export const updateProductSchema = z.object({
     repoPath: z.string().optional(),
     publicChangelogEnabled: z.boolean().optional(),
     publicIssuesEnabled: z.boolean().optional(),
+    listedInDirectory: z.boolean().optional(),
   }),
   params: z.object({
     id: z.string(),

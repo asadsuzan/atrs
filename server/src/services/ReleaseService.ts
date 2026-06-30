@@ -29,6 +29,7 @@ export class ReleaseService {
       wpOrgSlug: product.wpOrgSlug || '',
       category: product.category,
       publicChangelogEnabled: !!product.publicChangelogEnabled,
+      listedInDirectory: product.listedInDirectory !== false,
     };
 
     return {

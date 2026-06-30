@@ -92,7 +92,8 @@ export class ProductService {
    * surfaced per-card only when that product has opted into them.
    */
   async getPublicProducts(): Promise<any[]> {
-    const products = await Product.find({ status: 'active' })
+    // `$ne: false` keeps legacy products (field absent) listed by default.
+    const products = await Product.find({ status: 'active', listedInDirectory: { $ne: false } })
       .select('name slug description icon banner category githubUrl wpOrgSlug publicChangelogEnabled publicIssuesEnabled')
       .sort({ name: 1 })
       .lean();

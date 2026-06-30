@@ -32,6 +32,7 @@ export interface ReleaseProduct {
   wpOrgSlug: string;
   category: string;
   publicChangelogEnabled: boolean;
+  listedInDirectory: boolean;
 }
 
 export interface ReleasePayload {
