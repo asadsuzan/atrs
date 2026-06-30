@@ -71,3 +71,6 @@ upcoming-features.md
 WORKFLOW.md
 AUTH-PLAN.md
 implementation_plan.md
+
+# Claude Code local (per-user) settings
+.claude/settings.local.json
