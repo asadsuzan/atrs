@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { Rocket, GitBranch, Globe, Loader2 } from 'lucide-react';
 import { getPublicChangelog, type ReleaseType, type ReleaseBlock } from '../services/release';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { RichText } from '@/components/ui/RichText';
 import { htmlToPlainText } from '@/lib/richText';
 import { VersionBadge } from '../components/versions/VersionBadge';
@@ -74,9 +74,7 @@ export default function PublicChangelog() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data?.product?.name) document.title = `${data.product.name} — Changelog`;
-  }, [data]);
+  useDocumentTitle(data?.product?.name ? `${data.product.name} — Changelog` : null);
 
   if (isLoading) {
     return (

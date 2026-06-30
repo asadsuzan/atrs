@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Settings as SettingsIcon, Search, LogOut } f
 import { AnimatePresence } from 'framer-motion';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { startTour, hasSeenTour } from './lib/tour';
+import { titleForPath } from './lib/pageTitle';
 
 // Auth pages stay eager (small, hit before the heavy app shell loads).
 import Login from './pages/Login';
@@ -233,6 +234,14 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 }
 
 function AnimatedRoutes() {
+  // Set the tab title on every navigation for static routes. Entity routes
+  // (product detail, public pages) return null here and own their own title.
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const title = titleForPath(pathname);
+    if (title !== null) document.title = title;
+  }, [pathname]);
+
   // No key/AnimatePresence here: keying <Routes> by pathname would remount the
   // whole tree (including ProtectedLayout → Layout → SidebarNav) on every
   // navigation, resetting the sidebar's scroll + expanded sections. Page-content

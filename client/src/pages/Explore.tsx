@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { Rocket, GitBranch, Globe, Loader2, ScrollText, Bug, Boxes, Search } from 'lucide-react';
 import { useState } from 'react';
 import { getPublicProducts, type PublicProduct } from '../services/public';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { RichText } from '@/components/ui/RichText';
 
 const CATEGORY_LABEL: Record<PublicProduct['category'], string> = {
@@ -78,9 +78,7 @@ export default function Explore() {
   });
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    document.title = 'Products — ATRS';
-  }, []);
+  useDocumentTitle('Products');
 
   if (isLoading) {
     return (

@@ -15,6 +15,7 @@ import { MarketingManager } from '../components/marketing/MarketingManager';
 import { VersionManager } from '../components/versions/VersionManager';
 import { VersionBadge } from '../components/versions/VersionBadge';
 import { useProductVersions } from '../hooks/useVersions';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { compareVersionDesc } from '../lib/versions';
 import { IssueManager } from '../components/issues/IssueManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
@@ -319,6 +320,7 @@ export default function ProductDetails() {
     queryKey: ['product', id],
     queryFn: () => getProductById(id as string),
   });
+  useDocumentTitle(product?.name);
 
   const { data: wpData } = useQuery({
     queryKey: ['wp-plugin', product?.wpOrgSlug],

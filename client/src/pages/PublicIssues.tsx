@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { Rocket, GitBranch, Globe, Loader2, Bug } from 'lucide-react';
 import { getPublicIssues, type Issue, type IssueStatus, type IssueSeverity } from '../services/issues';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { RichText } from '@/components/ui/RichText';
 import { ReportIssueDialog } from '@/components/issues/ReportIssueDialog';
@@ -69,9 +69,7 @@ export default function PublicIssues() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (data?.product?.name) document.title = `${data.product.name} — Known Issues`;
-  }, [data]);
+  useDocumentTitle(data?.product?.name ? `${data.product.name} — Issues` : null);
 
   if (isLoading) {
     return (
