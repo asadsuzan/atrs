@@ -88,3 +88,25 @@ export const getPublicIssues = async (req: Request, res: Response, next: NextFun
     next(error);
   }
 };
+
+/**
+ * Public (no auth): accept a bug report from the public "Report an issue" form.
+ * The product must have a published issues page. Created issues are queued for
+ * owner review and hidden from the public page until approved.
+ */
+export const reportPublicIssue = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ message: 'Issues not found' });
+    }
+    // Honeypot: silently accept (200) but drop bot submissions.
+    if (req.body.website) {
+      return res.status(201).json({ ok: true });
+    }
+    await issueService.reportPublicIssue(id, req.body);
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+};

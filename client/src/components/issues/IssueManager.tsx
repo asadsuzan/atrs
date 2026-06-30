@@ -152,6 +152,13 @@ export function IssueManager({ productId, focusIssueId, onFocusHandled }: { prod
     onError: () => { playSound('error'); toast.error('Failed to delete issue'); },
   });
 
+  // Clears the review flag on a public submission so it appears on the public page.
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => updateIssue({ id, needsReview: false }),
+    onSuccess: () => { playSound('success'); toast.success('Issue approved — now visible on the public page'); invalidate(); },
+    onError: () => { playSound('error'); toast.error('Failed to approve issue'); },
+  });
+
   const publishMutation = useMutation({
     mutationFn: (enabled: boolean) => updateProduct({ id: productId, publicIssuesEnabled: enabled }),
     onSuccess: (_res, enabled) => {
@@ -306,6 +313,16 @@ export function IssueManager({ productId, focusIssueId, onFocusHandled }: { prod
                   <TableCell className="max-w-xs">
                     <div className="font-medium truncate flex items-center gap-1.5">
                       {issue.title}
+                      {issue.needsReview && (
+                        <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 normal-case shrink-0">
+                          Needs review
+                        </Badge>
+                      )}
+                      {issue.source === 'public' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0" title="Submitted via the public report form">
+                          <Globe className="w-3 h-3" /> public
+                        </span>
+                      )}
                       {issue.mediaUrls && issue.mediaUrls.length > 0 && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground shrink-0">
                           <Paperclip className="w-3 h-3" />{issue.mediaUrls.length}
@@ -334,6 +351,12 @@ export function IssueManager({ productId, focusIssueId, onFocusHandled }: { prod
                   <TableCell className="text-sm">{issue.reporter || '—'}</TableCell>
                   <TableCell className="text-sm">{issue.foundAt ? new Date(issue.foundAt).toLocaleDateString() : '—'}</TableCell>
                   <TableCell className="text-right">
+                    {issue.needsReview && (
+                      <Button variant="ghost" size="icon" aria-label="Approve issue" title="Approve — publish to the public page"
+                        onClick={() => approveMutation.mutate(issue._id)} disabled={approveMutation.isPending}>
+                        <Check className="w-4 h-4 text-green-600" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => openEdit(issue)} aria-label="Edit issue">
                       <Edit2 className="w-4 h-4" />
                     </Button>

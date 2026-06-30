@@ -35,6 +35,7 @@ const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
 const Review = lazy(() => import('./pages/Review'));
 const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
 const PublicIssues = lazy(() => import('./pages/PublicIssues'));
+const Explore = lazy(() => import('./pages/Explore'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -248,6 +249,8 @@ function AnimatedRoutes() {
         <Route path="/changelog/:id" element={<Suspense fallback={<PageSkeleton />}><PublicChangelog /></Suspense>} />
         {/* Public hosted issues — no auth, outside the app shell. */}
         <Route path="/issues/:id" element={<Suspense fallback={<PageSkeleton />}><PublicIssues /></Suspense>} />
+        {/* Public product directory — no auth, outside the app shell. */}
+        <Route path="/explore" element={<Suspense fallback={<PageSkeleton />}><Explore /></Suspense>} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />

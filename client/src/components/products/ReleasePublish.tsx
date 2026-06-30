@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Rocket, Copy, Check, Download, Globe, ExternalLink, FileText, FileCode2, Loader2 } from 'lucide-react';
+import { Rocket, Copy, Check, Download, Globe, ExternalLink, FileText, FileCode2, Loader2, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { getProductRelease, type ReleaseType, type ReleaseBlock } from '../../services/release';
@@ -138,6 +138,20 @@ export function ReleasePublish({ productId }: { productId: string }) {
     },
   });
 
+  const directoryMutation = useMutation({
+    mutationFn: (enabled: boolean) => updateProduct({ id: productId, listedInDirectory: enabled }),
+    onSuccess: (_res, enabled) => {
+      playSound('success');
+      toast.success(enabled ? 'Listed in the public directory' : 'Hidden from the public directory');
+      queryClient.invalidateQueries({ queryKey: ['release', productId] });
+      queryClient.invalidateQueries({ queryKey: ['product', productId] });
+    },
+    onError: () => {
+      playSound('error');
+      toast.error('Could not update directory setting');
+    },
+  });
+
   if (isLoading || !data) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -148,6 +162,7 @@ export function ReleasePublish({ productId }: { productId: string }) {
 
   const { product, releases, unreleased, formats } = data;
   const published = product.publicChangelogEnabled;
+  const listed = product.listedInDirectory;
   const publicUrl = `${window.location.origin}/changelog/${product.id}`;
   const hasReleases = releases.length > 0 || !!unreleased;
 
@@ -210,6 +225,27 @@ export function ReleasePublish({ productId }: { productId: string }) {
             </Button>
           </div>
         )}
+      </div>
+
+      {/* List in public directory */}
+      <div className="rounded-xl border bg-card p-6">
+        <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
+          <div>
+            <p className="font-semibold text-lg flex items-center gap-2"><Boxes className="w-5 h-5 text-primary" /> Public directory listing</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-lg">
+              Show this product on the public <a href="/explore" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">/explore</a> directory. Turn off to hide it there without affecting its changelog or issues pages.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => directoryMutation.mutate(!listed)}
+            disabled={directoryMutation.isPending}
+            aria-pressed={listed}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 ${listed ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${listed ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
       </div>
 
       {/* Export formats */}

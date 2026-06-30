@@ -12,6 +12,15 @@ export interface IIssue extends Document {
   severity: IssueSeverity;
   /** Who reported the issue (free text — a name, username, or email). */
   reporter?: string;
+  /** Contact email for a public reporter (collected on the public report form; never shown publicly). */
+  reporterEmail?: string;
+  /** Where the issue came from. 'public' = submitted via the public report form. */
+  source?: 'internal' | 'public';
+  /**
+   * Public submissions land flagged for review and are hidden from the public
+   * issues page until an owner clears this flag (their triage gate against spam).
+   */
+  needsReview?: boolean;
   /** Affected version label (free text, e.g. "2.0.3"). */
   versionLabel?: string;
   /** Screenshots / recordings attached to the issue. */
@@ -47,6 +56,9 @@ const IssueSchema: Schema = new Schema(
       default: 'medium',
     },
     reporter: { type: String, default: '' },
+    reporterEmail: { type: String, default: '' },
+    source: { type: String, enum: ['internal', 'public'], default: 'internal' },
+    needsReview: { type: Boolean, default: false },
     versionLabel: { type: String, default: '' },
     mediaUrls: [{ type: String, required: false }],
     foundAt: { type: Date, required: false },

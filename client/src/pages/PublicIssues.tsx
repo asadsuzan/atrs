@@ -5,6 +5,7 @@ import { Rocket, GitBranch, Globe, Loader2, Bug } from 'lucide-react';
 import { getPublicIssues, type Issue, type IssueStatus, type IssueSeverity } from '../services/issues';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { RichText } from '@/components/ui/RichText';
+import { ReportIssueDialog } from '@/components/issues/ReportIssueDialog';
 
 const STATUS_META: Record<IssueStatus, { label: string; cls: string }> = {
   open: { label: 'Open', cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
@@ -115,17 +116,20 @@ export default function PublicIssues() {
             </div>
           </div>
           <RichText html={product.description} className="text-muted-foreground mt-4 max-w-2xl" />
-          <div className="flex items-center gap-4 mt-4 text-sm">
-            {product.wpOrgSlug && (
-              <a href={`https://wordpress.org/plugins/${product.wpOrgSlug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
-                <Globe className="w-4 h-4" /> WordPress.org
-              </a>
-            )}
-            {product.githubUrl && (
-              <a href={product.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
-                <GitBranch className="w-4 h-4" /> GitHub
-              </a>
-            )}
+          <div className="flex items-center justify-between gap-4 mt-4 flex-wrap">
+            <div className="flex items-center gap-4 text-sm">
+              {product.wpOrgSlug && (
+                <a href={`https://wordpress.org/plugins/${product.wpOrgSlug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
+                  <Globe className="w-4 h-4" /> WordPress.org
+                </a>
+              )}
+              {product.githubUrl && (
+                <a href={product.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
+                  <GitBranch className="w-4 h-4" /> GitHub
+                </a>
+              )}
+            </div>
+            <ReportIssueDialog productId={product.id} productName={product.name} />
           </div>
         </div>
       </header>
@@ -151,7 +155,9 @@ export default function PublicIssues() {
 
       {/* Powered-by footer */}
       <footer className="border-t">
-        <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-center">
+        <div className="max-w-3xl mx-auto px-6 py-6 flex items-center justify-center gap-4">
+          <Link to="/explore" className="text-xs text-muted-foreground hover:text-foreground transition-colors">All products</Link>
+          <span className="text-muted-foreground/40">·</span>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <Rocket className="w-3.5 h-3.5" /> Powered by ATRS
           </Link>

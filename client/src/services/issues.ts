@@ -11,12 +11,25 @@ export interface Issue {
   status: IssueStatus;
   severity: IssueSeverity;
   reporter?: string;
+  reporterEmail?: string;
+  source?: 'internal' | 'public';
+  needsReview?: boolean;
   versionLabel?: string;
   mediaUrls?: string[];
   foundAt?: string | null;
   resolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublicIssueReport {
+  title: string;
+  description?: string;
+  versionLabel?: string;
+  reporter?: string;
+  reporterEmail?: string;
+  /** Honeypot — leave empty; bots that fill it are dropped server-side. */
+  website?: string;
 }
 
 export interface PublicIssuesPayload {
@@ -70,4 +83,21 @@ export const getPublicIssues = async (id: string): Promise<PublicIssuesPayload> 
     throw err;
   }
   return res.json();
+};
+
+/** Public (no auth): submit a bug report via the "Report an issue" form. */
+export const reportPublicIssue = async (id: string, report: PublicIssueReport): Promise<void> => {
+  const res = await fetch(`/api/public/products/${id}/issues`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(report),
+  });
+  if (!res.ok) {
+    let message = 'Could not submit your report. Please try again.';
+    try {
+      const data = await res.json();
+      if (data?.message) message = data.message;
+    } catch { /* keep default */ }
+    throw new Error(message);
+  }
 };

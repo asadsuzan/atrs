@@ -1,7 +1,10 @@
 import { Issue, IIssue } from '../models/Issue';
 import { Product } from '../models/Product';
 import { AuditLogService } from './AuditLogService';
+import { notificationManager } from './NotificationManager';
 import { scopeFilter, assertOwner } from '../utils/ownership';
+import { escapeHtml, plainTextToSafeHtml } from '../utils/html';
+import createHttpError from '../utils/httpError';
 import type { AuthUser } from '../types/auth';
 
 const auditLogService = new AuditLogService();
@@ -66,8 +69,58 @@ export class IssueService {
     return issue;
   }
 
-  /** Public (no auth): issues for a product whose owner opted in. */
+  /**
+   * Public (no auth): issues for a product whose owner opted in. Excludes
+   * submissions still awaiting review so unmoderated public reports never appear
+   * on the published page.
+   */
   async getPublicIssues(productId: string): Promise<IIssue[]> {
-    return await Issue.find({ productId }).sort({ createdAt: -1 }).lean() as unknown as IIssue[];
+    return await Issue.find({ productId, needsReview: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .lean() as unknown as IIssue[];
+  }
+
+  /**
+   * Public (no auth): create an issue from the "Report an issue" form. The
+   * product must have opted into a public issues page. Untrusted text is
+   * sanitized; the issue is queued for owner review (hidden until approved).
+   */
+  async reportPublicIssue(
+    productId: string,
+    data: { title: string; description?: string; versionLabel?: string; reporter?: string; reporterEmail?: string },
+  ): Promise<{ ok: true }> {
+    const product = await Product.findById(productId);
+    if (!product || !product.publicIssuesEnabled) {
+      // Mirror getPublicIssues: don't reveal whether the id exists.
+      throw createHttpError(404, 'Issues not found');
+    }
+
+    const issue = await Issue.create({
+      productId,
+      ownerId: product.ownerId,
+      title: escapeHtml(data.title.trim()).slice(0, 200),
+      description: data.description ? plainTextToSafeHtml(data.description.trim()) : '',
+      versionLabel: data.versionLabel ? escapeHtml(data.versionLabel.trim()).slice(0, 60) : '',
+      reporter: data.reporter ? escapeHtml(data.reporter.trim()).slice(0, 120) : '',
+      reporterEmail: data.reporterEmail?.trim().slice(0, 200) || '',
+      status: 'open',
+      severity: 'medium',
+      source: 'public',
+      needsReview: true,
+      foundAt: new Date(),
+    });
+
+    // System-actor audit entry (no AuthUser for anonymous reports).
+    await auditLogService.logEvent('CREATE', 'ISSUE', issue._id.toString(), issue.title, 'Public issue report (awaiting review)');
+    // Live nudge to the owner if they're connected.
+    notificationManager.sendToUser(product.ownerId.toString(), 'issue-reported', {
+      id: issue._id.toString(),
+      productId,
+      productName: product.name,
+      title: issue.title,
+      createdAt: issue.createdAt,
+    });
+
+    return { ok: true };
   }
 }

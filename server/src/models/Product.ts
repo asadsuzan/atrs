@@ -16,6 +16,8 @@ export interface IProduct extends Document {
   publicChangelogEnabled?: boolean;
   /** When true, the product's issues are served on the public /issues/:id page. */
   publicIssuesEnabled?: boolean;
+  /** When true (default), the product appears in the public /explore directory. */
+  listedInDirectory?: boolean;
   category: 'plugin' | 'block' | 'theme' | 'standalone';
   status: 'active' | 'inactive';
   createdAt: Date;
@@ -39,6 +41,7 @@ const ProductSchema: Schema = new Schema(
     repoPath: { type: String, default: '' },
     publicChangelogEnabled: { type: Boolean, default: false },
     publicIssuesEnabled: { type: Boolean, default: false },
+    listedInDirectory: { type: Boolean, default: true },
     category: {
       type: String,
       enum: ['plugin', 'block', 'theme', 'standalone'],
