@@ -103,6 +103,7 @@ import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import jobRoutes from './routes/jobRoutes';
 import codeTrackerRoutes from './routes/codeTrackerRoutes';
+import githubRoutes from './routes/githubRoutes';
 import readmeToolsRoutes from './routes/readmeToolsRoutes';
 import publicRoutes from './routes/publicRoutes';
 import { codeTrackerService } from './services/CodeTrackerService';
@@ -134,6 +135,7 @@ app.use('/api/versions', requireAuth, requireActive, versionRoutes);
 app.use('/api/issues', requireAuth, requireActive, issueRoutes);
 app.use('/api/jobs', requireAuth, requireActive, jobRoutes);
 app.use('/api/code-tracker', requireAuth, requireActive, codeTrackerRoutes);
+app.use('/api/github', requireAuth, requireActive, githubRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes

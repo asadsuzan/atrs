@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser, GitBranch, Link2, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { getToken, setToken } from '../services/api';
+import { getGithubStatus, connectGithub, disconnectGithub } from '../services/github';
 import { isUserMuted, setUserMute, playSound, setCachedSoundConfig } from '../lib/sound';
 
 const THEMES = [
@@ -53,6 +54,37 @@ export default function Settings() {
     queryFn: getAppConfig,
     retry: false,
     enabled: isAdmin
+  });
+
+  // GitHub connection (per-user). Token is write-only — never returned by the API.
+  const [githubToken, setGithubToken] = useState('');
+  const { data: githubStatus } = useQuery({
+    queryKey: ['github-status'],
+    queryFn: getGithubStatus,
+    retry: false,
+  });
+  const connectGithubMutation = useMutation({
+    mutationFn: connectGithub,
+    onSuccess: (status) => {
+      playSound('success');
+      toast.success(`GitHub connected as @${status.login}`);
+      setGithubToken('');
+      queryClient.invalidateQueries({ queryKey: ['github-status'] });
+    },
+    onError: (err: any) => {
+      playSound('error');
+      toast.error(err?.response?.data?.message || 'Failed to connect GitHub');
+    },
+  });
+  const disconnectGithubMutation = useMutation({
+    mutationFn: disconnectGithub,
+    onSuccess: () => {
+      toast.success('GitHub disconnected');
+      queryClient.invalidateQueries({ queryKey: ['github-status'] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to disconnect GitHub');
+    },
   });
 
   const handleExport = async () => {
@@ -387,6 +419,87 @@ export default function Settings() {
               Clear data
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* GitHub Integration — per user. Connect a token to sync releases into versions. */}
+      <div className="pt-8 border-b pb-8">
+        <h3 className="text-xl font-bold mb-4">GitHub Integration</h3>
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <div className="flex items-start gap-3">
+            <GitBranch className="w-5 h-5 mt-0.5 text-muted-foreground shrink-0" />
+            <div>
+              <p className="font-semibold">Connect your GitHub account</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                Connect a Personal Access Token to pull a product's GitHub Releases straight into its
+                Versions. Works with <span className="font-medium">private</span> and{' '}
+                <span className="font-medium">organization-owned</span> repos — the token just needs the
+                right scope:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 list-disc pl-5 space-y-1">
+                <li><span className="font-medium">Classic token:</span> enable the <code>repo</code> scope.</li>
+                <li><span className="font-medium">Fine-grained token:</span> grant <code>Contents: Read-only</code> on the relevant repos.</li>
+                <li><span className="font-medium">SSO orgs:</span> click "Authorize" next to the token for your organization.</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">
+                The token is encrypted at rest and never sent back to the browser. Create one at{' '}
+                <a
+                  href="https://github.com/settings/tokens"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  github.com/settings/tokens
+                </a>.
+              </p>
+            </div>
+          </div>
+
+          {githubStatus?.connected ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border bg-muted/40 p-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Check className="w-4 h-4 text-green-600 shrink-0" />
+                <span>
+                  Connected as <span className="font-semibold">@{githubStatus.login}</span>
+                  {githubStatus.connectedAt && (
+                    <span className="text-muted-foreground">
+                      {' '}· since {new Date(githubStatus.connectedAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => disconnectGithubMutation.mutate()}
+                disabled={disconnectGithubMutation.isPending}
+              >
+                <Unlink className="w-4 h-4 mr-2" /> Disconnect
+              </Button>
+            </div>
+          ) : (
+            <form
+              className="flex flex-col sm:flex-row sm:items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (githubToken.trim()) connectGithubMutation.mutate(githubToken.trim());
+              }}
+            >
+              <div className="flex-1 space-y-1">
+                <label className="text-sm font-medium">Personal Access Token</label>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder="ghp_… or github_pat_…"
+                />
+              </div>
+              <Button type="submit" disabled={!githubToken.trim() || connectGithubMutation.isPending}>
+                <Link2 className="w-4 h-4 mr-2" /> Connect
+              </Button>
+            </form>
+          )}
         </div>
       </div>
 
