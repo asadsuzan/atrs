@@ -35,6 +35,16 @@ export class IssueService {
     return await query;
   }
 
+  /**
+   * Publicly-reported issues awaiting the owner's approval, across all their
+   * products (admins see everyone's). Powers the Review queue + nav badge.
+   */
+  async getPendingReview(user: AuthUser): Promise<IIssue[]> {
+    return await Issue.find(scopeFilter(user, { source: 'public', needsReview: true }))
+      .sort({ createdAt: -1 })
+      .populate('productId', 'name slug icon');
+  }
+
   async getIssueById(id: string, user: AuthUser): Promise<IIssue | null> {
     const issue = await Issue.findById(id);
     assertOwner(issue, user);

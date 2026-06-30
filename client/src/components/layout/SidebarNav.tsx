@@ -9,6 +9,7 @@ import {
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
 import { getActivities } from '../../services/activities';
+import { getPendingReviewIssues } from '../../services/issues';
 import { getUsers } from '../../services/users';
 import { getNavSettings } from '../../services/config';
 import { useAddProduct } from '../../contexts/AddProductContext';
@@ -242,7 +243,12 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
     queryKey: ['activities', 'needs-review-count'],
     queryFn: () => getActivities({ needsReview: true, limit: 1 }),
   });
-  const reviewCount: number = reviewData?.total || 0;
+  // Also surface publicly-reported issues awaiting approval in the same badge.
+  const { data: pendingIssuesData } = useQuery({
+    queryKey: ['issues', 'pending-review'],
+    queryFn: getPendingReviewIssues,
+  });
+  const reviewCount: number = (reviewData?.total || 0) + (pendingIssuesData?.length || 0);
 
   // Admins see every owner's products, so we group the nested items by user.
   const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });

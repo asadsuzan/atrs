@@ -2,15 +2,25 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getActivities, bulkUpdateActivities } from '../services/activities';
+import { getPendingReviewIssues, updateIssue, deleteIssue, type IssueSeverity } from '../services/issues';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Wrench, Bug, Check, CircleCheck, FileCheck2, ArrowRight, Loader2 } from 'lucide-react';
+import { PlusCircle, Wrench, Bug, Check, CircleCheck, FileCheck2, ArrowRight, Loader2, Globe, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { htmlToPlainText } from '@/lib/richText';
+import { useConfirm } from '../contexts/ConfirmContext';
 import PageTransition from '../components/layout/PageTransition';
 import { ReportsSkeleton } from '@/components/ui/skeletons';
+
+const SEVERITY_BADGE: Record<IssueSeverity, string> = {
+  low: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
+  medium: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+  critical: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+};
 
 type ActivityType = 'feature' | 'improvement' | 'bug-fix';
 
@@ -43,12 +53,46 @@ function ConfidenceChip({ confidence }: { confidence?: string }) {
 
 export default function Review() {
   const queryClient = useQueryClient();
+  const { confirm } = useConfirm();
 
   const { data, isLoading } = useQuery({
     queryKey: ['activities', 'needs-review'],
     queryFn: () => getActivities({ needsReview: true, limit: -1, sortBy: 'activityDate', sortOrder: 'desc' }),
   });
   const entries: any[] = data?.data || [];
+
+  // Publicly-reported issues awaiting approval.
+  const { data: pendingIssues, isLoading: issuesLoading } = useQuery({
+    queryKey: ['issues', 'pending-review'],
+    queryFn: getPendingReviewIssues,
+  });
+  const issues: any[] = pendingIssues || [];
+
+  const invalidateIssues = () => queryClient.invalidateQueries({ queryKey: ['issues'] });
+
+  const approveIssue = useMutation({
+    mutationFn: (id: string) => updateIssue({ id, needsReview: false }),
+    onSuccess: () => { invalidateIssues(); toast.success('Issue approved — now visible on the public page'); },
+    onError: () => toast.error('Could not approve — please try again'),
+  });
+
+  const rejectIssue = useMutation({
+    mutationFn: (id: string) => deleteIssue(id),
+    onSuccess: () => { invalidateIssues(); toast.success('Report rejected & deleted'); },
+    onError: () => toast.error('Could not reject — please try again'),
+  });
+
+  // Group pending public issues by product for a scannable list.
+  const issueGroups = useMemo(() => {
+    const map = new Map<string, { name: string; id: string; items: any[] }>();
+    for (const i of issues) {
+      const pid = String(i.productId?._id || i.productId || 'unknown');
+      const name = i.productId?.name || 'Unknown product';
+      if (!map.has(pid)) map.set(pid, { name, id: pid, items: [] });
+      map.get(pid)!.items.push(i);
+    }
+    return Array.from(map.values()).sort((x, y) => x.name.localeCompare(y.name));
+  }, [issues]);
 
   // Per-row chosen type (defaults to the imported guess) + bulk selection set.
   const [pendingType, setPendingType] = useState<Record<string, ActivityType>>({});
@@ -131,8 +175,8 @@ export default function Review() {
               <FileCheck2 className="w-6 h-6 text-primary" /> Review queue
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              Changelog entries imported from WordPress.org whose type was guessed (no explicit
-              “Fix:/Add:” prefix). Set the right type and confirm — confirming clears the flag.
+              Items awaiting your review: publicly-reported issues to approve before they go live, and
+              imported changelog entries whose type was guessed. Approving/confirming clears the flag.
             </p>
           </div>
           {entries.length > 0 && (
@@ -142,20 +186,92 @@ export default function Review() {
           )}
         </div>
 
-        {isLoading ? (
-          <ReportsSkeleton />
-        ) : entries.length === 0 ? (
+        {/* Combined empty state — only when nothing of either kind is pending. */}
+        {!isLoading && !issuesLoading && entries.length === 0 && issues.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <CircleCheck className="w-12 h-12 text-emerald-500 mb-3" />
               <p className="text-lg font-medium">Nothing to review</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Every imported changelog entry has a confirmed type. New imports will surface here if their type is uncertain.
+                No public issue reports awaiting approval, and every imported changelog entry has a confirmed type.
               </p>
             </CardContent>
           </Card>
-        ) : (
+        )}
+
+        {/* Public issue reports awaiting approval */}
+        {issues.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Bug className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Public issue reports ({issues.length})
+              </h2>
+            </div>
+            {issueGroups.map((g) => (
+              <Card key={g.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">
+                      <Link to={`/products/${g.id}`} className="hover:text-primary hover:underline">{g.name}</Link>
+                    </CardTitle>
+                    <CardDescription>{g.items.length} to review</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-1.5">
+                  {g.items.map((i) => {
+                    const busy =
+                      (approveIssue.isPending && approveIssue.variables === i._id) ||
+                      (rejectIssue.isPending && rejectIssue.variables === i._id);
+                    const desc = htmlToPlainText(i.description || '');
+                    return (
+                      <div key={i._id} className="flex items-center gap-3 rounded-lg border border-border bg-card/50 px-3 py-2">
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0', SEVERITY_BADGE[i.severity as IssueSeverity])}>
+                          {i.severity}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate leading-tight" title={i.title}>{i.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1"><Globe className="w-3 h-3" /> public</span>
+                            {i.reporter && <span className="truncate">by {i.reporter}</span>}
+                            {i.versionLabel && <span>v{i.versionLabel}</span>}
+                            {desc && <span className="truncate hidden sm:inline">— {desc}</span>}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm" variant="outline" className="h-8 shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={async () => {
+                            if (await confirm({ title: 'Reject report', description: 'Permanently delete this public submission?' })) {
+                              rejectIssue.mutate(i._id);
+                            }
+                          }}
+                          disabled={busy}
+                          aria-label="Reject report"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button size="sm" className="h-8 shrink-0" onClick={() => approveIssue.mutate(i._id)} disabled={busy}>
+                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4 mr-1" /> Approve</>}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+        )}
+
+        {isLoading ? (
+          <ReportsSkeleton />
+        ) : entries.length === 0 ? null : (
           <>
+            <div className="flex items-center gap-2 pt-2">
+              <FileCheck2 className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Imported changelog entries ({entries.length})
+              </h2>
+            </div>
             {/* Bulk action bar */}
             <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">

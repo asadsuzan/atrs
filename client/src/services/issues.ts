@@ -51,11 +51,17 @@ export const getIssues = async (productId: string): Promise<Issue[]> => {
 };
 
 /** All issues across the owner's products, with the product populated. */
-export interface IssueWithProduct extends Issue {
+export interface IssueWithProduct extends Omit<Issue, 'productId'> {
   productId: string | { _id: string; name: string; slug: string; icon?: string };
 }
 export const getAllIssues = async (): Promise<IssueWithProduct[]> => {
   const { data } = await api.get('/issues');
+  return data;
+};
+
+/** Publicly-reported issues awaiting approval (with product populated). */
+export const getPendingReviewIssues = async (): Promise<IssueWithProduct[]> => {
+  const { data } = await api.get('/issues/pending-review');
   return data;
 };
 

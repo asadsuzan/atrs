@@ -26,6 +26,15 @@ export const getIssues = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
+export const getPendingReviewIssues = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const issues = await issueService.getPendingReview(req.user!);
+    res.status(200).json(issues);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getIssueById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const issue = await issueService.getIssueById(req.params.id as string, req.user!);
