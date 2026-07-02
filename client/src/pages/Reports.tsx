@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download, Tag } from 'lucide-react';
+import { Package, PlusCircle, Wrench, Bug, Calendar as CalendarIcon, ChevronDown, Download, Tag, Presentation } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { RichText } from '@/components/ui/RichText';
 import { htmlToPlainText } from '@/lib/richText';
@@ -35,6 +35,7 @@ import {
 import { ReportsSkeleton } from '@/components/ui/skeletons';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
+import { PresentationMode } from '../components/reports/PresentationMode';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -223,6 +224,31 @@ export default function Reports() {
   // When true, all report cards render expanded (used while capturing the PDF).
   const [forceExpand, setForceExpand] = useState(false);
 
+  // Presentation (townhall) mode: a full-screen slide deck of the monthly report.
+  const [presenting, setPresenting] = useState(false);
+  const monthMode = !monthlyQueryArgs.startDate; // month/year (not a custom range)
+  const periodLabel = monthMode
+    ? `${months[monthlyQueryArgs.month - 1]} ${monthlyQueryArgs.year}`
+    : `${monthlyQueryArgs.startDate} – ${monthlyQueryArgs.endDate}`;
+
+  // Don't let the presenter step past the current calendar month (no data there).
+  const canNextMonth =
+    monthMode &&
+    (monthlyQueryArgs.year < currentDate.getFullYear() ||
+      (monthlyQueryArgs.year === currentDate.getFullYear() && monthlyQueryArgs.month < currentDate.getMonth() + 1));
+
+  // Shift the presented report by ±1 month (wrapping years). Also syncs the
+  // toolbar's month/year so exiting the deck lands on the same period.
+  const shiftMonth = (delta: number) => {
+    const zeroBased = monthlyQueryArgs.month - 1 + delta;
+    const newYear = monthlyQueryArgs.year + Math.floor(zeroBased / 12);
+    const newMonth = ((zeroBased % 12) + 12) % 12 + 1;
+    setMonth(String(newMonth));
+    setYear(String(newYear));
+    setUseCustomRange(false);
+    setMonthlyQueryArgs((a) => ({ ...a, month: newMonth, year: newYear, startDate: '', endDate: '' }));
+  };
+
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Deep-link support: the sidebar navigates here with ?tab / ?month / ?year
@@ -261,7 +287,7 @@ export default function Reports() {
   // Admins can scope a report to a specific user's data.
   const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });
 
-  const { data: monthlyReport, isLoading: isLoadingMonthly, isError: isMonthlyError } = useQuery({
+  const { data: monthlyReport, isLoading: isLoadingMonthly, isFetching: isFetchingMonthly, isError: isMonthlyError } = useQuery({
     queryKey: ['report-monthly', monthlyQueryArgs],
     queryFn: () => getMonthlyReport({
       month: monthlyQueryArgs.startDate ? undefined : monthlyQueryArgs.month,
@@ -271,6 +297,9 @@ export default function Reports() {
       startDate: monthlyQueryArgs.startDate || undefined,
       endDate: monthlyQueryArgs.endDate || undefined,
     }),
+    // Keep the current report on screen while a new month loads, so switching
+    // months inside the presentation deck doesn't blank/unmount it.
+    placeholderData: (prev) => prev,
   });
 
   const { data: annualReport, isLoading: isLoadingAnnual, isError: isAnnualError } = useQuery({
@@ -598,6 +627,14 @@ export default function Reports() {
                 {useCustomRange ? 'Use Month/Year' : 'Use Custom Range'}
               </Button>
               <Button onClick={handleGenerateMonthly}>Generate Report</Button>
+              <Button
+                variant="outline"
+                onClick={() => setPresenting(true)}
+                disabled={!displayedMonthlyReport?.products?.length}
+                title="Present this report full-screen"
+              >
+                <Presentation className="w-4 h-4 mr-2" /> Present
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
@@ -716,6 +753,20 @@ export default function Reports() {
           ) : null}
         </>
       )}
+
+      {presenting && displayedMonthlyReport ? (
+        <PresentationMode
+          report={displayedMonthlyReport}
+          periodLabel={periodLabel}
+          onClose={() => setPresenting(false)}
+          monthMode={monthMode}
+          isFetching={isFetchingMonthly}
+          canPrevMonth={monthMode}
+          canNextMonth={canNextMonth}
+          onPrevMonth={() => shiftMonth(-1)}
+          onNextMonth={() => shiftMonth(1)}
+        />
+      ) : null}
     </PageTransition>
   );
 }

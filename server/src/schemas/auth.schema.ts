@@ -27,3 +27,10 @@ export const changePasswordSchema = z.object({
     newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200),
   }),
 });
+
+export const updateMeSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, 'Name is required').max(120).optional(),
+    jobTitle: z.string().max(120).optional(),
+  }),
+});

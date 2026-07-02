@@ -7,6 +7,7 @@ export interface AuthUser {
   _id: string;
   name: string;
   email: string;
+  jobTitle?: string;
   role: UserRole;
   status: UserStatus;
   isRoot: boolean;
@@ -27,6 +28,12 @@ export const register = async (payload: { name: string; email: string; password:
 
 export const getMe = async () => {
   const { data } = await api.get('/auth/me');
+  return data as AuthUser;
+};
+
+/** Self-service profile update (display name + presenter job title). */
+export const updateMe = async (payload: { name?: string; jobTitle?: string }) => {
+  const { data } = await api.patch('/auth/me', payload);
   return data as AuthUser;
 };
 

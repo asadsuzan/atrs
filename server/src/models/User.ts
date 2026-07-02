@@ -7,6 +7,8 @@ export type UserStatus = 'pending' | 'active' | 'suspended';
 export interface IUser extends Document {
   name: string;
   email: string;
+  /** Optional role/title shown as the presenter's subtitle on report decks. */
+  jobTitle?: string;
   passwordHash: string;
   role: UserRole;
   status: UserStatus;
@@ -42,6 +44,7 @@ const UserSchema: Schema = new Schema(
       trim: true,
       index: true,
     },
+    jobTitle: { type: String, default: '', trim: true },
     passwordHash: { type: String, required: true },
     role: {
       type: String,

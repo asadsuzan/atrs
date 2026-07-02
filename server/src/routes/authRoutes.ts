@@ -2,8 +2,8 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as AuthController from '../controllers/AuthController';
 import { validate } from '../middlewares/validate';
-import { registerSchema, loginSchema, emailOnlySchema, changePasswordSchema } from '../schemas/auth.schema';
-import { requireAuth } from '../middlewares/auth';
+import { registerSchema, loginSchema, emailOnlySchema, changePasswordSchema, updateMeSchema } from '../schemas/auth.schema';
+import { requireAuth, requireActive } from '../middlewares/auth';
 
 const router = Router();
 
@@ -23,6 +23,7 @@ const authLimiter = rateLimit({
 router.post('/register', authLimiter, validate(registerSchema), AuthController.register);
 router.post('/login', authLimiter, validate(loginSchema), AuthController.login);
 router.get('/me', requireAuth, AuthController.me);
+router.patch('/me', requireAuth, requireActive, validate(updateMeSchema), AuthController.updateMe);
 
 // Forgot-password flow (public, rate-limited): look up the account, then record
 // a reset request that notifies admins.

@@ -71,6 +71,16 @@ export class AuthService {
     return user.toJSON();
   }
 
+  /** Self-service profile update (display name + presenter job title). */
+  async updateMe(userId: string, data: { name?: string; jobTitle?: string }) {
+    const update: Record<string, string> = {};
+    if (typeof data.name === 'string' && data.name.trim()) update.name = data.name.trim();
+    if (typeof data.jobTitle === 'string') update.jobTitle = data.jobTitle.trim();
+    const user = await User.findByIdAndUpdate(userId, update, { new: true, runValidators: true });
+    if (!user) throw createHttpError(404, 'User not found');
+    return user.toJSON();
+  }
+
   /** Looks up whether an account exists for an email (used by the forgot-password flow). */
   async checkEmail(rawEmail: string) {
     const email = rawEmail.toLowerCase().trim();

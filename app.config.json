@@ -21,5 +21,13 @@
   },
   "staleAlert": {
     "days": 7
+  },
+  "branding": {
+    "companyName": "bPlugins",
+    "logoUrl": "",
+    "accentColor": "",
+    "thankYouEnabled": true,
+    "thankYouTitle": "Thank You All",
+    "thankYouMessage": "Have  a nich day"
   }
 }

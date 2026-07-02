@@ -2,6 +2,9 @@
 node_modules/
 .pnp
 .pnp.js
+atrs.bundle
+changelog_workflow.md
+CHANGELOG.md
 
 # Build output
 dist/

@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser, GitBranch, Link2, Unlink } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser, GitBranch, Link2, Unlink, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { getToken, setToken } from '../services/api';
 import { getGithubStatus, connectGithub, disconnectGithub } from '../services/github';
+import { updateMe } from '../services/auth';
 import { isUserMuted, setUserMute, playSound, setCachedSoundConfig } from '../lib/sound';
 
 const THEMES = [
@@ -29,7 +30,7 @@ const THEMES = [
 
 export default function Settings() {
   const { theme, setTheme, isDark, setIsDark, isAutoDark, setIsAutoDark } = useTheme();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, refreshMe } = useAuth();
   const { confirm } = useConfirm();
   const queryClient = useQueryClient();
 
@@ -38,6 +39,11 @@ export default function Settings() {
   const [navMode, setNavMode] = useState<NavMode>('expanded');
   const [trackerForm, setTrackerForm] = useState({ enabled: false, model: 'qwen2.5-coder' });
   const [staleDays, setStaleDays] = useState(7);
+  const [brandingForm, setBrandingForm] = useState({
+    companyName: '', logoUrl: '', accentColor: '',
+    thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '',
+  });
+  const [presenterForm, setPresenterForm] = useState({ name: '', jobTitle: '' });
   const [isRestarting, setIsRestarting] = useState(false);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
@@ -111,6 +117,16 @@ export default function Settings() {
         });
       }
       if (configData.staleAlert?.days) setStaleDays(Number(configData.staleAlert.days));
+      if (configData.branding) {
+        setBrandingForm({
+          companyName: configData.branding.companyName || '',
+          logoUrl: configData.branding.logoUrl || '',
+          accentColor: configData.branding.accentColor || '',
+          thankYouEnabled: configData.branding.thankYouEnabled !== false,
+          thankYouTitle: configData.branding.thankYouTitle || '',
+          thankYouMessage: configData.branding.thankYouMessage || '',
+        });
+      }
       if (configData.sounds) {
         setSoundsForm({
           enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
@@ -148,6 +164,14 @@ export default function Settings() {
       if (variables.codeTracker) {
         toast.success("Code Activity Tracker settings saved");
         queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
+        refetch();
+        return;
+      }
+
+      // Branding: no restart; refresh the presentation-deck branding.
+      if (variables.branding) {
+        toast.success("Branding saved");
+        queryClient.invalidateQueries({ queryKey: ['branding'] });
         refetch();
         return;
       }
@@ -223,6 +247,44 @@ export default function Settings() {
     const days = Math.min(Math.max(Math.round(Number(staleDays) || 7), 1), 365);
     setStaleDays(days);
     saveMutation.mutate({ staleAlert: { days } });
+  };
+
+  // Load presenter fields from the signed-in user.
+  useEffect(() => {
+    if (user) setPresenterForm({ name: user.name || '', jobTitle: user.jobTitle || '' });
+  }, [user]);
+
+  const presenterMutation = useMutation({
+    mutationFn: updateMe,
+    onSuccess: async () => {
+      playSound('success');
+      toast.success('Presenter info saved');
+      await refreshMe();
+    },
+    onError: (err: any) => {
+      playSound('error');
+      toast.error(err?.response?.data?.message || 'Failed to save presenter info');
+    },
+  });
+
+  const handleSavePresenter = () => {
+    presenterMutation.mutate({
+      name: presenterForm.name.trim() || undefined,
+      jobTitle: presenterForm.jobTitle.trim(),
+    });
+  };
+
+  const handleSaveBranding = () => {
+    saveMutation.mutate({
+      branding: {
+        companyName: brandingForm.companyName.trim(),
+        logoUrl: brandingForm.logoUrl.trim(),
+        accentColor: brandingForm.accentColor.trim(),
+        thankYouEnabled: brandingForm.thankYouEnabled,
+        thankYouTitle: brandingForm.thankYouTitle.trim(),
+        thankYouMessage: brandingForm.thankYouMessage.trim(),
+      },
+    });
   };
 
   const handleClearLocalData = async () => {
@@ -422,6 +484,42 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Presenter info — per user. Shown on the report presentation deck. */}
+      <div className="pt-8">
+        <h3 className="text-xl font-bold mb-4">Presenter info</h3>
+        <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+          <p className="text-sm text-muted-foreground max-w-xl">
+            How you're credited on the Reports presentation deck ("Prepared by…"). Your name is your
+            account name; add a job title to show under it.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Display name</label>
+              <Input
+                value={presenterForm.name}
+                onChange={(e) => setPresenterForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Your name"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Job title</label>
+              <Input
+                value={presenterForm.jobTitle}
+                onChange={(e) => setPresenterForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                placeholder="e.g. Product Lead"
+                maxLength={120}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSavePresenter} disabled={presenterMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" /> Save
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* GitHub Integration — per user. Connect a token to sync releases into versions. */}
       <div className="pt-8 border-b pb-8">
         <h3 className="text-xl font-bold mb-4">GitHub Integration</h3>
@@ -577,6 +675,129 @@ export default function Settings() {
               <Button onClick={handleSaveTracker} disabled={saveMutation.isPending}>
                 <Save className="w-4 h-4 mr-2" /> Save
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="pt-8">
+          <h3 className="text-xl font-bold mb-4">Branding</h3>
+          <div className="bg-card p-6 rounded-xl border shadow-sm space-y-4">
+            <div className="flex items-start gap-3">
+              <Palette className="w-5 h-5 mt-0.5 text-muted-foreground shrink-0" />
+              <div>
+                <p className="font-semibold">Presentation branding</p>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                  Your company name, logo, and accent color appear on the Reports presentation deck
+                  (townhall mode). Leave blank to use the ATRS defaults.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Company name</label>
+                <Input
+                  value={brandingForm.companyName}
+                  onChange={(e) => setBrandingForm((f) => ({ ...f, companyName: e.target.value }))}
+                  placeholder="e.g. bPlugins"
+                  maxLength={80}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Logo URL</label>
+                <Input
+                  value={brandingForm.logoUrl}
+                  onChange={(e) => setBrandingForm((f) => ({ ...f, logoUrl: e.target.value }))}
+                  placeholder="https://… or /favicon.svg"
+                />
+              </div>
+            </div>
+
+            {/* Closing "Thank you" slide */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-sm">Closing "Thank you" slide</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Shown as the final slide of the deck.</p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={brandingForm.thankYouEnabled}
+                    onChange={(e) => setBrandingForm((f) => ({ ...f, thankYouEnabled: e.target.checked }))}
+                  />
+                  <div className="relative w-11 h-6 bg-muted peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              {brandingForm.thankYouEnabled && (
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Heading</label>
+                    <Input
+                      value={brandingForm.thankYouTitle}
+                      onChange={(e) => setBrandingForm((f) => ({ ...f, thankYouTitle: e.target.value }))}
+                      placeholder="Thank you"
+                      maxLength={80}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Message</label>
+                    <Input
+                      value={brandingForm.thankYouMessage}
+                      onChange={(e) => setBrandingForm((f) => ({ ...f, thankYouMessage: e.target.value }))}
+                      placeholder="Questions & discussion"
+                      maxLength={300}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Accent color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={brandingForm.accentColor || '#146ef5'}
+                    onChange={(e) => setBrandingForm((f) => ({ ...f, accentColor: e.target.value }))}
+                    className="h-9 w-12 rounded-md border bg-background p-1 cursor-pointer"
+                    aria-label="Accent color"
+                  />
+                  <Input
+                    value={brandingForm.accentColor}
+                    onChange={(e) => setBrandingForm((f) => ({ ...f, accentColor: e.target.value }))}
+                    placeholder="#146ef5"
+                    className="w-32"
+                  />
+                  {brandingForm.accentColor && (
+                    <button
+                      type="button"
+                      onClick={() => setBrandingForm((f) => ({ ...f, accentColor: '' }))}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {brandingForm.logoUrl && (
+                  <img
+                    src={brandingForm.logoUrl}
+                    alt="Logo preview"
+                    className="h-9 w-9 rounded-md object-contain border bg-muted"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                  />
+                )}
+                <Button onClick={handleSaveBranding} disabled={saveMutation.isPending}>
+                  <Save className="w-4 h-4 mr-2" /> Save
+                </Button>
+              </div>
             </div>
           </div>
         </div>

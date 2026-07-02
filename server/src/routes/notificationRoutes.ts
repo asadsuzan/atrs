@@ -64,6 +64,26 @@ router.get('/nav-settings', requireAuth, requireActive, (_req: Request, res: Res
 });
 
 /**
+ * Authenticated endpoint exposing the admin-configured branding (company name,
+ * logo, accent color) so non-admins can present a branded report deck.
+ */
+router.get('/branding', requireAuth, requireActive, (_req: Request, res: Response) => {
+  const fallback = { companyName: '', logoUrl: '', accentColor: '', thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' };
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const configPath = path.resolve(__dirname, '../../../app.config.json');
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      return res.status(200).json({ ...fallback, ...(data.branding || {}) });
+    }
+    res.status(200).json(fallback);
+  } catch {
+    res.status(200).json(fallback);
+  }
+});
+
+/**
  * Public-authenticated endpoint for retrieving current sound settings.
  */
 router.get('/sounds', requireAuth, requireActive, (req: Request, res: Response) => {
