@@ -222,14 +222,17 @@ export default function Users() {
               <div className="px-4 py-3 border-b bg-amber-500/10 font-medium text-sm">
                 Pending approval ({pending.length})
               </div>
-              <table className="w-full text-sm">
-                <tbody>{pending.map((u) => <Row key={u._id} u={u} />)}</tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[32rem]">
+                  <tbody>{pending.map((u) => <Row key={u._id} u={u} />)}</tbody>
+                </table>
+              </div>
             </div>
           )}
 
           <div className="border rounded-xl bg-card overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[32rem]">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="py-2 px-4 font-medium">User</th>
@@ -246,6 +249,7 @@ export default function Users() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           {others.length > 0 && (

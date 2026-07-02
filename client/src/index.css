@@ -145,6 +145,12 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Kill the grey tap flash and stop iOS from re-sizing type on rotate. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
     /* San Francisco on Apple devices, graceful fall-throughs elsewhere. */
@@ -154,6 +160,27 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     letter-spacing: -0.011em;
+    /* No sideways rubber-banding; the shell owns vertical scroll regions. */
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
+  }
+
+  /* Native-feel touches on phones/tablets: */
+  @media (max-width: 767px) {
+    /* iOS zooms into any focused field whose text is < 16px — pin editable
+       controls to 16px so focusing an input never yanks the viewport. */
+    input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+
+  /* Momentum scrolling inside any scroll container (log panels, feeds, dialogs). */
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
   }
   /* Slightly tighter tracking on headings, the macOS display-type look. */
   h1, h2, h3, h4 {
