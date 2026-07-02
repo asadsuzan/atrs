@@ -9,7 +9,7 @@ It is organized as an **npm-workspaces monorepo**: a React 19 + Vite client and 
 - **Product management** — Track plugins, blocks, themes, and standalone apps with metadata, icons/banners, GitHub links, and active/inactive status.
 - **Changelog & activity logging** — Record features, improvements, and bug fixes with tier (Free/Pro), priority, tags (e.g. *released*/*unreleased*), nested sub-items, and per-item media (images/GIFs/videos).
 - **WordPress.org import** — Import an author's plugins (or specific slugs) directly from WordPress.org. Pulls version tags, release dates, and authors from SVN (WebDAV), fetches `readme.txt`, and parses the changelog into activities with de-duplication on re-import.
-- **AI code-activity tracking** — Optionally watch local Git repositories (via `repoPath`); file changes are summarized by a local **Ollama** model into draft, auto-classified changelog entries.
+- **Git Changelog Generator** — Point at a product's local Git repo (via `repoPath`) and a range (working tree, tags, commits, or dates); an **Ollama** model summarizes the diff into a developer changelog, user release notes, GitHub release notes, and a QA checklist. Runs against a local or cloud Ollama endpoint (switchable in Settings) with deterministic sampling for reproducible output.
 - **Reports & export** — Generate monthly, annual, and 6-month trend reports, and export to **PDF, PPTX, CSV, and JSON**.
 - **Marketing Hub** — Maintain per-product marketing data (hero copy, key/all features, demos, screenshots, FAQs, tutorial/trailer videos) for landing pages and store listings.
 - **Readme Tools** — Preview `readme.txt` with the embedded [wpreadme.com](https://wpreadme.com/) viewer and validate it with the official [WordPress.org readme validator](https://wordpress.org/plugins/developers/readme-validator/) (served through a same-origin reverse proxy so it can be embedded).
@@ -56,7 +56,7 @@ ATRS/                      # npm-workspaces monorepo root
 
 - **Node.js** 18+ (developed on Node 22)
 - **MongoDB** (local instance or Atlas)
-- **Ollama** *(optional)* — only needed for the AI code-activity tracker
+- **Ollama** *(optional)* — only needed for the Git Changelog Generator (local daemon or a cloud endpoint)
 
 ## ⚙️ Setup
 
@@ -85,7 +85,7 @@ ROOT_ADMIN_PASSWORD=change-me-strong-password
 ROOT_ADMIN_NAME=Root Admin
 ```
 
-Runtime options (sounds, navigation mode, and code-tracker enable/model) live in `app.config.json` and are editable from the in-app admin Settings page.
+Runtime options (sounds, navigation mode, and the changelog generator's Ollama model/endpoint) live in `app.config.json` and are editable from the in-app admin Settings page.
 
 ## 💻 Running
 

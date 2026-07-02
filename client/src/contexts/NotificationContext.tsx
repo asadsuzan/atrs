@@ -153,22 +153,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     });
 
-    // Live code-activity tracker updates → refresh the feed + lightweight toast.
-    eventSource.addEventListener('code-activity', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
-        queryClient.invalidateQueries({ queryKey: ['activities'] });
-        playSound('notification');
-        toast.info('Code activity tracked', {
-          description: `${data.title}${data.productName ? ` — ${data.productName}` : ''}`,
-          duration: 5000,
-        });
-      } catch (err) {
-        console.error('[SSE] Failed to parse code-activity payload:', err);
-      }
-    });
-
     // General app notifications (mentions, system, etc)
     eventSource.addEventListener('notification', (event) => {
       try {
@@ -186,17 +170,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         });
       } catch (err) {
         console.error('[SSE] Failed to parse notification payload:', err);
-      }
-    });
-
-    // Code-activity tracker error (e.g. Ollama unreachable / model not pulled).
-    eventSource.addEventListener('code-activity-error', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        queryClient.invalidateQueries({ queryKey: ['code-tracker'] });
-        toast.error('Code tracker', { description: data.error || 'AI generation failed', duration: 7000 });
-      } catch (err) {
-        console.error('[SSE] Failed to parse code-activity-error payload:', err);
       }
     });
 

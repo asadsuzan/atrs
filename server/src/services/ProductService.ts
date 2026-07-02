@@ -15,7 +15,6 @@ import { scopeFilter, assertOwner } from '../utils/ownership';
 import createHttpError from '../utils/httpError';
 import { escapeRegex } from '../utils/sanitize';
 import { parseReadmeChangelog } from '../utils/readmeChangelog';
-import { codeTrackerService } from './CodeTrackerService';
 import type { AuthUser } from '../types/auth';
 
 // Filled into the required shortDescription for changelog entries imported from
@@ -54,7 +53,6 @@ export class ProductService {
     const slug = await this.uniqueSlugForOwner(data.name, user.id);
     const product = await this.repository.create({ ...data, slug, ownerId: user.id });
     await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id, name: user.name });
-    void codeTrackerService.refresh();
     return product;
   }
 
@@ -167,7 +165,6 @@ export class ProductService {
     if (product) {
       await auditLogService.logEvent('UPDATE', 'PRODUCT', product._id.toString(), product.name, 'Updated product details', { id: user.id, name: user.name });
     }
-    void codeTrackerService.refresh();
     return product;
   }
 
@@ -738,8 +735,6 @@ export class ProductService {
         throw err;
       }
     }
-    // Drop the tracker's watcher for the now-deleted product.
-    void codeTrackerService.refresh();
     return result;
   }
 

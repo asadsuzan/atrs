@@ -1,5 +1,26 @@
 import { api, getToken } from './api';
 
+export interface DirEntry {
+  name: string;
+  path: string;
+}
+
+export interface BrowseDirsResult {
+  path: string;
+  parent: string | null;
+  sep: string;
+  isRoot: boolean;
+  home: string;
+  drives: DirEntry[];
+  dirs: DirEntry[];
+}
+
+/** Lists sub-directories on the server for the repo-path folder picker. */
+export const browseDirs = async (path?: string): Promise<BrowseDirsResult> => {
+  const { data } = await api.get('/products/browse-dirs', { params: path ? { path } : {} });
+  return data as BrowseDirsResult;
+};
+
 export type ImportProgress = {
   type: 'info' | 'success' | 'warn' | 'error';
   slug?: string;

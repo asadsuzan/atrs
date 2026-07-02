@@ -30,9 +30,9 @@ export interface IActivity extends Document {
   assigneeIds?: mongoose.Types.ObjectId[];
   estimatedHours?: number;
   actualHours?: number;
-  /** True when auto-created by the code-activity tracker (draft changelog entry). */
+  /** Legacy flag from the removed code-activity tracker; retained for existing docs. */
   autoTracked?: boolean;
-  /** Source file (relative to repo) that triggered an auto-tracked entry. */
+  /** Source file (relative to repo) an AI-generated draft entry was derived from. */
   filePath?: string;
   /**
    * Stable identity for entries imported from a WordPress.org readme changelog

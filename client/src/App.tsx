@@ -31,12 +31,12 @@ const Settings = lazy(() => import('./pages/Settings'));
 const MediaManager = lazy(() => import('./pages/MediaManager'));
 const Help = lazy(() => import('./pages/Help'));
 const Users = lazy(() => import('./pages/admin/Users'));
-const CodeActivity = lazy(() => import('./pages/CodeActivity'));
 const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
 const Review = lazy(() => import('./pages/Review'));
 const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
 const PublicIssues = lazy(() => import('./pages/PublicIssues'));
 const Explore = lazy(() => import('./pages/Explore'));
+const ChangelogGenerator = lazy(() => import('./pages/ChangelogGenerator'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -50,6 +50,8 @@ import { JobStreamMiniPlayer } from './components/jobs/JobStreamMiniPlayer';
 import { FramerExportProvider } from './contexts/FramerExportContext';
 import { FramerExportBoard } from './components/tools/FramerExportBoard';
 import { JobDockProvider } from './contexts/JobDockContext';
+import { ChangelogGenProvider } from './contexts/ChangelogGenContext';
+import { ChangelogGenMiniPlayer } from './components/jobs/ChangelogGenMiniPlayer';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { WindowLayer } from './components/windows/WindowLayer';
 import { AddProductProvider } from './contexts/AddProductContext';
@@ -267,8 +269,8 @@ function AnimatedRoutes() {
           <Route path="/activities" element={<Activities />} />
           <Route path="/media" element={<MediaManager />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/code-activity" element={<CodeActivity />} />
           <Route path="/readme-tools" element={<ReadmeTools />} />
+          <Route path="/changelog-generator" element={<ChangelogGenerator />} />
           <Route path="/review" element={<Review />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />
@@ -292,10 +294,13 @@ function App() {
                 <JobStreamProvider>
                 <FramerExportProvider>
                 <WindowManagerProvider>
+                <ChangelogGenProvider>
                 <JobDockProvider>
                   <SmoothScroll>
                     <BrowserRouter>
                       <AnimatedRoutes />
+                      {/* Inside the router so it can navigate back to the generator. */}
+                      <ChangelogGenMiniPlayer />
                     </BrowserRouter>
                   </SmoothScroll>
                   <WindowLayer />
@@ -310,6 +315,7 @@ function App() {
                   <FramerExportBoard />
                   <Toaster />
                 </JobDockProvider>
+                </ChangelogGenProvider>
                 </WindowManagerProvider>
                 </FramerExportProvider>
                 </JobStreamProvider>

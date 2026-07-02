@@ -13,7 +13,9 @@ export class ReleaseService {
     const productId = product._id;
     const [versions, activities] = await Promise.all([
       Version.find({ productId }).lean(),
-      Activity.find({ productId }).sort({ displayOrder: 1, activityDate: -1 }).lean(),
+      // Exclude entries still pending review (AI-generated or imported drafts) —
+      // they only enter the published changelog once confirmed in the review queue.
+      Activity.find({ productId, needsReview: { $ne: true } }).sort({ displayOrder: 1, activityDate: -1 }).lean(),
     ]);
 
     const assembled = assembleRelease(versions as any[], activities as any[]);

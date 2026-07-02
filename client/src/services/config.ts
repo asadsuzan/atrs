@@ -22,6 +22,8 @@ export interface Branding {
   companyName: string;
   logoUrl: string;
   accentColor: string;
+  /** When true, the presentation deck derives the accent from each product's logo/banner. */
+  accentDynamic: boolean;
   thankYouEnabled: boolean;
   thankYouTitle: string;
   thankYouMessage: string;

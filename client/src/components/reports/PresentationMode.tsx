@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { getBranding } from '../../services/config';
 import { useAuth } from '../../contexts/AuthContext';
+import { extractAccentColor } from '../../lib/imageColor';
 
 // Shared "easeOutExpo"-style curve for a calm, premium feel across the deck.
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -128,6 +129,31 @@ export function PresentationMode({
     logo: branding?.logoUrl?.trim() || '/favicon.svg',
     accent: branding?.accentColor?.trim() || '',
   };
+  const dynamicAccent = !!branding?.accentDynamic;
+
+  // Dynamic accent: derive a color per product from its banner (or logo).
+  const [productAccents, setProductAccents] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!dynamicAccent) { setProductAccents({}); return; }
+    let cancelled = false;
+    const products: any[] = report?.products || [];
+    (async () => {
+      const pairs = await Promise.all(
+        products.map(async (p) => {
+          const art = p?.product?.banner || p?.product?.icon;
+          const id = p?.product?._id;
+          if (!id || !art) return null;
+          const hex = await extractAccentColor(art);
+          return hex ? ([id, hex] as const) : null;
+        }),
+      );
+      if (cancelled) return;
+      const map: Record<string, string> = {};
+      for (const pair of pairs) if (pair) map[pair[0]] = pair[1];
+      setProductAccents(map);
+    })();
+    return () => { cancelled = true; };
+  }, [dynamicAccent, report]);
   const reporter = user?.name || '';
   const reporterTitle = user?.jobTitle?.trim() || '';
   const thankYou = {
@@ -254,11 +280,24 @@ export function PresentationMode({
   const slide = slides[index];
   const summary = report?.summary || {};
 
+  // The accent in play for the current slide. In dynamic mode a product slide
+  // uses its derived color; other slides (and any product still resolving) fall
+  // back to the fixed accent. In fixed mode it's always the configured color.
+  const activeAccent = (() => {
+    if (!dynamicAccent) return brand.accent;
+    if (slide?.kind === 'product') {
+      const pid = slide.data?.product?._id;
+      return productAccents[pid] || brand.accent;
+    }
+    return brand.accent;
+  })();
+  const activeBrand = { ...brand, accent: activeAccent };
+
   // Portal to <body> so the fixed overlay escapes any transformed/filtered
   // ancestor (PageTransition uses transform + blur, which would otherwise
   // become the containing block for position: fixed).
-  const accentBg = brand.accent || undefined;
-  const glow = brand.accent || '#146ef5';
+  const accentBg = activeAccent || undefined;
+  const glow = activeAccent || '#146ef5';
 
   return createPortal(
     <MotionConfig reducedMotion="user">
@@ -267,7 +306,10 @@ export function PresentationMode({
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"
-        style={{ background: `radial-gradient(1100px 560px at 50% -12%, color-mix(in srgb, ${glow} 9%, transparent), transparent 72%)` }}
+        style={{
+          background: `radial-gradient(1100px 560px at 50% -12%, color-mix(in srgb, ${glow} 9%, transparent), transparent 72%)`,
+          transition: 'background 0.6s ease',
+        }}
       />
 
       {/* Progress bar — fills as you advance through the deck. */}
@@ -344,14 +386,14 @@ export function PresentationMode({
                   periodLabel={periodLabel}
                   summary={summary}
                   productCount={(report?.products || []).length}
-                  brand={brand}
+                  brand={activeBrand}
                   reporter={reporter}
                   reporterTitle={reporterTitle}
                 />
               ) : slide.kind === 'thanks' ? (
-                <ThankYouSlide thankYou={thankYou} brand={brand} reporter={reporter} reporterTitle={reporterTitle} />
+                <ThankYouSlide thankYou={thankYou} brand={activeBrand} reporter={reporter} reporterTitle={reporterTitle} />
               ) : (
-                <ProductSlide pData={slide.data} onZoom={setZoom} />
+                <ProductSlide pData={slide.data} onZoom={setZoom} accent={activeAccent} />
               )}
             </div>
           </motion.div>
@@ -622,21 +664,28 @@ function ActivityCard({ act, meta, onZoom, index }: { act: any; meta: typeof TYP
   );
 }
 
-function ProductSlide({ pData, onZoom }: { pData: any; onZoom: (m: Media) => void }) {
+function ProductSlide({ pData, onZoom, accent }: { pData: any; onZoom: (m: Media) => void; accent?: string }) {
   const { product, activities, counts } = pData;
   return (
     <>
       {/* Product header */}
       <motion.div
         className="flex items-start gap-4 pb-5 mb-7 border-b"
+        style={accent ? { borderBottomColor: `color-mix(in srgb, ${accent} 45%, transparent)` } : undefined}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: EASE }}
       >
         {product.icon
           ? <img src={product.icon} alt="" className="w-14 h-14 rounded-xl bg-muted object-cover border shrink-0" />
-          : <div className="w-14 h-14 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-xl font-bold shrink-0">{product.name?.[0]?.toUpperCase() || '?'}</div>}
+          : <div
+              className="w-14 h-14 rounded-xl bg-primary/15 text-primary flex items-center justify-center text-xl font-bold shrink-0"
+              style={accent
+                ? { backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }
+                : undefined}
+            >{product.name?.[0]?.toUpperCase() || '?'}</div>}
         <div className="min-w-0">
+          {accent && <div className="h-1 w-10 rounded-full mb-2" style={{ backgroundColor: accent }} />}
           <h2 className="text-[26px] font-bold tracking-tight leading-tight line-clamp-2">{product.name}</h2>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
             <Badge variant="outline" className="capitalize">{product.category}</Badge>

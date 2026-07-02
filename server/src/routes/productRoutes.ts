@@ -6,6 +6,7 @@ import { upsertMarketingSchema } from '../schemas/marketing.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import { ProductMarketingController } from '../controllers/ProductMarketingController';
 import * as ReleaseController from '../controllers/ReleaseController';
+import { browseDirs } from '../controllers/FsController';
 
 const marketingController = new ProductMarketingController();
 
@@ -16,6 +17,7 @@ router.get('/', ProductController.getProducts);
 router.delete('/bulk', ProductController.bulkDeleteProducts);
 router.post('/bulk-delete-stream', ProductController.bulkDeleteProductsStream);
 router.get('/stale', ProductController.getStaleProducts);
+router.get('/browse-dirs', browseDirs);
 router.get('/wporg-preview', ProductController.wpOrgPreview);
 router.get('/wporg-preview-by-slug', ProductController.wpOrgPreviewBySlug);
 router.post('/import-from-wporg', ProductController.importFromWpOrg);

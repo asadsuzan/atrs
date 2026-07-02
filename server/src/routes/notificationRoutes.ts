@@ -68,7 +68,7 @@ router.get('/nav-settings', requireAuth, requireActive, (_req: Request, res: Res
  * logo, accent color) so non-admins can present a branded report deck.
  */
 router.get('/branding', requireAuth, requireActive, (_req: Request, res: Response) => {
-  const fallback = { companyName: '', logoUrl: '', accentColor: '', thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' };
+  const fallback = { companyName: '', logoUrl: '', accentColor: '', accentDynamic: false, thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' };
   try {
     const fs = require('fs');
     const path = require('path');

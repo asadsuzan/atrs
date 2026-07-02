@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { FolderSearch } from 'lucide-react';
+import { RepoPathBrowser } from './RepoPathBrowser';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -63,6 +65,7 @@ export function ProductForm({
 }) {
   const isStandalone = variant === 'standalone';
   const schema = useMemo(() => buildSchema(variant), [variant]);
+  const [repoBrowserOpen, setRepoBrowserOpen] = useState(false);
 
   const defaultCategory: FormValues['category'] =
     variant === 'standalone' ? 'standalone' : variant === 'wp' ? 'plugin' : 'plugin';
@@ -164,14 +167,30 @@ export function ProductForm({
           render={({ field }: any) => (
             <FormItem>
               <FormLabel>Local repo path (optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. C:\\Users\\you\\projects\\my-plugin" {...field} />
-              </FormControl>
+              <div className="flex items-center gap-2">
+                <FormControl>
+                  <Input placeholder="e.g. C:\\Users\\you\\projects\\my-plugin" {...field} />
+                </FormControl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRepoBrowserOpen(true)}
+                  className="shrink-0 gap-1.5"
+                >
+                  <FolderSearch className="w-4 h-4" /> Browse
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Absolute path on the server machine. When the Code Activity Tracker is enabled, file
-                changes here are auto-summarized into draft changelog entries.
+                Absolute path on the server machine. Used by the Git Changelog Generator to read this
+                product's repository. Click <span className="font-medium">Browse</span> to pick a folder.
               </p>
               <FormMessage />
+              <RepoPathBrowser
+                open={repoBrowserOpen}
+                onOpenChange={setRepoBrowserOpen}
+                initialPath={field.value || ''}
+                onSelect={(p) => field.onChange(p)}
+              />
             </FormItem>
           )}
         />

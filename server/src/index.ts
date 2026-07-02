@@ -29,9 +29,6 @@ const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 connectDB()
   .then(async () => {
     await seedAndMigrate().catch((err) => console.error('[server]: seedAndMigrate failed:', err));
-    // Start the code-activity tracker once the DB is ready (no-op unless enabled
-    // and some product has a repoPath).
-    codeTrackerService.refresh().catch((err) => console.error('[CodeTracker] refresh failed:', err));
   })
   .catch((err) => {
     console.error('[server]: Could not establish initial MongoDB connection:', err?.message || err);
@@ -102,11 +99,10 @@ import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import jobRoutes from './routes/jobRoutes';
-import codeTrackerRoutes from './routes/codeTrackerRoutes';
 import githubRoutes from './routes/githubRoutes';
 import readmeToolsRoutes from './routes/readmeToolsRoutes';
 import publicRoutes from './routes/publicRoutes';
-import { codeTrackerService } from './services/CodeTrackerService';
+import changelogGenRoutes from './routes/changelogGenRoutes';
 import { exportAllData } from './controllers/ExportController';
 
 // Static files for uploads
@@ -134,8 +130,8 @@ app.use('/api/audit-logs', requireAuth, requireActive, auditLogRoutes);
 app.use('/api/versions', requireAuth, requireActive, versionRoutes);
 app.use('/api/issues', requireAuth, requireActive, issueRoutes);
 app.use('/api/jobs', requireAuth, requireActive, jobRoutes);
-app.use('/api/code-tracker', requireAuth, requireActive, codeTrackerRoutes);
 app.use('/api/github', requireAuth, requireActive, githubRoutes);
+app.use('/api/changelog-gen', requireAuth, requireActive, changelogGenRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes

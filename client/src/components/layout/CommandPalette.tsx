@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon, Users as UsersIcon, HelpCircle, Settings, Code2 } from 'lucide-react';
+import { LayoutDashboard, Package, Activity, BarChart2, History, Image as ImageIcon, Users as UsersIcon, HelpCircle, Settings } from 'lucide-react';
 import { getProducts } from '../../services/products';
 import { getActivities } from '../../services/activities';
 import { useAuth } from '../../contexts/AuthContext';
@@ -55,9 +55,6 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/reports'))}>
             <BarChart2 className="mr-2 h-4 w-4" /> Reports
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => navigate('/code-activity'))}>
-            <Code2 className="mr-2 h-4 w-4" /> Code Activity
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => navigate('/audit-logs'))}>
             <History className="mr-2 h-4 w-4" /> Audit Logs

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActivities, bulkUpdateActivities } from '../services/activities';
+import { getActivities, bulkUpdateActivities, deleteActivity, bulkDeleteActivities } from '../services/activities';
 import { getPendingReviewIssues, updateIssue, deleteIssue, type IssueSeverity } from '../services/issues';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,7 +32,15 @@ const TYPE_META: Record<ActivityType, { label: string; Icon: any; cls: string }>
 const TYPES: ActivityType[] = ['feature', 'improvement', 'bug-fix'];
 
 /** Confidence chip: explains *why* an entry is flagged. */
-function ConfidenceChip({ confidence }: { confidence?: string }) {
+function ConfidenceChip({ confidence, reason }: { confidence?: string; reason?: string }) {
+  // AI-drafted entries (from the Git Changelog Generator) get their own label.
+  if (reason === 'ai-generated') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 bg-violet-100 text-violet-800 ring-violet-500/30 dark:bg-violet-900/40 dark:text-violet-300">
+        AI-generated draft
+      </span>
+    );
+  }
   const map: Record<string, { label: string; cls: string }> = {
     medium: {
       label: 'Guessed from first word',
@@ -120,6 +128,43 @@ export default function Review() {
     onError: () => toast.error('Could not update — please try again'),
   });
 
+  const removeEntries = useMutation({
+    mutationFn: (ids: string[]) =>
+      ids.length === 1 ? deleteActivity(ids[0]) : bulkDeleteActivities(ids),
+    onSuccess: (_res, ids) => {
+      invalidate();
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      toast.success(`${ids.length} ${ids.length === 1 ? 'entry' : 'entries'} deleted`);
+    },
+    onError: () => toast.error('Could not delete — please try again'),
+  });
+
+  const deleteOne = async (a: any) => {
+    if (await confirm({
+      title: 'Delete draft entry',
+      description: `Permanently delete "${a.title}"? This removes the draft entirely — it won't appear in the changelog.`,
+      confirmText: 'Delete',
+    })) {
+      removeEntries.mutate([a._id]);
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    if (await confirm({
+      title: `Delete ${ids.length} draft ${ids.length === 1 ? 'entry' : 'entries'}?`,
+      description: 'Permanently deletes the selected drafts. This cannot be undone.',
+      confirmText: 'Delete',
+    })) {
+      removeEntries.mutate(ids);
+    }
+  };
+
   // Group flagged entries by product for a scannable list.
   const groups = useMemo(() => {
     const map = new Map<string, { name: string; id: string; items: any[] }>();
@@ -176,7 +221,8 @@ export default function Review() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Items awaiting your review: publicly-reported issues to approve before they go live, and
-              imported changelog entries whose type was guessed. Approving/confirming clears the flag.
+              draft changelog entries — imported ones whose type was guessed, plus AI-generated drafts
+              from the Git Changelog Generator. Approving/confirming clears the flag and adds them to the changelog.
             </p>
           </div>
           {entries.length > 0 && (
@@ -269,7 +315,7 @@ export default function Review() {
             <div className="flex items-center gap-2 pt-2">
               <FileCheck2 className="w-4 h-4 text-primary" />
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Imported changelog entries ({entries.length})
+                Draft changelog entries ({entries.length})
               </h2>
             </div>
             {/* Bulk action bar */}
@@ -294,6 +340,15 @@ export default function Review() {
                 </Button>
                 <Button size="sm" variant="outline" onClick={confirmSelectedAsIs} disabled={selected.size === 0 || resolve.isPending}>
                   Confirm as-is
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={deleteSelected}
+                  disabled={selected.size === 0 || removeEntries.isPending}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" /> Delete
                 </Button>
               </div>
             </div>
@@ -327,7 +382,7 @@ export default function Review() {
                           </Link>
                           <div className="flex items-center gap-2 mt-0.5">
                             {a.versionId?.label && <span className="text-xs text-muted-foreground">{a.versionId.label}</span>}
-                            <ConfidenceChip confidence={a.importConfidence} />
+                            <ConfidenceChip confidence={a.importConfidence} reason={a.reviewReason} />
                           </div>
                         </div>
                         <Select value={t} onValueChange={(v) => setPendingType((p) => ({ ...p, [a._id]: v as ActivityType }))}>
@@ -342,6 +397,15 @@ export default function Review() {
                         </Select>
                         <Button size="sm" className="h-8 shrink-0" onClick={() => confirmOne(a)} disabled={busy}>
                           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4 mr-1" /> Confirm</>}
+                        </Button>
+                        <Button
+                          size="sm" variant="outline"
+                          className="h-8 w-8 p-0 shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => deleteOne(a)}
+                          disabled={removeEntries.isPending}
+                          aria-label={`Delete ${a.title}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     );
