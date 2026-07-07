@@ -6,6 +6,7 @@ import { getVersions } from '../../services/versions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { SuggestTitleButton, GenerateDescriptionButton } from '../ai/AiAssist';
 import { htmlToPlainText } from '@/lib/richText';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -394,11 +395,35 @@ export function IssueManager({ productId, focusIssueId, onFocusHandled }: { prod
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Title</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Title</label>
+                <SuggestTitleButton
+                  entity="issue"
+                  getContext={() => ({
+                    productName: product?.name,
+                    severity: formData.severity,
+                    versionLabel: formData.versionLabel,
+                    existingContent: htmlToPlainText(formData.description || ''),
+                  })}
+                  onPick={(t) => setFormData((f) => ({ ...f, title: t }))}
+                />
+              </div>
               <Input required placeholder="e.g. Card grid overlaps on mobile" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
             </div>
             <div>
-              <label className="text-sm font-medium">Description (optional)</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Description (optional)</label>
+                <GenerateDescriptionButton
+                  entity="issue"
+                  getContext={() => ({
+                    productName: product?.name,
+                    severity: formData.severity,
+                    versionLabel: formData.versionLabel,
+                  })}
+                  getTitle={() => formData.title}
+                  onResult={(t) => setFormData((f) => ({ ...f, description: t }))}
+                />
+              </div>
               <RichTextEditor
                 ariaLabel="Issue description"
                 placeholder="Steps to reproduce, expected vs actual behaviour..."

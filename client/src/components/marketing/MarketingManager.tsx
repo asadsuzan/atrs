@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Save, Download, Sparkles, Plus, Trash2, LayoutTemplate, RotateCcw } from 'lucide-react';
 import { parseMarketingText } from './SmartParser';
+import { GenerateDescriptionButton } from '../ai/AiAssist';
 import { Skeleton } from '@/components/ui/skeleton';
 import jsPDF from 'jspdf';
 import pptxgen from 'pptxgenjs';
@@ -355,7 +356,19 @@ ${(formData.faqs || []).map((f: any) => `Q: ${f.question}\n${f.answer}`).join('\
               <Input value={formData.pluginName} onChange={e => setFormData({...formData, pluginName: e.target.value})} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Hero Description</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Hero Description</label>
+                <GenerateDescriptionButton
+                  entity="product marketing hero description"
+                  getContext={() => ({
+                    productName: formData.pluginName,
+                    features: (formData.keyFeatures || []).map((f: any) => f.title).filter(Boolean),
+                    problems: formData.problemList || [],
+                  })}
+                  getTitle={() => formData.pluginName}
+                  onResult={(t) => setFormData((f: any) => ({ ...f, heroDescription: t }))}
+                />
+              </div>
               <Textarea className="h-32" value={formData.heroDescription} onChange={e => setFormData({...formData, heroDescription: e.target.value})} />
             </div>
             <div className="space-y-2">

@@ -22,12 +22,12 @@
     "ollamaCloudKey": "a106470c353a40a5be713800d952fc30.M9qmTO-mSRXmlX6iyQV_M54c"
   },
   "staleAlert": {
-    "days": 7
+    "days": 365
   },
   "branding": {
     "companyName": "bPlugins",
     "logoUrl": "",
-    "accentColor": "#6600ff",
+    "accentColor": "#4400c2",
     "accentDynamic": false,
     "thankYouEnabled": true,
     "thankYouTitle": "Thank You All",

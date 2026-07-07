@@ -11,6 +11,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { useFormDraft } from '@/hooks/useFormDraft';
+import { SuggestTitleButton, GenerateDescriptionButton } from '../ai/AiAssist';
+import { htmlToPlainText } from '@/lib/richText';
 
 /**
  * - `wp`: manual WordPress/CMS product — Plugin/Block/Theme category, WP.org
@@ -102,7 +104,18 @@ export function ProductForm({
           name="name"
           render={({ field }: any) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FormLabel>Name</FormLabel>
+                <SuggestTitleButton
+                  entity="product"
+                  getContext={() => ({
+                    category: form.getValues('category'),
+                    description: htmlToPlainText(form.getValues('description') || ''),
+                    wpOrgSlug: form.getValues('wpOrgSlug'),
+                  })}
+                  onPick={(t) => field.onChange(t)}
+                />
+              </div>
               <FormControl>
                 <Input placeholder={isStandalone ? 'e.g. My Desktop App' : 'e.g. Test Plugin'} {...field} />
               </FormControl>
@@ -116,7 +129,19 @@ export function ProductForm({
           name="description"
           render={({ field }: any) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FormLabel>Description</FormLabel>
+                <GenerateDescriptionButton
+                  entity="product"
+                  getContext={() => ({
+                    name: form.getValues('name'),
+                    category: form.getValues('category'),
+                    wpOrgSlug: form.getValues('wpOrgSlug'),
+                  })}
+                  getTitle={() => form.getValues('name')}
+                  onResult={(t) => field.onChange(t)}
+                />
+              </div>
               <FormControl>
                 <RichTextEditor
                   ariaLabel="Product description"

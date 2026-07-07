@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { SuggestTitleButton, GenerateDescriptionButton } from '../ai/AiAssist';
+import { htmlToPlainText } from '@/lib/richText';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -234,7 +236,19 @@ export function ActivityForm({
           name="title"
           render={({ field }: any) => (
             <FormItem>
-              <FormLabel>Title</FormLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FormLabel>Title</FormLabel>
+                <SuggestTitleButton
+                  entity="changelog entry"
+                  getContext={() => ({
+                    productName: products.find((p: any) => p._id === form.getValues('productId'))?.name,
+                    type: form.getValues('type'),
+                    tags: form.getValues('tags'),
+                    existingContent: htmlToPlainText(form.getValues('shortDescription') || ''),
+                  })}
+                  onPick={(t) => field.onChange(t)}
+                />
+              </div>
               <FormControl>
                 <Input placeholder="e.g. Added new dashboard" {...field} />
               </FormControl>
@@ -339,7 +353,19 @@ export function ActivityForm({
           name="shortDescription"
           render={({ field }: any) => (
             <FormItem>
-              <FormLabel>Short Description</FormLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FormLabel>Short Description</FormLabel>
+                <GenerateDescriptionButton
+                  entity="changelog entry"
+                  getContext={() => ({
+                    productName: products.find((p: any) => p._id === form.getValues('productId'))?.name,
+                    type: form.getValues('type'),
+                    tags: form.getValues('tags'),
+                  })}
+                  getTitle={() => form.getValues('title')}
+                  onResult={(t) => field.onChange(t)}
+                />
+              </div>
               <FormControl>
                 <RichTextEditor
                   ariaLabel="Short description"

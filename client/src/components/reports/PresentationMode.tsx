@@ -56,22 +56,14 @@ function isPlaceholderDesc(text: string): boolean {
   return /imported from\b.*\bchangelog\b/i.test(text) || /—\s*add details\.?$/i.test(text);
 }
 
-/** Collects an activity's media (its own + nested items'), de-duped, images first. */
-function gatherMedia(act: any): Media[] {
-  const raw: string[] = [];
-  const push = (o: any) => {
-    if (o?.mediaUrls?.length) raw.push(...o.mediaUrls);
-    else if (o?.mediaUrl) raw.push(o.mediaUrl);
-  };
-  push(act);
-  (act?.items || []).forEach(push);
-  const seen = new Set<string>();
-  const media = raw
-    .filter((u) => u && !seen.has(u) && (seen.add(u), true))
-    .map((url) => ({ url, isVideo: isVideoUrl(url) }));
-  // Images first so screenshots lead; videos trail.
-  return media.sort((a, b) => Number(a.isVideo) - Number(b.isVideo));
+/** An entity's own media (mediaUrls, with legacy single mediaUrl fallback). */
+function mediaOf(o: any): Media[] {
+  const urls: string[] = o?.mediaUrls?.length ? o.mediaUrls : o?.mediaUrl ? [o.mediaUrl] : [];
+  return urls.filter(Boolean).map((url) => ({ url, isVideo: isVideoUrl(url) }));
 }
+
+/** Lightbox state: the gallery being viewed and the position within it. */
+type Zoom = { items: Media[]; index: number };
 
 const TYPE_META: Record<ActivityType, { label: string; Icon: any; text: string; dot: string; accent: string; chip: string }> = {
   feature: {
@@ -119,7 +111,10 @@ export function PresentationMode({
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoom, setZoom] = useState<Media | null>(null);
+  const [zoom, setZoom] = useState<Zoom | null>(null);
+  const zoomGo = useCallback((delta: number) => {
+    setZoom((z) => z && { ...z, index: (z.index + delta + z.items.length) % z.items.length });
+  }, []);
 
   // Company branding + reporter for the deck.
   const { data: branding } = useQuery({ queryKey: ['branding'], queryFn: getBranding });
@@ -242,10 +237,13 @@ export function PresentationMode({
   // Keyboard controls.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // While an image is zoomed, Escape just closes the lightbox and other
-      // keys are inert (so navigation doesn't happen behind it).
+      // While an image is zoomed, Escape closes the lightbox, arrows step
+      // through its gallery, and other keys are inert (so slide navigation
+      // doesn't happen behind it).
       if (zoom) {
         if (e.key === 'Escape') { e.preventDefault(); setZoom(null); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); zoomGo(1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); zoomGo(-1); }
         return;
       }
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
@@ -257,7 +255,7 @@ export function PresentationMode({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, onClose, toggleFullscreen, zoom, monthMode, canPrevMonth, canNextMonth, onPrevMonth, onNextMonth]);
+  }, [go, onClose, toggleFullscreen, zoom, zoomGo, monthMode, canPrevMonth, canNextMonth, onPrevMonth, onNextMonth]);
 
   // Enter fullscreen on open (best-effort — the click that opened us is the gesture).
   useEffect(() => {
@@ -393,7 +391,7 @@ export function PresentationMode({
               ) : slide.kind === 'thanks' ? (
                 <ThankYouSlide thankYou={thankYou} brand={activeBrand} reporter={reporter} reporterTitle={reporterTitle} />
               ) : (
-                <ProductSlide pData={slide.data} onZoom={setZoom} accent={activeAccent} />
+                <ProductSlide pData={slide.data} onZoom={(items, i) => setZoom({ items, index: i })} accent={activeAccent} />
               )}
             </div>
           </motion.div>
@@ -431,37 +429,62 @@ export function PresentationMode({
         </button>
       </div>
 
-      {/* Click-to-zoom lightbox */}
+      {/* Click-to-zoom lightbox with gallery prev/next (buttons + arrow keys) */}
       <AnimatePresence>
-        {zoom && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="absolute inset-0 z-10 bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
-            onClick={() => setZoom(null)}
-          >
-            {zoom.isVideo ? (
-              <video
-                src={zoom.url}
-                controls
-                autoPlay
-                className="max-w-full max-h-full rounded-lg shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <img src={zoom.url} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" />
-            )}
-            <button
+        {zoom && (() => {
+          const current = zoom.items[zoom.index];
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 z-10 bg-black/90 flex items-center justify-center p-6 cursor-zoom-out"
               onClick={() => setZoom(null)}
-              className="absolute top-4 right-4 p-2 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
-              aria-label="Close image"
             >
-              <X className="w-5 h-5" />
-            </button>
-          </motion.div>
-        )}
+              {current.isVideo ? (
+                <video
+                  key={current.url}
+                  src={current.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-full rounded-lg shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <img key={current.url} src={current.url} alt="" className="max-w-full max-h-full rounded-lg shadow-2xl object-contain" />
+              )}
+              {zoom.items.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); zoomGo(-1); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    aria-label="Previous media"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); zoomGo(1); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                    aria-label="Next media"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                  <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-medium tabular-nums">
+                    {zoom.index + 1} / {zoom.items.length}
+                  </span>
+                </>
+              )}
+              <button
+                onClick={() => setZoom(null)}
+                className="absolute top-4 right-4 p-2 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Close image"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </div>
     </MotionConfig>,
@@ -594,37 +617,61 @@ function ThankYouSlide({
   );
 }
 
-/** A tidy row of media thumbnails for an activity; click to zoom. */
-function ActivityMedia({ media, onZoom }: { media: Media[]; onZoom: (m: Media) => void }) {
+type OnZoom = (items: Media[], index: number) => void;
+
+/**
+ * Inline media carousel mirroring the normal report's MediaCarousel: one media
+ * shown at a time with prev/next controls and a position counter; click the
+ * stage to open the lightbox gallery at the current position.
+ */
+function SlideCarousel({ media, onZoom, compact = false }: { media: Media[]; onZoom: OnZoom; compact?: boolean }) {
+  const [index, setIndex] = useState(0);
   if (media.length === 0) return null;
-  const shown = media.slice(0, 4);
-  const extra = media.length - shown.length;
+  const i = Math.min(index, media.length - 1);
+  const m = media[i];
+  const step = (e: React.MouseEvent, delta: number) => {
+    e.stopPropagation();
+    setIndex((i + delta + media.length) % media.length);
+  };
   return (
-    <div className="flex flex-wrap gap-2 mt-2.5">
-      {shown.map((m, i) => (
-        <button
-          key={m.url + i}
-          onClick={() => onZoom(m)}
-          className="group relative h-24 w-36 rounded-lg overflow-hidden border bg-muted shrink-0 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-primary"
-          aria-label="Enlarge media"
-        >
-          {m.isVideo ? (
-            <>
-              <video src={m.url} muted preload="metadata" className="w-full h-full object-cover" />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <Play className="w-7 h-7 text-white drop-shadow" fill="currentColor" />
-              </span>
-            </>
-          ) : (
-            <img src={m.url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-          )}
-          {i === shown.length - 1 && extra > 0 && (
-            <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-lg font-semibold">
-              +{extra}
+    <div className={`group relative mt-2.5 rounded-lg overflow-hidden border bg-muted/40 ${compact ? 'aspect-[21/9]' : 'aspect-video'}`}>
+      <button
+        onClick={() => onZoom(media, i)}
+        className="absolute inset-0 w-full h-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-label="Enlarge media"
+      >
+        {m.isVideo ? (
+          <>
+            <video key={m.url} src={m.url} muted preload="metadata" className="w-full h-full object-contain" />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <Play className="w-8 h-8 text-white drop-shadow" fill="currentColor" />
             </span>
-          )}
-        </button>
-      ))}
+          </>
+        ) : (
+          <img key={m.url} src={m.url} alt="" loading="lazy" className="w-full h-full object-contain" />
+        )}
+      </button>
+      {media.length > 1 && (
+        <>
+          <button
+            onClick={(e) => step(e, -1)}
+            className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full border bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors"
+            aria-label="Previous media"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => step(e, 1)}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full border bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background transition-colors"
+            aria-label="Next media"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium tabular-nums pointer-events-none">
+            {i + 1} / {media.length}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -637,9 +684,10 @@ function CountChip({ dot, children }: { dot: string; children: React.ReactNode }
   );
 }
 
-function ActivityCard({ act, meta, onZoom, index }: { act: any; meta: typeof TYPE_META[ActivityType]; onZoom: (m: Media) => void; index: number }) {
+function ActivityCard({ act, meta, onZoom, index }: { act: any; meta: typeof TYPE_META[ActivityType]; onZoom: OnZoom; index: number }) {
   const desc = toCleanText(act.shortDescription);
   const showDesc = desc && !isPlaceholderDesc(desc);
+  const items: any[] = act.items || [];
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -659,12 +707,32 @@ function ActivityCard({ act, meta, onZoom, index }: { act: any; meta: typeof TYP
       {showDesc && (
         <p className="text-sm text-muted-foreground leading-relaxed mt-1.5 line-clamp-3">{desc}</p>
       )}
-      <ActivityMedia media={gatherMedia(act)} onZoom={onZoom} />
+      <SlideCarousel media={mediaOf(act)} onZoom={onZoom} />
+
+      {/* Nested changelog items, mirroring the report's "Included Items" list. */}
+      {items.length > 0 && (
+        <div className="mt-3.5 pt-3 border-t border-border/60 space-y-2.5">
+          <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Included items</h5>
+          {items.map((item: any, idx: number) => {
+            const itemDesc = toCleanText(item.description);
+            const showItemDesc = itemDesc && !isPlaceholderDesc(itemDesc);
+            return (
+              <div key={idx} className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+                <p className="text-[13px] font-medium leading-snug">{item.title}</p>
+                {showItemDesc && (
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-1">{itemDesc}</p>
+                )}
+                <SlideCarousel media={mediaOf(item)} onZoom={onZoom} compact />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 }
 
-function ProductSlide({ pData, onZoom, accent }: { pData: any; onZoom: (m: Media) => void; accent?: string }) {
+function ProductSlide({ pData, onZoom, accent }: { pData: any; onZoom: OnZoom; accent?: string }) {
   const { product, activities, counts } = pData;
   return (
     <>

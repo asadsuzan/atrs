@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { SuggestTitleButton, GenerateDescriptionButton } from '../ai/AiAssist';
+import { htmlToPlainText } from '@/lib/richText';
 import { Bug, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { playSound } from '@/lib/sound';
@@ -99,7 +101,18 @@ export function QuickIssueDialog({
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium">Title</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Title</label>
+              <SuggestTitleButton
+                entity="issue"
+                getContext={() => ({
+                  productName: products.find((p: any) => p._id === form.productId)?.name,
+                  severity: form.severity,
+                  existingContent: htmlToPlainText(form.description || ''),
+                })}
+                onPick={(t) => setForm((f) => ({ ...f, title: t }))}
+              />
+            </div>
             <Input
               required
               autoFocus
@@ -130,7 +143,18 @@ export function QuickIssueDialog({
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium">Description (optional)</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium">Description (optional)</label>
+              <GenerateDescriptionButton
+                entity="issue"
+                getContext={() => ({
+                  productName: products.find((p: any) => p._id === form.productId)?.name,
+                  severity: form.severity,
+                })}
+                getTitle={() => form.title}
+                onResult={(t) => setForm((f) => ({ ...f, description: t }))}
+              />
+            </div>
             <RichTextEditor
               ariaLabel="Issue description"
               placeholder="Steps to reproduce, expected vs actual behaviour..."

@@ -57,7 +57,9 @@ export class ProductService {
   }
 
   async getProducts(query: any, user: AuthUser): Promise<any> {
-    const filter: any = {};
+    // Scope to the user's own products; admins are unrestricted and may
+    // additionally narrow by a specific owner via ?ownerId.
+    const filter: any = scopeFilter(user);
     if (query.search) {
       filter.name = { $regex: escapeRegex(query.search), $options: 'i' };
     }
@@ -80,6 +82,8 @@ export class ProductService {
   async getProductById(id: string, user: AuthUser): Promise<IProduct | null> {
     const product = await this.repository.findById(id);
     if (!product) throw createHttpError(404, 'Product not found');
+    // Non-admins may only view their own products (404 so ids can't be probed).
+    assertOwner(product, user);
     return product;
   }
 

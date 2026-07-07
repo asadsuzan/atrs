@@ -103,6 +103,7 @@ import githubRoutes from './routes/githubRoutes';
 import readmeToolsRoutes from './routes/readmeToolsRoutes';
 import publicRoutes from './routes/publicRoutes';
 import changelogGenRoutes from './routes/changelogGenRoutes';
+import aiRoutes from './routes/aiRoutes';
 import { exportAllData } from './controllers/ExportController';
 
 // Static files for uploads
@@ -132,6 +133,7 @@ app.use('/api/issues', requireAuth, requireActive, issueRoutes);
 app.use('/api/jobs', requireAuth, requireActive, jobRoutes);
 app.use('/api/github', requireAuth, requireActive, githubRoutes);
 app.use('/api/changelog-gen', requireAuth, requireActive, changelogGenRoutes);
+app.use('/api/ai', requireAuth, requireActive, aiRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes
