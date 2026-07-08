@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { AppConfig } from '../models/AppConfig';
 
 const configPath = path.resolve(__dirname, '../../../app.config.json');
 
@@ -32,9 +33,6 @@ function readConfigFile(): any {
 }
 
 async function fetchConfigFromDb(): Promise<Record<string, any> | null> {
-  // Lazy import: models register against mongoose at import time, and this
-  // util is imported by modules that load before the DB connection exists.
-  const { AppConfig } = await import('../models/AppConfig');
   const doc = await AppConfig.findOne({ singleton: 'app' }).lean();
   return (doc?.data as Record<string, any>) ?? null;
 }
@@ -60,7 +58,6 @@ export async function loadAppConfigCache(): Promise<void> {
     }
     cache = seed;
     if (Object.keys(seed).length > 0) {
-      const { AppConfig } = await import('../models/AppConfig');
       await AppConfig.updateOne(
         { singleton: 'app' },
         { $setOnInsert: { data: seed } },
@@ -91,7 +88,6 @@ export function readAppConfig(): any {
  */
 export async function saveAppConfig(config: Record<string, any>): Promise<void> {
   if (isServerless()) {
-    const { AppConfig } = await import('../models/AppConfig');
     await AppConfig.updateOne({ singleton: 'app' }, { $set: { data: config } }, { upsert: true });
     cache = config;
     cacheLoadedAt = Date.now();

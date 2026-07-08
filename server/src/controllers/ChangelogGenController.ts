@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { Product } from '../models/Product';
 import { runStreamJob } from '../utils/sseStream';
 import { runPipeline, type RangeType } from '../services/ChangelogGenService';
@@ -63,8 +65,6 @@ export const getTags = async (req: Request, res: Response, next: NextFunction) =
     if (!product) return res.status(404).json({ message: 'Product not found' });
     if (!product.repoPath) return res.status(400).json({ message: 'No repository path' });
 
-    const { execFile } = require('child_process');
-    const { promisify } = require('util');
     const execFileP = promisify(execFile);
 
     try {
