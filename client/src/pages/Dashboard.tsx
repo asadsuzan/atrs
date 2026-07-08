@@ -21,6 +21,7 @@ import PageTransition, { staggerContainer, staggerItem } from '../components/lay
 import { TrendChart } from '../components/reports/TrendChart';
 import { DashboardSkeleton } from '@/components/ui/skeletons';
 import { QuickIssueDialog } from '../components/issues/QuickIssueDialog';
+import { StreakCard } from '../components/dashboard/StreakCard';
 import { classifyStale } from '../components/products/StaleProductAlert';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -282,6 +283,9 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Daily logging habit: cue → craving → one-click response → celebration */}
+      <StreakCard />
 
       {/* Priority alert banner — urgent products overdue for a changelog update */}
       <AnimatePresence>

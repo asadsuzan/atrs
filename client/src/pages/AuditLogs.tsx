@@ -107,6 +107,8 @@ export default function AuditLogs() {
               <SelectItem value="ACTIVITY">Activity</SelectItem>
               <SelectItem value="VERSION">Version</SelectItem>
               <SelectItem value="MARKETING">Marketing</SelectItem>
+              <SelectItem value="ISSUE">Issue</SelectItem>
+              <SelectItem value="FEATURE_REQUEST">Feature Request</SelectItem>
             </SelectContent>
           </Select>
         </div>

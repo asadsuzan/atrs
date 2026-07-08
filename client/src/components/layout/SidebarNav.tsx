@@ -5,12 +5,13 @@ import {
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
   PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, FileCheck2, Rocket, ClipboardCheck,
-  GitBranch
+  GitBranch, Lightbulb
 } from 'lucide-react';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
 import { getActivities } from '../../services/activities';
 import { getPendingReviewIssues } from '../../services/issues';
+import { getFeatureRequests } from '../../services/featureRequests';
 import { getUsers } from '../../services/users';
 import { getNavSettings } from '../../services/config';
 import { useAddProduct } from '../../contexts/AddProductContext';
@@ -250,6 +251,17 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
     queryFn: getPendingReviewIssues,
   });
   const reviewCount: number = (reviewData?.total || 0) + (pendingIssuesData?.length || 0);
+
+  // Untriaged feature requests (admin-only badge on the Feature Requests card).
+  // Shares the page's query key so submitting/triaging refreshes it too.
+  const { data: featureRequests } = useQuery({
+    queryKey: ['feature-requests'],
+    queryFn: getFeatureRequests,
+    enabled: isAdmin,
+  });
+  const pendingFeatureCount = isAdmin
+    ? (featureRequests || []).filter((r) => r.status === 'pending').length
+    : 0;
 
   // Admins see every owner's products, so we group the nested items by user.
   const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => getUsers(), enabled: isAdmin });
@@ -518,6 +530,53 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
       <LeafLink to="/audit-logs" icon={History} label="Audit Logs" />
       {isAdmin && <LeafLink to="/users" icon={UsersIcon} label="Users" />}
       <LeafLink to="/help" icon={HelpCircle} label="Help & Demos" />
+
+      {/* Feature requests — a standout card, separated from the regular nav so
+          "I have an idea" is findable at a glance. Amber = the lightbulb accent. */}
+      <div className={`mt-3 pt-3 border-t border-border/60 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        {isCollapsed ? (
+          <Link
+            to="/feature-requests"
+            data-tour="nav-/feature-requests"
+            title="Feature Requests"
+            className={`relative flex items-center justify-center w-10 h-10 rounded-xl text-amber-500 transition-colors ${
+              isPathActive('/feature-requests') ? 'bg-amber-500/20' : 'bg-amber-500/10 hover:bg-amber-500/20'
+            }`}
+          >
+            <Lightbulb className="w-5 h-5" />
+            {pendingFeatureCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" aria-label={`${pendingFeatureCount} pending feature requests`} />
+            )}
+          </Link>
+        ) : (
+          <Link
+            to="/feature-requests"
+            data-tour="nav-/feature-requests"
+            className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-xl border transition-colors ${
+              isPathActive('/feature-requests')
+                ? 'border-amber-500/40 bg-amber-500/10'
+                : 'border-border bg-muted/30 hover:border-amber-500/40 hover:bg-amber-500/5'
+            }`}
+          >
+            <span className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Lightbulb className="w-4 h-4" />
+            </span>
+            <span className="flex flex-col min-w-0 flex-1">
+              <span className={`text-sm leading-tight ${isPathActive('/feature-requests') ? 'font-semibold' : 'font-medium'}`}>
+                Feature Requests
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {isAdmin ? 'Triage user ideas' : 'Share your ideas'}
+              </span>
+            </span>
+            {pendingFeatureCount > 0 && (
+              <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold tabular-nums shrink-0">
+                {pendingFeatureCount}
+              </span>
+            )}
+          </Link>
+        )}
+      </div>
     </nav>
   );
 }

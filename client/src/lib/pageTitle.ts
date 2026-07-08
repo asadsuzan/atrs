@@ -22,6 +22,7 @@ const STATIC_TITLES: Record<string, string> = {
   '/readme-tools': 'Readme Tools',
   '/changelog-generator': 'Git Changelog',
   '/review': 'Review queue',
+  '/feature-requests': 'Feature Requests',
   '/audit-logs': 'Audit Logs',
   '/settings': 'Settings',
   '/help': 'Help',

@@ -37,6 +37,7 @@ const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
 const PublicIssues = lazy(() => import('./pages/PublicIssues'));
 const Explore = lazy(() => import('./pages/Explore'));
 const ChangelogGenerator = lazy(() => import('./pages/ChangelogGenerator'));
+const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 import { ThemeProvider } from './contexts/ThemeProvider';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -389,6 +390,7 @@ function AnimatedRoutes() {
           <Route path="/readme-tools" element={<ReadmeTools />} />
           <Route path="/changelog-generator" element={<ChangelogGenerator />} />
           <Route path="/review" element={<Review />} />
+          <Route path="/feature-requests" element={<FeatureRequests />} />
           <Route path="/audit-logs" element={<AuditLogs />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />
