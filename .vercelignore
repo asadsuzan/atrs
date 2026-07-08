@@ -1,7 +1,7 @@
-uploads
-atrs.bundle
-tools
-app.config.json
-.env
-*.md
-!README.md
+# Anchored to the repo root — unanchored patterns match nested paths too
+# (an unanchored "tools" would delete client/src/components/tools).
+/uploads
+/tools
+/atrs.bundle
+/app.config.json
+/.env
