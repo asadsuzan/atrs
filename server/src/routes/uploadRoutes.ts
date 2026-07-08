@@ -3,12 +3,15 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { isR2Active, uploadToR2 } from '../utils/r2Storage';
+import { isServerless } from '../utils/appConfig';
 
 const router = Router();
 
 const uploadDir = path.join(__dirname, '../../../uploads');
 
-if (!fs.existsSync(uploadDir)) {
+// Serverless filesystems are read-only — local disk storage is unavailable
+// there, so don't try to create the uploads dir (R2 is required instead).
+if (!isServerless() && !fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
@@ -77,6 +80,12 @@ const uploadToMemory = multer({
 router.post('/', (req: Request, res: Response) => {
   // Resolved per-request so an admin can switch backends without a restart.
   const useR2 = isR2Active();
+  if (!useR2 && isServerless()) {
+    return res.status(400).json({
+      message:
+        'Local disk storage is not available on this deployment. Configure Cloudflare R2 in Settings → Storage.',
+    });
+  }
   const upload = useR2 ? uploadToMemory : uploadToDisk;
 
   upload.single('file')(req, res, async (err: any) => {

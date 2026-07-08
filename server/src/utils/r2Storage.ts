@@ -6,35 +6,16 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { readAppConfig } from './appConfig';
-import { encryptSecret, decryptSecret } from './crypto';
+import { sealSecret, isSealedSecret, unsealSecret } from './crypto';
 
 /**
  * The R2 secret access key is stored encrypted (AES-256-GCM, same secret box
- * as GitHub tokens) inside app.config.json, marked with this prefix so we can
- * tell it apart from a legacy plaintext value or an env-provided one.
+ * as GitHub tokens) inside the app config. Thin aliases over the generic
+ * seal/unseal helpers in crypto.ts.
  */
-const ENC_PREFIX = 'enc:v1:';
-
-export function sealR2Secret(plaintext: string): string {
-  if (!plaintext) return '';
-  return ENC_PREFIX + encryptSecret(plaintext);
-}
-
-export function isSealedR2Secret(value: string): boolean {
-  return value.startsWith(ENC_PREFIX);
-}
-
-function unsealR2Secret(value: string): string {
-  if (!isSealedR2Secret(value)) return value; // legacy plaintext or env value
-  try {
-    return decryptSecret(value.slice(ENC_PREFIX.length));
-  } catch {
-    // Key secret rotated or payload tampered — treat as unset so R2 simply
-    // deactivates instead of failing every upload with a crypto error.
-    console.error('Failed to decrypt stored R2 secret access key; re-enter it in Settings.');
-    return '';
-  }
-}
+export const sealR2Secret = sealSecret;
+export const isSealedR2Secret = isSealedSecret;
+const unsealR2Secret = unsealSecret;
 
 export interface R2Settings {
   accountId: string;
@@ -58,8 +39,23 @@ export interface StorageConfig {
 export function getStorageConfig(): StorageConfig {
   const cfg = readAppConfig()?.storage || {};
   const r2 = cfg.r2 || {};
+  // No explicit provider yet (e.g. fresh serverless deploy with an empty
+  // config in MongoDB): default to R2 when the R2_* env vars fully
+  // configure it, since local disk isn't an option there anyway.
+  const envR2Complete = !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_BUCKET &&
+    process.env.R2_PUBLIC_BASE_URL &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY
+  );
+  const provider =
+    cfg.provider === 'r2' ? 'r2'
+    : cfg.provider === 'local' ? 'local'
+    : envR2Complete ? 'r2'
+    : 'local';
   return {
-    provider: cfg.provider === 'r2' ? 'r2' : 'local',
+    provider,
     r2: {
       accountId: String(r2.accountId || process.env.R2_ACCOUNT_ID || '').trim(),
       bucket: String(r2.bucket || process.env.R2_BUCKET || '').trim(),

@@ -1,15 +1,10 @@
-import fs from 'fs';
-import path from 'path';
+import { readAppConfig } from './appConfig';
+import { unsealSecret } from './crypto';
 
-const configPath = path.resolve(__dirname, '../../../app.config.json');
-
-/** Reads the `changelogGen` block from app.config.json (empty object on any failure). */
+/** Reads the `changelogGen` block from the app config (empty object on any failure). */
 function readConfig(): any {
   try {
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return data?.changelogGen || {};
-    }
+    return readAppConfig()?.changelogGen || {};
   } catch { /* fall through to defaults */ }
   return {};
 }
@@ -23,8 +18,8 @@ function readConfig(): any {
 export function getOllamaUrl(): string {
   const cfg = readConfig();
   let url = '';
-  if (cfg.ollamaMode === 'cloud' && cfg.ollamaCloudUrl) {
-    url = String(cfg.ollamaCloudUrl).trim();
+  if (cfg.ollamaMode === 'cloud') {
+    url = String(cfg.ollamaCloudUrl || process.env.OLLAMA_CLOUD_URL || '').trim();
   }
   if (!url) {
     url = process.env.OLLAMA_URL || 'http://localhost:11434';
@@ -40,8 +35,13 @@ export function getOllamaUrl(): string {
 export function getOllamaHeaders(): Record<string, string> {
   const cfg = readConfig();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (cfg.ollamaMode === 'cloud' && cfg.ollamaCloudKey) {
-    headers['Authorization'] = `Bearer ${String(cfg.ollamaCloudKey).trim()}`;
+  if (cfg.ollamaMode === 'cloud') {
+    // Stored keys are sealed at rest; the OLLAMA_CLOUD_KEY env var is the
+    // fallback (and the primary source on serverless deployments).
+    const key =
+      unsealSecret(String(cfg.ollamaCloudKey || '').trim()) ||
+      String(process.env.OLLAMA_CLOUD_KEY || '').trim();
+    if (key) headers['Authorization'] = `Bearer ${key}`;
   }
   return headers;
 }

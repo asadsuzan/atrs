@@ -72,6 +72,9 @@ export default function Settings() {
     ollamaMode: 'local',
     ollamaCloudUrl: '',
     ollamaCloudKey: '',
+    // Whether a key is already stored server-side (it's write-only and never
+    // sent back, so the field stays blank without being "missing").
+    ollamaCloudKeySet: false,
   });
   const [staleDays, setStaleDays] = useState(7);
   const [brandingForm, setBrandingForm] = useState({
@@ -165,7 +168,8 @@ export default function Settings() {
           model: gen.model || 'qwen2.5-coder',
           ollamaMode: gen.ollamaMode || 'local',
           ollamaCloudUrl: gen.ollamaCloudUrl || '',
-          ollamaCloudKey: gen.ollamaCloudKey || '',
+          ollamaCloudKey: '',
+          ollamaCloudKeySet: !!gen.ollamaCloudKeySet,
         });
       }
       if (configData.staleAlert?.days) setStaleDays(Number(configData.staleAlert.days));
@@ -803,7 +807,7 @@ export default function Settings() {
                         type="password"
                         value={changelogGenForm.ollamaCloudKey}
                         onChange={(e) => setChangelogGenForm((f) => ({ ...f, ollamaCloudKey: e.target.value }))}
-                        placeholder="Enter API key/token if required"
+                        placeholder={changelogGenForm.ollamaCloudKeySet ? '•••••••• (saved — enter a new key to replace)' : 'Enter API key/token if required'}
                       />
                       <p className="text-xs text-muted-foreground">
                         Token passed in the Authorization Bearer header.

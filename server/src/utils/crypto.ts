@@ -48,3 +48,34 @@ export function decryptSecret(payload: string): string {
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
 }
+
+/**
+ * Secrets stored in the app config (R2 secret key, Ollama Cloud key, ...) are
+ * encrypted at rest and marked with this prefix so a sealed value can be told
+ * apart from legacy plaintext or an env-provided one.
+ */
+export const SEAL_PREFIX = 'enc:v1:';
+
+export function sealSecret(plaintext: string): string {
+  if (!plaintext) return '';
+  return SEAL_PREFIX + encryptSecret(plaintext);
+}
+
+export function isSealedSecret(value: string): boolean {
+  return value.startsWith(SEAL_PREFIX);
+}
+
+/**
+ * Returns the plaintext for a sealed value, the input unchanged when it isn't
+ * sealed (legacy plaintext / env value), and '' when decryption fails (key
+ * secret rotated or payload tampered) so callers degrade instead of throwing.
+ */
+export function unsealSecret(value: string): string {
+  if (!isSealedSecret(value)) return value;
+  try {
+    return decryptSecret(value.slice(SEAL_PREFIX.length));
+  } catch {
+    console.error('Failed to decrypt a stored secret; re-enter it in Settings.');
+    return '';
+  }
+}

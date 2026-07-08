@@ -44,8 +44,13 @@ export class MediaService {
   private uploadsDir = path.join(__dirname, '../../../uploads');
 
   constructor() {
-    if (!fs.existsSync(this.uploadsDir)) {
-      fs.mkdirSync(this.uploadsDir, { recursive: true });
+    // Skip on read-only serverless filesystems (Vercel) — media lives in R2.
+    try {
+      if (!fs.existsSync(this.uploadsDir)) {
+        fs.mkdirSync(this.uploadsDir, { recursive: true });
+      }
+    } catch {
+      /* read-only filesystem — local media features are inert */
     }
   }
 

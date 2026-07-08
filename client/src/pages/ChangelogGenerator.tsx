@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   GitBranch, Play, Square, Copy, Check, Tag, Calendar, Hash,
   FileCode2, Layers, ClipboardList, GitPullRequest, Users, Loader2,
-  ChevronDown, AlertCircle, Info,
+  AlertCircle, Info,
 } from 'lucide-react';
 import { getProducts } from '../services/products';
 import {

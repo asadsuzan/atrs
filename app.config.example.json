@@ -10,27 +10,37 @@
     "errorSound": "synth-error",
     "notificationSound": "synth-notification",
     "clickSound": "synth-click",
-    "volume": 1
+    "volume": 0.5
   },
   "navigation": {
     "mode": "expanded"
   },
   "changelogGen": {
-    "model": "qwen3-coder:480b",
-    "ollamaMode": "cloud",
-    "ollamaCloudUrl": "https://ollama.com/api/generate",
-    "ollamaCloudKey": "a106470c353a40a5be713800d952fc30.M9qmTO-mSRXmlX6iyQV_M54c"
+    "model": "qwen2.5-coder",
+    "ollamaMode": "local",
+    "ollamaCloudUrl": "",
+    "ollamaCloudKey": ""
   },
   "staleAlert": {
-    "days": 365
+    "days": 7
   },
   "branding": {
-    "companyName": "bPlugins",
+    "companyName": "",
     "logoUrl": "",
-    "accentColor": "#4400c2",
+    "accentColor": "",
     "accentDynamic": false,
     "thankYouEnabled": true,
-    "thankYouTitle": "Thank You All",
-    "thankYouMessage": "Have  a nich day"
+    "thankYouTitle": "",
+    "thankYouMessage": ""
+  },
+  "storage": {
+    "provider": "local",
+    "r2": {
+      "accountId": "",
+      "bucket": "",
+      "publicBaseUrl": "",
+      "accessKeyId": "",
+      "secretAccessKey": ""
+    }
   }
 }

@@ -26,20 +26,23 @@ const registerConnectionListeners = () => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const connectDB = async () => {
+const connectDB = async (maxRetries: number = MAX_RETRIES) => {
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/atrs';
   registerConnectionListeners();
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  // Reuse a live connection (serverless warm invocations re-run bootstrap).
+  if (mongoose.connection.readyState === 1) return;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const conn = await mongoose.connect(uri);
       console.log(`MongoDB Connected: ${conn.connection.host}`);
       return;
     } catch (error: any) {
       console.error(
-        `[db]: Connection attempt ${attempt}/${MAX_RETRIES} failed: ${error?.message || error}`
+        `[db]: Connection attempt ${attempt}/${maxRetries} failed: ${error?.message || error}`
       );
-      if (attempt < MAX_RETRIES) {
+      if (attempt < maxRetries) {
         const delay = RETRY_BASE_DELAY_MS * attempt; // linear backoff
         console.log(`[db]: Retrying in ${delay}ms...`);
         await sleep(delay);

@@ -2,22 +2,46 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { hasControlChars } from '../utils/sanitize';
+import { readAppConfig, saveAppConfig, isServerless } from '../utils/appConfig';
+import { sealSecret, isSealedSecret } from '../utils/crypto';
 import { sealR2Secret, isSealedR2Secret, getStorageConfig, testR2Connection } from '../utils/r2Storage';
 
-const configPath = path.resolve(__dirname, '../../../app.config.json');
 const envPath = path.resolve(__dirname, '../../../.env');
 
 export const getConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!fs.existsSync(configPath)) {
-      return res.status(404).json({ message: 'Configuration file not found' });
+    const data = readAppConfig();
+    if (!data || Object.keys(data).length === 0) {
+      return res.status(404).json({ message: 'Configuration not found' });
     }
-    const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    // The R2 secret access key is write-only: never send it (or its encrypted
-    // form) to the browser — only whether one is stored.
-    if (data.storage?.r2) {
-      const hasSecret = !!(data.storage.r2.secretAccessKey || process.env.R2_SECRET_ACCESS_KEY);
-      data.storage.r2 = { ...data.storage.r2, secretAccessKey: '', secretAccessKeySet: hasSecret };
+    // Storage settings: return the *effective* non-secret values (stored
+    // config with R2_* env-var fallbacks) so the Settings form reflects what
+    // the server actually uses. The secret access key is write-only: never
+    // send it (or its encrypted form) to the browser — only whether one is
+    // stored (in config or via env).
+    if (data.storage) {
+      const effective = getStorageConfig();
+      data.storage = {
+        provider: data.storage.provider === 'r2' ? 'r2' : 'local',
+        r2: {
+          accountId: effective.r2.accountId,
+          bucket: effective.r2.bucket,
+          publicBaseUrl: effective.r2.publicBaseUrl,
+          accessKeyId: effective.r2.accessKeyId,
+          secretAccessKey: '',
+          secretAccessKeySet: !!(effective.r2.secretAccessKey || process.env.R2_SECRET_ACCESS_KEY),
+        },
+      };
+    }
+    // Same for the Ollama Cloud settings (key is write-only).
+    if (data.changelogGen) {
+      const hasKey = !!(data.changelogGen.ollamaCloudKey || process.env.OLLAMA_CLOUD_KEY);
+      data.changelogGen = {
+        ...data.changelogGen,
+        ollamaCloudUrl: data.changelogGen.ollamaCloudUrl || process.env.OLLAMA_CLOUD_URL || '',
+        ollamaCloudKey: '',
+        ollamaCloudKeySet: hasKey,
+      };
     }
     res.status(200).json(data);
   } catch (error) {
@@ -88,10 +112,9 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
       storage: { provider: 'local', r2: { accountId: '', bucket: '', publicBaseUrl: '', accessKeyId: '', secretAccessKey: '' } }
     };
 
-    if (fs.existsSync(configPath)) {
-      try {
-        currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      } catch {}
+    const existing = readAppConfig();
+    if (existing && Object.keys(existing).length > 0) {
+      currentConfig = existing;
     }
 
     // Migrate the legacy `codeTracker` block (used before the code-activity
@@ -221,9 +244,17 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
         ollamaCloudUrl: typeof changelogGen?.ollamaCloudUrl === 'string'
           ? changelogGen.ollamaCloudUrl.trim()
           : (currentConfig.changelogGen?.ollamaCloudUrl || ''),
-        ollamaCloudKey: typeof changelogGen?.ollamaCloudKey === 'string'
-          ? changelogGen.ollamaCloudKey.trim()
-          : (currentConfig.changelogGen?.ollamaCloudKey || ''),
+        // Write-only secret: a non-empty value replaces (sealed at rest);
+        // blank keeps whatever is already stored. Legacy plaintext values
+        // are sealed on the next save.
+        ollamaCloudKey: (() => {
+          const provided = typeof changelogGen?.ollamaCloudKey === 'string'
+            ? changelogGen.ollamaCloudKey.trim()
+            : '';
+          if (provided) return sealSecret(provided);
+          const kept = currentConfig.changelogGen?.ollamaCloudKey || '';
+          return kept && !isSealedSecret(kept) ? sealSecret(kept) : kept;
+        })(),
       },
       staleAlert: {
         days: (typeof staleAlert?.days === 'number' && staleAlert.days >= 1)
@@ -258,13 +289,13 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
       storage: mergedStorage,
     };
 
-    // 1. Write to app.config.json (atomic via temp file + rename)
-    const tmpConfig = `${configPath}.tmp`;
-    fs.writeFileSync(tmpConfig, JSON.stringify(mergedConfig, null, 2), 'utf8');
-    fs.renameSync(tmpConfig, configPath);
+    // 1. Persist the config (MongoDB on serverless, app.config.json locally)
+    await saveAppConfig(mergedConfig);
 
-    // 2. Only update .env if server settings changed
-    if (isServerChanged) {
+    // 2. Only update .env if server settings changed. On serverless there is
+    //    no writable .env and no process to restart — PORT/MONGODB_URI come
+    //    from the platform's environment variables instead.
+    if (isServerChanged && !isServerless()) {
       const env = readEnvFile();
       env.PORT = String(targetPort);
       env.MONGODB_URI = targetUri;
@@ -275,14 +306,14 @@ export const updateConfig = async (req: Request, res: Response, next: NextFuncti
     }
 
     res.status(200).json({
-      message: isServerChanged
+      message: isServerChanged && !isServerless()
         ? 'Configuration updated successfully. Server is restarting to apply changes...'
         : 'Configuration saved successfully.',
       config: mergedConfig
     });
 
     // 3. Gracefully exit process in production if server connection settings changed
-    if (isServerChanged) {
+    if (isServerChanged && !isServerless()) {
       if (process.env.NODE_ENV === 'production') {
         setTimeout(() => {
           console.log('🔄 Restarting server in production...');

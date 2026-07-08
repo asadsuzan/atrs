@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireActive } from '../middlewares/auth';
+import { readAppConfig } from '../utils/appConfig';
 import { notificationManager } from '../services/NotificationManager';
 import { getMyNotifications, markAsRead, markAllAsRead, deleteNotification } from '../controllers/NotificationController';
 
@@ -47,15 +48,10 @@ router.get('/subscribe', requireAuth, requireActive, (req: Request, res: Respons
  */
 router.get('/nav-settings', requireAuth, requireActive, (_req: Request, res: Response) => {
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const configPath = path.resolve(__dirname, '../../../app.config.json');
+    const data = readAppConfig();
     let mode = 'expanded';
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (['expanded', 'collapsed', 'disabled'].includes(data?.navigation?.mode)) {
-        mode = data.navigation.mode;
-      }
+    if (['expanded', 'collapsed', 'disabled'].includes(data?.navigation?.mode)) {
+      mode = data.navigation.mode;
     }
     res.status(200).json({ mode });
   } catch {
@@ -70,14 +66,8 @@ router.get('/nav-settings', requireAuth, requireActive, (_req: Request, res: Res
 router.get('/branding', requireAuth, requireActive, (_req: Request, res: Response) => {
   const fallback = { companyName: '', logoUrl: '', accentColor: '', accentDynamic: false, thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' };
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const configPath = path.resolve(__dirname, '../../../app.config.json');
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return res.status(200).json({ ...fallback, ...(data.branding || {}) });
-    }
-    res.status(200).json(fallback);
+    const data = readAppConfig();
+    res.status(200).json({ ...fallback, ...(data?.branding || {}) });
   } catch {
     res.status(200).json(fallback);
   }
@@ -88,10 +78,6 @@ router.get('/branding', requireAuth, requireActive, (_req: Request, res: Respons
  */
 router.get('/sounds', requireAuth, requireActive, (req: Request, res: Response) => {
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const configPath = path.resolve(__dirname, '../../../app.config.json');
-
     let soundsConfig = {
       enabled: true,
       successSound: 'synth-success',
@@ -102,11 +88,9 @@ router.get('/sounds', requireAuth, requireActive, (req: Request, res: Response) 
       volume: 0.5
     };
 
-    if (fs.existsSync(configPath)) {
-      const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (data.sounds) {
-        soundsConfig = { ...soundsConfig, ...data.sounds };
-      }
+    const data = readAppConfig();
+    if (data?.sounds) {
+      soundsConfig = { ...soundsConfig, ...data.sounds };
     }
 
     res.status(200).json(soundsConfig);

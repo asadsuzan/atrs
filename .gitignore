@@ -23,6 +23,10 @@ pnpm-debug.log*
 
 # Environment variables
 .env
+
+# Runtime app configuration (written by the Settings page; may hold
+# deployment-specific values — use app.config.example.json as the template)
+app.config.json
 .env.local
 .env.development.local
 .env.test.local
@@ -77,3 +81,6 @@ implementation_plan.md
 
 # Claude Code local (per-user) settings
 .claude/settings.local.json
+
+# Vercel
+.vercel
