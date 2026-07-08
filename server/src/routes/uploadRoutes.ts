@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { isR2Active, uploadToR2 } from '../utils/r2Storage';
 
 const router = Router();
 
@@ -35,13 +36,17 @@ const ALLOWED_EXTENSIONS = new Set<string>([
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
-const storage = multer.diskStorage({
+const makeFilename = (originalname: string) => {
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  return uniqueSuffix + path.extname(originalname).toLowerCase();
+};
+
+const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname).toLowerCase());
+    cb(null, makeFilename(file.originalname));
   },
 });
 
@@ -56,14 +61,25 @@ const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
   }
 };
 
-const upload = multer({
-  storage,
+const uploadToDisk = multer({
+  storage: diskStorage,
+  fileFilter,
+  limits: { fileSize: MAX_FILE_SIZE },
+});
+
+// R2 uploads buffer in memory, then stream to the bucket via the S3 API.
+const uploadToMemory = multer({
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: MAX_FILE_SIZE },
 });
 
 router.post('/', (req: Request, res: Response) => {
-  upload.single('file')(req, res, (err: any) => {
+  // Resolved per-request so an admin can switch backends without a restart.
+  const useR2 = isR2Active();
+  const upload = useR2 ? uploadToMemory : uploadToDisk;
+
+  upload.single('file')(req, res, async (err: any) => {
     if (err) {
       // Surface multer/file-filter errors as JSON 400 instead of a 500.
       if (err instanceof multer.MulterError) {
@@ -78,6 +94,19 @@ router.post('/', (req: Request, res: Response) => {
 
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    if (useR2) {
+      try {
+        const key = makeFilename(req.file.originalname);
+        const url = await uploadToR2(req.file.buffer, key, req.file.mimetype);
+        return res.status(200).json({ url });
+      } catch (uploadErr) {
+        console.error('Cloudflare R2 upload failed:', uploadErr);
+        return res.status(502).json({
+          message: 'Upload to Cloudflare R2 failed. Check the storage settings and bucket credentials.',
+        });
+      }
     }
 
     const fileUrl = `/uploads/${req.file.filename}`;

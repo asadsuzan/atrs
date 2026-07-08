@@ -17,6 +17,8 @@ export interface IMediaFile {
   createdAt: string;
   references: IMediaReference[];
   isOrphaned: boolean;
+  /** Where the file physically lives. */
+  storage?: 'local' | 'r2';
 }
 
 export const getMediaList = async (): Promise<IMediaFile[]> => {

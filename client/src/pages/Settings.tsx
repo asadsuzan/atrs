@@ -1,13 +1,13 @@
 import { useTheme } from '../contexts/ThemeProvider';
 import { motion } from 'framer-motion';
 import PageTransition, { staggerContainer, staggerItem } from '../components/layout/PageTransition';
-import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser, GitBranch, Link2, Unlink, Palette, Presentation, Server, Bell } from 'lucide-react';
+import { Check, Download, Database, Save, Volume2, VolumeX, Play, PanelLeft, Code2, Eraser, GitBranch, Link2, Unlink, Palette, Presentation, Server, Bell, Cloud, HardDrive } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportAllData } from '../services/export';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAppConfig, updateAppConfig, type NavMode } from '../services/config';
+import { getAppConfig, updateAppConfig, testStorageConnection, type NavMode, type R2TestResult } from '../services/config';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -79,6 +79,18 @@ export default function Settings() {
     thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '',
   });
   const [presenterForm, setPresenterForm] = useState({ name: '', jobTitle: '' });
+  const [storageForm, setStorageForm] = useState({
+    provider: 'local' as 'local' | 'r2',
+    accountId: '',
+    bucket: '',
+    publicBaseUrl: '',
+    accessKeyId: '',
+    secretAccessKey: '',
+    // Whether a secret is already stored server-side (it's write-only and
+    // never sent back, so the field stays blank without being "missing").
+    secretAccessKeySet: false,
+  });
+  const [storageTestResult, setStorageTestResult] = useState<R2TestResult | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
@@ -168,6 +180,17 @@ export default function Settings() {
           thankYouMessage: configData.branding.thankYouMessage || '',
         });
       }
+      if (configData.storage) {
+        setStorageForm({
+          provider: configData.storage.provider === 'r2' ? 'r2' : 'local',
+          accountId: configData.storage.r2?.accountId || '',
+          bucket: configData.storage.r2?.bucket || '',
+          publicBaseUrl: configData.storage.r2?.publicBaseUrl || '',
+          accessKeyId: configData.storage.r2?.accessKeyId || '',
+          secretAccessKey: '',
+          secretAccessKeySet: !!configData.storage.r2?.secretAccessKeySet,
+        });
+      }
       if (configData.sounds) {
         setSoundsForm({
           enabled: typeof configData.sounds.enabled === 'boolean' ? configData.sounds.enabled : true,
@@ -213,6 +236,14 @@ export default function Settings() {
       if (variables.branding) {
         toast.success("Branding saved");
         queryClient.invalidateQueries({ queryKey: ['branding'] });
+        refetch();
+        return;
+      }
+
+      // Media storage backend: no restart; refresh the media library.
+      if (variables.storage) {
+        toast.success("Media storage settings saved");
+        queryClient.invalidateQueries({ queryKey: ['mediaList'] });
         refetch();
         return;
       }
@@ -282,6 +313,81 @@ export default function Settings() {
 
   const handleSaveChangelogGen = () => {
     saveMutation.mutate({ changelogGen: changelogGenForm });
+  };
+
+  const validateStorageForm = (): boolean => {
+    const required: [string, string][] = [
+      [storageForm.accountId, 'Account ID'],
+      [storageForm.bucket, 'Bucket name'],
+      [storageForm.publicBaseUrl, 'Public base URL'],
+      [storageForm.accessKeyId, 'Access Key ID'],
+      // The secret is write-only: blank is fine when one is already saved.
+      [storageForm.secretAccessKeySet ? 'ok' : storageForm.secretAccessKey, 'Secret Access Key'],
+    ];
+    const missing = required.filter(([v]) => !v.trim()).map(([, label]) => label);
+    if (missing.length) {
+      toast.error(`Please fill in: ${missing.join(', ')}`);
+      return false;
+    }
+    if (!/^https?:\/\//i.test(storageForm.publicBaseUrl.trim())) {
+      toast.error('Public base URL must start with http:// or https://');
+      return false;
+    }
+    return true;
+  };
+
+  const storageTestMutation = useMutation({
+    mutationFn: testStorageConnection,
+    onSuccess: (result) => {
+      setStorageTestResult(result);
+      if (result.ok) {
+        playSound('success');
+        toast.success(result.message);
+      } else {
+        playSound('error');
+        toast.error(result.message);
+      }
+    },
+    onError: (err: any) => {
+      const message = err?.response?.data?.message || 'Connection test failed';
+      setStorageTestResult({ ok: false, message });
+      playSound('error');
+      toast.error(message);
+    },
+  });
+
+  // Editing any R2 field invalidates a previous test result.
+  const setR2Field = (patch: Partial<typeof storageForm>) => {
+    setStorageForm((f) => ({ ...f, ...patch }));
+    setStorageTestResult(null);
+  };
+
+  const handleTestStorage = () => {
+    if (!validateStorageForm()) return;
+    setStorageTestResult(null);
+    storageTestMutation.mutate({
+      accountId: storageForm.accountId.trim(),
+      bucket: storageForm.bucket.trim(),
+      publicBaseUrl: storageForm.publicBaseUrl.trim(),
+      accessKeyId: storageForm.accessKeyId.trim(),
+      secretAccessKey: storageForm.secretAccessKey.trim(),
+    });
+  };
+
+  const handleSaveStorage = () => {
+    if (storageForm.provider === 'r2' && !validateStorageForm()) return;
+    saveMutation.mutate({
+      storage: {
+        provider: storageForm.provider,
+        r2: {
+          accountId: storageForm.accountId.trim(),
+          bucket: storageForm.bucket.trim(),
+          publicBaseUrl: storageForm.publicBaseUrl.trim(),
+          accessKeyId: storageForm.accessKeyId.trim(),
+          secretAccessKey: storageForm.secretAccessKey.trim(),
+        },
+      },
+    });
   };
 
   const handleSaveStale = () => {
@@ -952,6 +1058,117 @@ export default function Settings() {
                 <Button onClick={handleSaveStale} disabled={saveMutation.isPending}>
                   <Save className="w-4 h-4 mr-2" /> Save
                 </Button>
+              </div>
+            </SettingCard>
+
+            <SettingCard
+              icon={Cloud}
+              title="Media Storage"
+              description="Where uploaded images and videos are stored. Local keeps files in the server's uploads folder; Cloudflare R2 uploads them to an R2 bucket and serves them from its public URL. Existing files stay where they are — only new uploads use the selected backend."
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStorageForm((f) => ({ ...f, provider: 'local' }))}
+                    className={`text-left rounded-lg border p-3 transition-colors ${storageForm.provider === 'local' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-accent/40'}`}
+                  >
+                    <p className="text-sm font-medium flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5" /> Local file system</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Files are saved to the server's <code>uploads/</code> folder.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStorageForm((f) => ({ ...f, provider: 'r2' }))}
+                    className={`text-left rounded-lg border p-3 transition-colors ${storageForm.provider === 'r2' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-accent/40'}`}
+                  >
+                    <p className="text-sm font-medium flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Cloudflare R2</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Files are uploaded to an R2 bucket via the S3 API.</p>
+                  </button>
+                </div>
+
+                {storageForm.provider === 'r2' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <p className="text-xs text-muted-foreground rounded-md bg-muted/50 border px-3 py-2">
+                      Create an API token under <span className="font-medium">Cloudflare Dashboard → R2 → Manage R2 API Tokens</span> with
+                      Object Read &amp; Write on your bucket, and enable public access (r2.dev subdomain or a custom domain) so uploaded
+                      files can be viewed. Fields left blank fall back to <code>R2_*</code> variables in your <code>.env</code>.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Account ID</label>
+                        <Input
+                          value={storageForm.accountId}
+                          onChange={(e) => setR2Field({ accountId: e.target.value })}
+                          placeholder="Cloudflare account ID"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Bucket name</label>
+                        <Input
+                          value={storageForm.bucket}
+                          onChange={(e) => setR2Field({ bucket: e.target.value })}
+                          placeholder="e.g. atrs-media"
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-sm font-medium">Public base URL</label>
+                        <Input
+                          value={storageForm.publicBaseUrl}
+                          onChange={(e) => setR2Field({ publicBaseUrl: e.target.value })}
+                          placeholder="https://pub-xxxxxxxx.r2.dev or https://media.yourdomain.com"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          The URL your bucket is publicly served from. Stored media links are built from it.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Access Key ID</label>
+                        <Input
+                          autoComplete="off"
+                          value={storageForm.accessKeyId}
+                          onChange={(e) => setR2Field({ accessKeyId: e.target.value })}
+                          placeholder="R2 access key ID"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium">Secret Access Key</label>
+                        <Input
+                          type="password"
+                          autoComplete="new-password"
+                          value={storageForm.secretAccessKey}
+                          onChange={(e) => setR2Field({ secretAccessKey: e.target.value })}
+                          placeholder={storageForm.secretAccessKeySet ? '•••••••• (saved — enter a new key to replace)' : 'R2 secret access key'}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Encrypted at rest and never sent back to the browser.
+                        </p>
+                      </div>
+                    </div>
+
+                    {storageTestResult && (
+                      <p className={`text-xs rounded-md border px-3 py-2 ${storageTestResult.ok ? 'text-green-700 dark:text-green-400 bg-green-500/10 border-green-500/30' : 'text-destructive bg-destructive/10 border-destructive/30'}`}>
+                        {storageTestResult.ok ? '✓ ' : '✗ '}{storageTestResult.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  {storageForm.provider === 'r2' && (
+                    <Button
+                      variant="outline"
+                      onClick={handleTestStorage}
+                      disabled={storageTestMutation.isPending || saveMutation.isPending}
+                    >
+                      <Link2 className="w-4 h-4 mr-2" />
+                      {storageTestMutation.isPending ? 'Testing...' : 'Test Connection'}
+                    </Button>
+                  )}
+                  <Button onClick={handleSaveStorage} disabled={saveMutation.isPending}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {saveMutation.isPending ? 'Saving...' : 'Save Storage Settings'}
+                  </Button>
+                </div>
               </div>
             </SettingCard>
 

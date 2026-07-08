@@ -5,6 +5,13 @@ import { ProductMarketing } from '../models/ProductMarketing';
 import { Activity } from '../models/Activity';
 import createHttpError from '../utils/httpError';
 import type { AuthUser } from '../types/auth';
+import {
+  isR2Active,
+  listR2Objects,
+  deleteFromR2,
+  r2ObjectExists,
+  r2PublicUrl,
+} from '../utils/r2Storage';
 
 export interface IMediaReference {
   entityType: 'product' | 'marketing' | 'activity';
@@ -23,6 +30,14 @@ export interface IMediaFile {
   createdAt: Date;
   references: IMediaReference[];
   isOrphaned: boolean;
+  /** Where the file physically lives. */
+  storage: 'local' | 'r2';
+}
+
+interface IMediaEntities {
+  products: any[];
+  marketings: any[];
+  activities: any[];
 }
 
 export class MediaService {
@@ -69,19 +84,11 @@ export class MediaService {
     return resolved;
   }
 
-  public async getAllMedia(user?: AuthUser): Promise<IMediaFile[]> {
-    if (!fs.existsSync(this.uploadsDir)) {
-      return [];
-    }
-
-    const files = fs.readdirSync(this.uploadsDir);
-    const mediaFiles: IMediaFile[] = [];
-
-    // Non-admins only see files referenced by their own content.
+  /** Loads every entity that can reference media, scoped to the user unless admin. */
+  private async loadMediaEntities(user?: AuthUser): Promise<IMediaEntities> {
     const isAdmin = user?.role === 'admin';
     const ownerScope = isAdmin || !user ? {} : { ownerId: user.id };
 
-    // Query entities that can hold media (scoped to the user unless admin)
     const [products, marketings, activities] = await Promise.all([
       Product.find(ownerScope, 'name slug banner icon').lean(),
       ProductMarketing.find(ownerScope, 'productId pluginName thumbnailImage trailerVideo tutorialVideo keyFeatures screenshots')
@@ -92,225 +99,282 @@ export class MediaService {
         .lean()
     ]);
 
-    for (const file of files) {
-      // Skip hidden/system files
-      if (file.startsWith('.')) continue;
+    return { products, marketings, activities };
+  }
 
-      const filePath = path.join(this.uploadsDir, file);
-      let stats: fs.Stats;
+  /** Finds every entity field whose stored URL exactly matches `fileUrl`. */
+  private collectReferences(fileUrl: string, entities: IMediaEntities): IMediaReference[] {
+    const { products, marketings, activities } = entities;
+    const references: IMediaReference[] = [];
+
+    // Check Products
+    for (const prod of products) {
+      const pId = (prod as any)._id.toString();
+      const pName = prod.name;
+      if (prod.banner === fileUrl) {
+        references.push({
+          entityType: 'product',
+          entityId: pId,
+          entityName: pName,
+          field: 'banner',
+          productId: pId,
+          productName: pName
+        });
+      }
+      if (prod.icon === fileUrl) {
+        references.push({
+          entityType: 'product',
+          entityId: pId,
+          entityName: pName,
+          field: 'icon',
+          productId: pId,
+          productName: pName
+        });
+      }
+    }
+
+    // Check Product Marketing
+    for (const mkt of marketings) {
+      const prodName = (mkt.productId as any)?.name || mkt.pluginName || 'Unknown Product';
+      const pId = (mkt.productId as any)?._id?.toString() || mkt.productId?.toString();
+      if (mkt.thumbnailImage === fileUrl) {
+        references.push({
+          entityType: 'marketing',
+          entityId: (mkt as any)._id.toString(),
+          entityName: prodName,
+          field: 'thumbnailImage',
+          productId: pId,
+          productName: prodName
+        });
+      }
+      if (mkt.trailerVideo === fileUrl) {
+        references.push({
+          entityType: 'marketing',
+          entityId: (mkt as any)._id.toString(),
+          entityName: prodName,
+          field: 'trailerVideo',
+          productId: pId,
+          productName: prodName
+        });
+      }
+      if (mkt.tutorialVideo === fileUrl) {
+        references.push({
+          entityType: 'marketing',
+          entityId: (mkt as any)._id.toString(),
+          entityName: prodName,
+          field: 'tutorialVideo',
+          productId: pId,
+          productName: prodName
+        });
+      }
+      if (mkt.keyFeatures && Array.isArray(mkt.keyFeatures)) {
+        mkt.keyFeatures.forEach((kf: any, idx: number) => {
+          if (kf.mediaUrl === fileUrl) {
+            references.push({
+              entityType: 'marketing',
+              entityId: (mkt as any)._id.toString(),
+              entityName: prodName,
+              field: `keyFeatures[${idx}].mediaUrl`,
+              productId: pId,
+              productName: prodName
+            });
+          }
+        });
+      }
+      if (mkt.screenshots && Array.isArray(mkt.screenshots)) {
+        mkt.screenshots.forEach((scr: any, idx: number) => {
+          if (scr.url === fileUrl) {
+            references.push({
+              entityType: 'marketing',
+              entityId: (mkt as any)._id.toString(),
+              entityName: prodName,
+              field: `screenshots[${idx}].url`,
+              productId: pId,
+              productName: prodName
+            });
+          }
+        });
+      }
+    }
+
+    // Check Activities
+    for (const act of activities) {
+      const prodName = (act.productId as any)?.name || 'Unknown Product';
+      const pId = (act.productId as any)?._id?.toString() || act.productId?.toString();
+      if (act.mediaUrl === fileUrl) {
+        references.push({
+          entityType: 'activity',
+          entityId: (act as any)._id.toString(),
+          entityName: `${act.title} (${prodName})`,
+          field: 'mediaUrl',
+          productId: pId,
+          productName: prodName
+        });
+      }
+      if (act.mediaUrls && Array.isArray(act.mediaUrls)) {
+        act.mediaUrls.forEach((url: string, idx: number) => {
+          if (url === fileUrl) {
+            references.push({
+              entityType: 'activity',
+              entityId: (act as any)._id.toString(),
+              entityName: `${act.title} (${prodName})`,
+              field: `mediaUrls[${idx}]`,
+              productId: pId,
+              productName: prodName
+            });
+          }
+        });
+      }
+      if (act.items && Array.isArray(act.items)) {
+        act.items.forEach((item: any, itemIdx: number) => {
+          if (item.mediaUrl === fileUrl) {
+            references.push({
+              entityType: 'activity',
+              entityId: (act as any)._id.toString(),
+              entityName: `${act.title} -> ${item.title} (${prodName})`,
+              field: `items[${itemIdx}].mediaUrl`,
+              productId: pId,
+              productName: prodName
+            });
+          }
+          if (item.mediaUrls && Array.isArray(item.mediaUrls)) {
+            item.mediaUrls.forEach((url: string, urlIdx: number) => {
+              if (url === fileUrl) {
+                references.push({
+                  entityType: 'activity',
+                  entityId: (act as any)._id.toString(),
+                  entityName: `${act.title} -> ${item.title} (${prodName})`,
+                  field: `items[${itemIdx}].mediaUrls[${urlIdx}]`,
+                  productId: pId,
+                  productName: prodName
+                });
+              }
+            });
+          }
+        });
+      }
+    }
+
+    return references;
+  }
+
+  public async getAllMedia(user?: AuthUser): Promise<IMediaFile[]> {
+    const isAdmin = user?.role === 'admin';
+    const entities = await this.loadMediaEntities(user);
+    const mediaFiles: IMediaFile[] = [];
+
+    // Local uploads directory
+    if (fs.existsSync(this.uploadsDir)) {
+      const files = fs.readdirSync(this.uploadsDir);
+      for (const file of files) {
+        // Skip hidden/system files
+        if (file.startsWith('.')) continue;
+
+        const filePath = path.join(this.uploadsDir, file);
+        let stats: fs.Stats;
+        try {
+          stats = fs.statSync(filePath);
+          if (!stats.isFile()) continue;
+        } catch (err) {
+          continue;
+        }
+
+        const fileUrl = `/uploads/${file}`;
+        const references = this.collectReferences(fileUrl, entities);
+
+        // Non-admins must not see files that none of their own content references.
+        if (!isAdmin && references.length === 0) continue;
+
+        mediaFiles.push({
+          filename: file,
+          url: fileUrl,
+          size: stats.size,
+          mimeType: this.getMimeType(file),
+          createdAt: stats.mtime,
+          references,
+          isOrphaned: references.length === 0,
+          storage: 'local'
+        });
+      }
+    }
+
+    // Cloudflare R2 bucket (when configured). A listing failure shouldn't
+    // take down the whole media library — degrade to local-only.
+    if (isR2Active()) {
       try {
-        stats = fs.statSync(filePath);
-        if (!stats.isFile()) continue;
+        const objects = await listR2Objects();
+        for (const obj of objects) {
+          const fileUrl = r2PublicUrl(obj.key);
+          const references = this.collectReferences(fileUrl, entities);
+          if (!isAdmin && references.length === 0) continue;
+
+          mediaFiles.push({
+            filename: obj.key,
+            url: fileUrl,
+            size: obj.size,
+            mimeType: this.getMimeType(obj.key),
+            createdAt: obj.lastModified,
+            references,
+            isOrphaned: references.length === 0,
+            storage: 'r2'
+          });
+        }
       } catch (err) {
-        continue;
+        console.error('Failed to list Cloudflare R2 objects:', err);
       }
-
-      const fileUrl = `/uploads/${file}`;
-      const references: IMediaReference[] = [];
-
-      // Check Products
-      for (const prod of products) {
-        const pId = (prod as any)._id.toString();
-        const pName = prod.name;
-        if (prod.banner === fileUrl) {
-          references.push({
-            entityType: 'product',
-            entityId: pId,
-            entityName: pName,
-            field: 'banner',
-            productId: pId,
-            productName: pName
-          });
-        }
-        if (prod.icon === fileUrl) {
-          references.push({
-            entityType: 'product',
-            entityId: pId,
-            entityName: pName,
-            field: 'icon',
-            productId: pId,
-            productName: pName
-          });
-        }
-      }
-
-      // Check Product Marketing
-      for (const mkt of marketings) {
-        const prodName = (mkt.productId as any)?.name || mkt.pluginName || 'Unknown Product';
-        const pId = (mkt.productId as any)?._id?.toString() || mkt.productId?.toString();
-        if (mkt.thumbnailImage === fileUrl) {
-          references.push({
-            entityType: 'marketing',
-            entityId: (mkt as any)._id.toString(),
-            entityName: prodName,
-            field: 'thumbnailImage',
-            productId: pId,
-            productName: prodName
-          });
-        }
-        if (mkt.trailerVideo === fileUrl) {
-          references.push({
-            entityType: 'marketing',
-            entityId: (mkt as any)._id.toString(),
-            entityName: prodName,
-            field: 'trailerVideo',
-            productId: pId,
-            productName: prodName
-          });
-        }
-        if (mkt.tutorialVideo === fileUrl) {
-          references.push({
-            entityType: 'marketing',
-            entityId: (mkt as any)._id.toString(),
-            entityName: prodName,
-            field: 'tutorialVideo',
-            productId: pId,
-            productName: prodName
-          });
-        }
-        if (mkt.keyFeatures && Array.isArray(mkt.keyFeatures)) {
-          mkt.keyFeatures.forEach((kf: any, idx: number) => {
-            if (kf.mediaUrl === fileUrl) {
-              references.push({
-                entityType: 'marketing',
-                entityId: (mkt as any)._id.toString(),
-                entityName: prodName,
-                field: `keyFeatures[${idx}].mediaUrl`,
-                productId: pId,
-                productName: prodName
-              });
-            }
-          });
-        }
-        if (mkt.screenshots && Array.isArray(mkt.screenshots)) {
-          mkt.screenshots.forEach((scr: any, idx: number) => {
-            if (scr.url === fileUrl) {
-              references.push({
-                entityType: 'marketing',
-                entityId: (mkt as any)._id.toString(),
-                entityName: prodName,
-                field: `screenshots[${idx}].url`,
-                productId: pId,
-                productName: prodName
-              });
-            }
-          });
-        }
-      }
-
-      // Check Activities
-      for (const act of activities) {
-        const prodName = (act.productId as any)?.name || 'Unknown Product';
-        const pId = (act.productId as any)?._id?.toString() || act.productId?.toString();
-        if (act.mediaUrl === fileUrl) {
-          references.push({
-            entityType: 'activity',
-            entityId: (act as any)._id.toString(),
-            entityName: `${act.title} (${prodName})`,
-            field: 'mediaUrl',
-            productId: pId,
-            productName: prodName
-          });
-        }
-        if (act.mediaUrls && Array.isArray(act.mediaUrls)) {
-          act.mediaUrls.forEach((url: string, idx: number) => {
-            if (url === fileUrl) {
-              references.push({
-                entityType: 'activity',
-                entityId: (act as any)._id.toString(),
-                entityName: `${act.title} (${prodName})`,
-                field: `mediaUrls[${idx}]`,
-                productId: pId,
-                productName: prodName
-              });
-            }
-          });
-        }
-        if (act.items && Array.isArray(act.items)) {
-          act.items.forEach((item: any, itemIdx: number) => {
-            if (item.mediaUrl === fileUrl) {
-              references.push({
-                entityType: 'activity',
-                entityId: (act as any)._id.toString(),
-                entityName: `${act.title} -> ${item.title} (${prodName})`,
-                field: `items[${itemIdx}].mediaUrl`,
-                productId: pId,
-                productName: prodName
-              });
-            }
-            if (item.mediaUrls && Array.isArray(item.mediaUrls)) {
-              item.mediaUrls.forEach((url: string, urlIdx: number) => {
-                if (url === fileUrl) {
-                  references.push({
-                    entityType: 'activity',
-                    entityId: (act as any)._id.toString(),
-                    entityName: `${act.title} -> ${item.title} (${prodName})`,
-                    field: `items[${itemIdx}].mediaUrls[${urlIdx}]`,
-                    productId: pId,
-                    productName: prodName
-                  });
-                }
-              });
-            }
-          });
-        }
-      }
-
-      // Non-admins must not see files that none of their own content references.
-      if (!isAdmin && references.length === 0) continue;
-
-      mediaFiles.push({
-        filename: file,
-        url: fileUrl,
-        size: stats.size,
-        mimeType: this.getMimeType(file),
-        createdAt: stats.mtime,
-        references,
-        isOrphaned: references.length === 0
-      });
     }
 
     // Sort by modified/creation time descending
     return mediaFiles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
+  private async assertUnreferenced(fileUrl: string, filename: string): Promise<void> {
+    const [prodCount, mktCount, actCount] = await Promise.all([
+      Product.countDocuments({ $or: [{ banner: fileUrl }, { icon: fileUrl }] }),
+      ProductMarketing.countDocuments({
+        $or: [
+          { thumbnailImage: fileUrl },
+          { trailerVideo: fileUrl },
+          { tutorialVideo: fileUrl },
+          { 'keyFeatures.mediaUrl': fileUrl },
+          { 'screenshots.url': fileUrl }
+        ]
+      }),
+      Activity.countDocuments({
+        $or: [
+          { mediaUrl: fileUrl },
+          { mediaUrls: fileUrl },
+          { 'items.mediaUrl': fileUrl },
+          { 'items.mediaUrls': fileUrl }
+        ]
+      })
+    ]);
+
+    if (prodCount > 0 || mktCount > 0 || actCount > 0) {
+      throw new Error(`Cannot delete referenced file: ${filename}. It is in use.`);
+    }
+  }
+
   public async deleteMedia(filename: string, force: boolean = false): Promise<{ success: boolean; filename: string }> {
+    // Local file takes precedence; fall back to the R2 bucket.
     const filePath = this.safeResolve(filename);
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`File ${filename} not found`);
-    }
-
-    if (!force) {
-      // Scan to check for references
-      const fileUrl = `/uploads/${filename}`;
-      const [prodCount, mktCount, actCount] = await Promise.all([
-        Product.countDocuments({ $or: [{ banner: fileUrl }, { icon: fileUrl }] }),
-        ProductMarketing.countDocuments({
-          $or: [
-            { thumbnailImage: fileUrl },
-            { trailerVideo: fileUrl },
-            { tutorialVideo: fileUrl },
-            { 'keyFeatures.mediaUrl': fileUrl },
-            { 'screenshots.url': fileUrl }
-          ]
-        }),
-        Activity.countDocuments({
-          $or: [
-            { mediaUrl: fileUrl },
-            { mediaUrls: fileUrl },
-            { 'items.mediaUrl': fileUrl },
-            { 'items.mediaUrls': fileUrl }
-          ]
-        })
-      ]);
-
-      if (prodCount > 0 || mktCount > 0 || actCount > 0) {
-        throw new Error(`Cannot delete referenced file: ${filename}. It is in use.`);
+    if (fs.existsSync(filePath)) {
+      if (!force) {
+        await this.assertUnreferenced(`/uploads/${filename}`, filename);
       }
+      fs.unlinkSync(filePath);
+      return { success: true, filename };
     }
 
-    fs.unlinkSync(filePath);
-    return { success: true, filename };
+    if (isR2Active() && (await r2ObjectExists(filename))) {
+      if (!force) {
+        await this.assertUnreferenced(r2PublicUrl(filename), filename);
+      }
+      await deleteFromR2(filename);
+      return { success: true, filename };
+    }
+
+    throw new Error(`File ${filename} not found`);
   }
 
   public async purgeOrphaned(): Promise<string[]> {
@@ -320,6 +384,11 @@ export class MediaService {
 
     for (const media of orphanedMedia) {
       try {
+        if (media.storage === 'r2') {
+          await deleteFromR2(media.filename);
+          deletedFiles.push(media.filename);
+          continue;
+        }
         const filePath = this.safeResolve(media.filename);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);

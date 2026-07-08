@@ -1,10 +1,23 @@
 import fs from 'fs';
 import path from 'path';
+import { r2KeyFromUrl, deleteFromR2 } from './r2Storage';
 
 const uploadsRoot = path.resolve(__dirname, '../../../uploads');
 
 export const deleteMediaFile = (url?: string | null | undefined) => {
-  if (!url || !url.startsWith('/uploads/')) return;
+  if (!url) return;
+
+  // R2-hosted media: absolute URL under the configured public base URL.
+  // Deletion is fire-and-forget to keep this helper's sync signature.
+  const r2Key = r2KeyFromUrl(url);
+  if (r2Key) {
+    deleteFromR2(r2Key).catch((error) => {
+      console.error(`Failed to delete R2 media object: ${url}`, error);
+    });
+    return;
+  }
+
+  if (!url.startsWith('/uploads/')) return;
   try {
     const filename = url.replace('/uploads/', '');
     const filePath = path.resolve(uploadsRoot, filename);

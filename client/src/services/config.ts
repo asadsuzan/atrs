@@ -10,6 +10,26 @@ export const updateAppConfig = async (config: any) => {
   return data;
 };
 
+export interface R2TestResult {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * Verifies Cloudflare R2 credentials with a server-side write/read/delete
+ * round-trip before saving. Blank fields fall back to stored settings.
+ */
+export const testStorageConnection = async (r2: {
+  accountId: string;
+  bucket: string;
+  publicBaseUrl: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}): Promise<R2TestResult> => {
+  const { data } = await api.post('/config/storage/test', r2);
+  return data as R2TestResult;
+};
+
 export type NavMode = 'expanded' | 'collapsed' | 'disabled';
 
 /** Readable by any authenticated user (not just admins). */
