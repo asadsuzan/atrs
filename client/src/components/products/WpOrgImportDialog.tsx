@@ -300,7 +300,7 @@ export function WpOrgImportDialog() {
                     <Button variant="outline" onClick={close}>Cancel</Button>
                     <Button
                       onClick={startImport}
-                      disabled={selected.size === 0}
+                      disabled={selected.size === 0 || isImporting}
                     >
                       <Download className="w-4 h-4 mr-2" /> Import {selected.size} product{selected.size !== 1 ? 's' : ''}
                     </Button>

@@ -113,6 +113,8 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
 
   const abortRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  // Synchronous "an import is running" latch (see runImport).
+  const importInFlightRef = useRef(false);
 
   const previewMutation = useMutation({
     mutationFn: () => wpOrgPreview(username.trim()),
@@ -213,6 +215,13 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
   };
 
   const runImport = async (uname: string, slugList: string[]) => {
+    // Guard against overlapping imports: a second run (double-click, or a manual
+    // import started while another is still streaming) would race the first and
+    // insert duplicate entries. Ref check is synchronous so it beats a fast
+    // double-invoke before isImporting re-renders.
+    if (importInFlightRef.current) return;
+    importInFlightRef.current = true;
+
     setIsImporting(true);
     setIsCancelling(false);
     setLogs([]);
@@ -274,6 +283,7 @@ export function WpImportProvider({ children }: { children: ReactNode }) {
       setIsImporting(false);
       setIsCancelling(false);
       abortRef.current = null;
+      importInFlightRef.current = false;
     }
   };
 

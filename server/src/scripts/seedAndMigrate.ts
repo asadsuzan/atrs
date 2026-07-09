@@ -13,6 +13,10 @@ import { ProductMarketing } from '../models/ProductMarketing';
  */
 export async function seedAndMigrate(): Promise<void> {
   await dropLegacyProductSlugIndex();
+  // Clean up any duplicate imported entries left by earlier concurrent imports,
+  // THEN (re)build the unique index that prevents them recurring. Order matters:
+  // the unique index can't build while duplicates still exist.
+  await dedupeImportedData();
 
   const rootAdmin = await ensureRootAdmin();
   if (!rootAdmin) return;
@@ -36,6 +40,65 @@ export async function seedAndMigrate(): Promise<void> {
         `${activities.modifiedCount} activities, ${versions.modifiedCount} versions, ` +
         `${marketing.modifiedCount} marketing records.`
     );
+  }
+}
+
+/**
+ * Removes duplicate rows created by earlier concurrent/overlapping imports and
+ * ensures the unique indexes that prevent them from coming back:
+ *   - Activities sharing the same (productId, importSourceKey): keep the oldest,
+ *     delete the rest.
+ *   - Versions sharing the same (productId, label): keep the oldest, repoint any
+ *     activities to the survivor, delete the rest.
+ * Idempotent — a no-op once the data is clean.
+ */
+async function dedupeImportedData(): Promise<void> {
+  try {
+    // --- Duplicate imported activities ---
+    const actDups = await Activity.aggregate([
+      { $match: { importSourceKey: { $exists: true, $ne: null } } },
+      { $group: { _id: { p: '$productId', k: '$importSourceKey' }, ids: { $push: '$_id' }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+    let removedActs = 0;
+    for (const g of actDups) {
+      // ObjectIds sort by creation time, so [0] is the oldest — the keeper.
+      const ids = (g.ids as any[]).map((x) => x.toString()).sort();
+      const drop = ids.slice(1);
+      if (drop.length) {
+        await Activity.deleteMany({ _id: { $in: drop } });
+        removedActs += drop.length;
+      }
+    }
+    if (removedActs > 0) {
+      console.log(`[migrate]: Removed ${removedActs} duplicate imported changelog entr${removedActs === 1 ? 'y' : 'ies'}.`);
+    }
+
+    // --- Duplicate versions (repoint activities before deleting) ---
+    const verDups = await Version.aggregate([
+      { $group: { _id: { p: '$productId', l: '$label' }, ids: { $push: '$_id' }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+    let mergedVers = 0;
+    for (const g of verDups) {
+      const ids = (g.ids as any[]).map((x) => x.toString()).sort();
+      const keep = ids[0];
+      const drop = ids.slice(1);
+      if (drop.length) {
+        await Activity.updateMany({ versionId: { $in: drop } }, { $set: { versionId: keep } });
+        await Version.deleteMany({ _id: { $in: drop } });
+        mergedVers += drop.length;
+      }
+    }
+    if (mergedVers > 0) {
+      console.log(`[migrate]: Merged ${mergedVers} duplicate version row(s).`);
+    }
+
+    // Now that duplicates are gone, ensure the schema indexes (incl. the new
+    // unique { productId, importSourceKey }) are built.
+    await Activity.createIndexes();
+  } catch (err: any) {
+    console.warn('[migrate]: Duplicate cleanup / index build skipped:', err?.message || err);
   }
 }
 

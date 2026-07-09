@@ -671,8 +671,23 @@ export class ProductService {
               }
 
               if (toInsertActs.length > 0) {
-                await Activity.insertMany(toInsertActs, { ordered: false });
-                emit({ ...pctx, type: 'success', step: 'changelog', message: `Created ${toInsertActs.length} changelog ${toInsertActs.length === 1 ? 'entry' : 'entries'} from readme` });
+                // ordered:false + tolerate E11000: the unique
+                // { productId, importSourceKey } index rejects any entry a
+                // concurrent/overlapping import already inserted, so races
+                // silently skip the dupes instead of creating them or failing.
+                let insertedCount = toInsertActs.length;
+                try {
+                  await Activity.insertMany(toInsertActs, { ordered: false });
+                } catch (bulkErr: any) {
+                  if (bulkErr?.code === 11000 || bulkErr?.writeErrors) {
+                    const dupes = (bulkErr.writeErrors?.length) ?? 0;
+                    insertedCount = Math.max(0, toInsertActs.length - dupes);
+                    console.log(`[WP Import] ${plugin.slug}: skipped ${dupes} duplicate changelog ${dupes === 1 ? 'entry' : 'entries'} (already imported)`);
+                  } else {
+                    throw bulkErr;
+                  }
+                }
+                emit({ ...pctx, type: 'success', step: 'changelog', message: `Created ${insertedCount} changelog ${insertedCount === 1 ? 'entry' : 'entries'} from readme` });
               } else {
                 emit({ ...pctx, type: 'info', step: 'changelog', message: `Changelog already up to date` });
               }

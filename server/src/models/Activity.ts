@@ -132,5 +132,13 @@ ActivitySchema.index({ productId: 1 });
 ActivitySchema.index({ type: 1 });
 // Compound index supporting owner-scoped trend/annual aggregations.
 ActivitySchema.index({ ownerId: 1, activityDate: 1, type: 1 });
+// Enforce one changelog entry per (product, import key) so a re-import or two
+// concurrent imports can never create duplicate entries — the DB rejects the
+// second insert. Partial so it only applies to imported entries (manual/AI
+// entries have no importSourceKey and are unaffected).
+ActivitySchema.index(
+  { productId: 1, importSourceKey: 1 },
+  { unique: true, partialFilterExpression: { importSourceKey: { $exists: true } } }
+);
 
 export const Activity = mongoose.model<IActivity>('Activity', ActivitySchema);
