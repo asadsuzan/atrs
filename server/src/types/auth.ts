@@ -7,6 +7,8 @@ export interface AuthUser {
   isRoot: boolean;
   name?: string;
   email?: string;
+  /** JWT "issued at" (seconds); used to reject tokens minted before a password change. */
+  iat?: number;
 }
 
 declare global {

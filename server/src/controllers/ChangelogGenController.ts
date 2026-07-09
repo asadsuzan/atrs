@@ -5,6 +5,8 @@ import { Product } from '../models/Product';
 import { runStreamJob } from '../utils/sseStream';
 import { runPipeline, type RangeType } from '../services/ChangelogGenService';
 import { getOllamaUrl, getOllamaHeaders } from '../utils/ollama';
+import { assertOwner } from '../utils/ownership';
+import { assertRepoPathAllowed } from '../utils/repoAccess';
 
 /**
  * POST /api/changelog-gen/generate
@@ -17,14 +19,14 @@ export const generate = async (req: Request, res: Response, next: NextFunction) 
   try {
     const { productId, rangeType, from, to, model, createReviewEntries } = req.body;
 
-    // Look up the product and ensure it has a repoPath.
+    // Look up the product, confirm the caller owns it, and ensure it has a
+    // repoPath inside the allowed root before running git against it.
     const product = await Product.findById(productId).select('name repoPath ownerId').lean();
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-    if (!product.repoPath) {
+    assertOwner(product, req.user);
+    if (!product!.repoPath) {
       return res.status(400).json({ message: 'This product has no repository path configured. Set one in the product settings.' });
     }
+    assertRepoPathAllowed(product!.repoPath);
 
     // Stream the pipeline as SSE.
     await runStreamJob(req, res, async (ctx) => {
@@ -61,15 +63,16 @@ export const generate = async (req: Request, res: Response, next: NextFunction) 
  */
 export const getTags = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const product = await Product.findById(req.params.productId).select('repoPath').lean();
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    if (!product.repoPath) return res.status(400).json({ message: 'No repository path' });
+    const product = await Product.findById(req.params.productId).select('repoPath ownerId').lean();
+    assertOwner(product, req.user);
+    if (!product!.repoPath) return res.status(400).json({ message: 'No repository path' });
+    assertRepoPathAllowed(product!.repoPath);
 
     const execFileP = promisify(execFile);
 
     try {
       const { stdout } = await execFileP('git', ['tag', '--sort=-creatordate'], {
-        cwd: product.repoPath,
+        cwd: product!.repoPath,
         timeout: 10_000,
       });
       const tags = stdout.trim().split('\n').filter(Boolean);

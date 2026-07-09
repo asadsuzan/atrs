@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { hasControlChars } from '../utils/sanitize';
-import { readAppConfig, saveAppConfig, isServerless } from '../utils/appConfig';
+import { readAppConfig, saveAppConfig, isServerless, DEFAULT_APP_CONFIG } from '../utils/appConfig';
 import { sealSecret, isSealedSecret } from '../utils/crypto';
 import { sealR2Secret, isSealedR2Secret, getStorageConfig, testR2Connection } from '../utils/r2Storage';
 
@@ -10,10 +10,10 @@ const envPath = path.resolve(__dirname, '../../../.env');
 
 export const getConfig = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = readAppConfig();
-    if (!data || Object.keys(data).length === 0) {
-      return res.status(404).json({ message: 'Configuration not found' });
-    }
+    // Fall back to defaults instead of 404 so a fresh deploy (empty store)
+    // still renders the Settings page.
+    const stored = readAppConfig();
+    const data = stored && Object.keys(stored).length > 0 ? stored : { ...DEFAULT_APP_CONFIG };
     // Storage settings: return the *effective* non-secret values (stored
     // config with R2_* env-var fallbacks) so the Settings form reflects what
     // the server actually uses. The secret access key is write-only: never

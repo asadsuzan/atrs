@@ -25,8 +25,13 @@ export const errorHandler = (
   }
 
   const statusCode = err.statusCode || 500;
+  const isProd = process.env.NODE_ENV === 'production';
+  // In production, don't leak internal exception text for unexpected 5xx
+  // errors — only surface messages we deliberately attached to a createHttpError
+  // (statusCode < 500) or explicitly marked safe to expose.
+  const safeToExpose = statusCode < 500 || err.expose === true;
   res.status(statusCode).json({
-    message: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+    message: isProd && !safeToExpose ? 'Internal Server Error' : err.message || 'Internal Server Error',
+    stack: isProd ? null : err.stack,
   });
 };

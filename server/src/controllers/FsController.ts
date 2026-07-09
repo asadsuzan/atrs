@@ -1,50 +1,28 @@
 import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
+import { getRepoRoot, isWithinRepoRoot } from '../utils/repoAccess';
 
 /** Max directory entries returned in one listing (keeps huge folders responsive). */
 const MAX_ENTRIES = 2000;
-
-/** On Windows, probe A:–Z: and return the drives that exist. */
-function listWindowsDrives(): { name: string; path: string }[] {
-  const drives: { name: string; path: string }[] = [];
-  for (let c = 65; c <= 90; c++) {
-    const letter = String.fromCharCode(c);
-    const root = `${letter}:\\`;
-    try {
-      if (fs.existsSync(root)) drives.push({ name: `${letter}:`, path: root });
-    } catch { /* not present */ }
-  }
-  return drives;
-}
 
 /**
  * GET /api/products/browse-dirs?path=<dir>
  *
  * Lists sub-directories of `path` so the product form can offer a folder picker
- * for the local repo path. With no `path`, returns the drive list (Windows) or
- * the filesystem root (POSIX). Only directory names are returned — never file
- * contents — and the caller is already authenticated + active.
+ * for the local repo path. Browsing is confined to REPO_BROWSE_ROOT (defaults
+ * to the OS home dir) — any path outside it is rejected, so an authenticated
+ * user can't walk the whole host filesystem. Only directory names are returned,
+ * never file contents.
  */
 export const browseDirs = (req: Request, res: Response, next: NextFunction) => {
   try {
-    const isWin = process.platform === 'win32';
+    const root = getRepoRoot();
     const raw = String(req.query.path || '').trim();
-    const home = os.homedir();
 
-    // Root view: on Windows show drives; on POSIX start at "/".
-    if (!raw) {
-      if (isWin) {
-        return res.json({
-          path: '', parent: null, sep: path.sep, isRoot: true,
-          home, drives: listWindowsDrives(), dirs: [],
-        });
-      }
-      // fall through with current = '/'
-    }
-
-    const current = raw ? path.resolve(raw) : '/';
+    // Empty / out-of-jail input snaps back to the root rather than erroring, so
+    // a stale path in the UI can't wedge the picker.
+    const current = raw && isWithinRepoRoot(raw) ? path.resolve(raw) : root;
 
     let stat: fs.Stats;
     try {
@@ -69,12 +47,11 @@ export const browseDirs = (req: Request, res: Response, next: NextFunction) => {
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
       .slice(0, MAX_ENTRIES);
 
-    // Parent: null at a real root; '' on Windows so the UI can jump to the drive list.
-    const parentResolved = path.dirname(current);
-    const atRoot = parentResolved === current;
-    const parent = atRoot ? (isWin ? '' : null) : parentResolved;
+    // Never expose a parent above the jail root.
+    const atRoot = current === root;
+    const parent = atRoot ? null : path.dirname(current);
 
-    res.json({ path: current, parent, sep: path.sep, isRoot: false, home, drives: [], dirs });
+    res.json({ path: current, parent, sep: path.sep, isRoot: atRoot, home: root, drives: [], dirs });
   } catch (error) {
     next(error);
   }

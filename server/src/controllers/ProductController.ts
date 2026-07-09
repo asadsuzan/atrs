@@ -197,6 +197,12 @@ export const importFromWpOrg = async (req: Request, res: Response, next: NextFun
   const sessionId = randomUUID();
   importSessionManager.create(sessionId, req.user!.id);
 
+  // On serverless, pull a cancel that landed on another instance into this
+  // instance's in-memory flag (no-op locally).
+  const cancelPoll = setInterval(() => {
+    void importSessionManager.refreshFromStore(sessionId);
+  }, 2000);
+
   // If the client disconnects abruptly (closes the dialog / tab) rather than
   // cancelling gracefully, treat it as a cancel so the import loop stops and
   // rolls back its created products. We can't stream those events to a dead
@@ -204,7 +210,7 @@ export const importFromWpOrg = async (req: Request, res: Response, next: NextFun
   let clientGone = false;
   req.on('close', () => {
     clientGone = true;
-    importSessionManager.cancel(sessionId, req.user!.id);
+    void importSessionManager.requestCancel(sessionId, req.user!.id);
   });
 
   const send = (event: string, data: unknown) => {
@@ -234,6 +240,7 @@ export const importFromWpOrg = async (req: Request, res: Response, next: NextFun
     console.error('[WP Import Controller] error:', error);
     send('error', { message: error?.message || 'Import failed' });
   } finally {
+    clearInterval(cancelPoll);
     importSessionManager.delete(sessionId);
     if (!res.writableEnded) res.end();
   }
@@ -245,7 +252,7 @@ export const cancelWpOrgImport = async (req: Request, res: Response, next: NextF
     if (!sessionId || typeof sessionId !== 'string') {
       return res.status(400).json({ message: 'sessionId is required' });
     }
-    const found = importSessionManager.cancel(sessionId, req.user!.id);
+    const found = await importSessionManager.requestCancel(sessionId, req.user!.id);
     if (!found) {
       // Session already finished or never existed — nothing to cancel.
       return res.status(404).json({ message: 'Import session not found' });

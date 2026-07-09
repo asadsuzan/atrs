@@ -5,8 +5,14 @@ import { Request, Response, NextFunction } from 'express';
  *
  * The validator at the URL below sends `X-Frame-Options: SAMEORIGIN`, so it
  * cannot be embedded in an <iframe> directly. This endpoint fetches it
- * server-side and re-serves it from our own origin without the framing/CSP
- * headers, so the client can embed it.
+ * server-side and re-serves it from our own origin so the client can embed it.
+ *
+ * Security: the upstream page reflects the user-submitted readme, so we must
+ * NOT let it run in our own origin (it could read our localStorage/JWT or
+ * script the parent app). Instead of stripping CSP we serve it with a
+ * `Content-Security-Policy: sandbox` — the framed document runs in an opaque
+ * origin, so its scripts can't touch our origin, while forms/scripts/assets it
+ * needs still work.
  *
  * The validator's form uses `action=""` (it posts to its own URL) and all of
  * its assets are absolute `https://` URLs, so no HTML rewriting is needed:
@@ -40,12 +46,15 @@ export const readmeValidatorProxy = async (req: Request, res: Response, next: Ne
     const upstream = await fetch(VALIDATOR_URL, init);
     const html = await upstream.text();
 
-    // Drop the headers (set globally by helmet) that would either block framing
-    // or block the page's own absolute wordpress.org assets/scripts.
+    // Allow framing (drop X-Frame-Options / COEP / COOP from helmet)…
     res.removeHeader('X-Frame-Options');
-    res.removeHeader('Content-Security-Policy');
     res.removeHeader('Cross-Origin-Embedder-Policy');
     res.removeHeader('Cross-Origin-Opener-Policy');
+    // …but replace helmet's CSP with a sandbox that puts the reflected upstream
+    // HTML in an opaque origin. `allow-same-origin` is deliberately omitted, so
+    // even if the page runs script it cannot read our origin's storage/cookies
+    // or reach window.parent.
+    res.setHeader('Content-Security-Policy', 'sandbox allow-forms allow-scripts allow-popups');
 
     res.status(upstream.status);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

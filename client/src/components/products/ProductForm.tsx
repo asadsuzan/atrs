@@ -89,7 +89,7 @@ export function ProductForm({
 
   // Browser-style draft: autosave inputs and silently restore them on return.
   // Keyed per entity (or "new" for the create flow); media fields are excluded.
-  const draftKey = `draft:product:${initialData?.id ?? 'new'}`;
+  const draftKey = `draft:product:${initialData?._id ?? 'new'}`;
   const { clearDraft } = useFormDraft(form, { key: draftKey, exclude: ['icon', 'banner'] });
   const handleSubmit = (data: FormValues) => {
     clearDraft();

@@ -1,5 +1,11 @@
+import bcrypt from 'bcryptjs';
 import { User, hashPassword } from '../models/User';
 import { signToken } from '../middlewares/auth';
+
+// A precomputed hash of a random string. When the email is unknown we still run
+// a bcrypt.compare against this so the login path costs roughly the same
+// whether or not the account exists (mitigates timing-based user enumeration).
+const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing-equalization', 10);
 import createHttpError from '../utils/httpError';
 import { notificationManager } from './NotificationManager';
 import { Notification } from '../models/Notification';
@@ -43,6 +49,9 @@ export class AuthService {
     const email = data.email.toLowerCase().trim();
     const user = await User.findOne({ email });
     if (!user) {
+      // Spend the same bcrypt time as a real comparison so an attacker can't
+      // distinguish "no such account" from "wrong password" by latency.
+      await bcrypt.compare(data.password, DUMMY_HASH);
       throw createHttpError(401, 'Invalid email or password');
     }
     const ok = await user.comparePassword(data.password);
@@ -122,7 +131,18 @@ export class AuthService {
 
     user.passwordHash = await hashPassword(newPassword);
     user.mustChangePassword = false; // one-time password has now been replaced
+    user.passwordChangedAt = new Date(); // invalidates JWTs issued before now
     await user.save();
-    return { success: true };
+
+    // Issue a fresh token so the user who just changed their own password stays
+    // signed in, while any previously issued tokens are rejected by requireActive.
+    const token = signToken({
+      id: user._id.toString(),
+      role: user.role,
+      isRoot: user.isRoot,
+      name: user.name,
+      email: user.email,
+    });
+    return { success: true, token };
   }
 }

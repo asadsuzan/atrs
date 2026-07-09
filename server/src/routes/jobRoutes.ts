@@ -10,12 +10,12 @@ const router = Router();
  * next item boundary. Deletes are not rolled back — cancel just halts further
  * processing.
  */
-router.post('/cancel', (req: Request, res: Response) => {
+router.post('/cancel', async (req: Request, res: Response) => {
   const { sessionId } = req.body;
   if (!sessionId || typeof sessionId !== 'string') {
     return res.status(400).json({ message: 'sessionId is required' });
   }
-  const found = importSessionManager.cancel(sessionId, req.user!.id);
+  const found = await importSessionManager.requestCancel(sessionId, req.user!.id);
   if (!found) {
     return res.status(404).json({ message: 'Job session not found' });
   }

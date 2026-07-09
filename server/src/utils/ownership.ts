@@ -20,7 +20,10 @@ export function scopeFilter(user: AuthUser | undefined, base: Record<string, any
  * Throws 404 if a non-admin user does not own the given document.
  * Uses 404 (not 403) so users cannot probe which ids exist.
  */
-export function assertOwner(doc: { ownerId?: any } | null, user: AuthUser | undefined): void {
+export function assertOwner<T extends { ownerId?: any }>(
+  doc: T | null | undefined,
+  user: AuthUser | undefined
+): asserts doc is T {
   if (!doc) throw createHttpError(404, 'Not found');
   if (user && user.role === 'admin') return;
   const ownerId = doc.ownerId?.toString?.() ?? String(doc.ownerId);

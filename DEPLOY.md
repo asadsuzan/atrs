@@ -88,20 +88,33 @@ migrations. Log in with the root admin credentials, then check
 - **The changelog generator's local-git features** (scanning a repo folder on
   your machine, the folder picker) only work when the server runs on your
   machine — the serverless function can't see your disk. Ollama **cloud** mode
-  works fine.
+  works fine. On a self-hosted instance the folder picker and git access are
+  confined to `REPO_BROWSE_ROOT` (defaults to the OS home directory); set it to
+  the parent folder that holds your repos if they live elsewhere.
 
 ## Free-tier caveats
 
 - **4.5 MB request body limit** on serverless functions — uploads bigger than
   that will fail even though the app allows 25 MB locally. Keep media small or
   upload large files to R2 directly.
-- **Function timeout** is capped (60 s configured in `vercel.json`). The
-  notifications live-stream (SSE) reconnects automatically when a function
-  times out, so you may notice a periodic reconnect in the console — harmless.
-- **In-memory state isn't shared** between function instances: real-time
-  notification fan-out and import-job cancellation work best while a single
-  warm instance is serving traffic (fine for a small team; data itself is
-  always safe in MongoDB).
+- **Function timeout** is capped (60 s configured in `vercel.json`, the Hobby
+  ceiling). SSE streams are torn down at that limit:
+  - The notifications stream reconnects automatically, and the client now backs
+    off after repeated failures and falls back to polling `GET /api/notifications`
+    every 60 s — so notifications still arrive even across reconnects.
+  - **Long-running WP.org imports / bulk jobs that exceed 60 s will be cut off
+    mid-run.** Keep batches small on Vercel, or run large imports from a
+    self-hosted instance. (This is inherent to the free tier; a durable fix
+    means moving imports to a background worker/queue.)
+- **Cross-instance job cancellation is handled:** the cancel flag is mirrored in
+  MongoDB (`jobsessions` collection, auto-expiring) and the running instance
+  polls it, so "Cancel" works even when it lands on a different function
+  instance than the one running the job.
+- **Realtime notification fan-out is best-effort across instances.** A live SSE
+  event is only pushed to clients connected to the same instance that emitted
+  it; the 60 s polling fallback covers the rest. For guaranteed instant
+  fan-out you'd add a shared pub/sub (Redis, Pusher/Ably) — not required for a
+  small team.
 - **Cold starts**: the first request after idle reconnects to Atlas (~1–2 s).
 
 ## ⚠️ Rotate the old keys

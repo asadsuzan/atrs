@@ -54,9 +54,11 @@ export class ReportService {
 
   /**
    * Buckets activities by calendar year+month+type within [start, end] using a
-   * single $group aggregation. The $year/$month operators run in the server's
-   * local timezone (timezone: undefined) to match the JS Date math used by the
-   * callers below. Returns a lookup keyed by `${year}-${month}` -> per-type counts.
+   * single $group aggregation. Bucketing is done in UTC, and the callers build
+   * their lookup keys and range boundaries in UTC too, so a month-boundary
+   * activity always lands in the same bucket the caller looks it up under —
+   * regardless of the server's local timezone. Returns a lookup keyed by
+   * `${year}-${month}` -> per-type counts.
    */
   private async groupByMonthAndType(
     start: Date,
@@ -73,7 +75,11 @@ export class ReportService {
       { $match: match },
       {
         $group: {
-          _id: { year: { $year: '$activityDate' }, month: { $month: '$activityDate' }, type: '$type' },
+          _id: {
+            year: { $year: { date: '$activityDate', timezone: 'UTC' } },
+            month: { $month: { date: '$activityDate', timezone: 'UTC' } },
+            type: '$type',
+          },
           count: { $sum: 1 },
         },
       },
@@ -98,23 +104,23 @@ export class ReportService {
     const results = [];
     const now = new Date();
 
-    // Overall range spans the earliest month start through the latest month end.
-    const rangeStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
-    const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // All month math is in UTC so it agrees with the UTC bucketing in
+    // groupByMonthAndType (see its doc comment).
+    const rangeStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
+    const rangeEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 
     const counts = await this.groupByMonthAndType(rangeStart, rangeEnd, user, productId);
 
     for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const start = new Date(d.getFullYear(), d.getMonth(), 1);
-      // $month is 1-based; getMonth() is 0-based.
-      const bucket = counts.get(`${start.getFullYear()}-${start.getMonth() + 1}`) || { features: 0, improvements: 0, bugFixes: 0 };
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      // $month is 1-based; getUTCMonth() is 0-based.
+      const bucket = counts.get(`${start.getUTCFullYear()}-${start.getUTCMonth() + 1}`) || { features: 0, improvements: 0, bugFixes: 0 };
       const { features, improvements, bugFixes } = bucket;
 
       results.push({
-        month: start.toLocaleString('default', { month: 'short' }),
-        year: start.getFullYear(),
-        label: `${start.toLocaleString('default', { month: 'short' })} ${start.getFullYear()}`,
+        month: start.toLocaleString('default', { month: 'short', timeZone: 'UTC' }),
+        year: start.getUTCFullYear(),
+        label: `${start.toLocaleString('default', { month: 'short', timeZone: 'UTC' })} ${start.getUTCFullYear()}`,
         features,
         improvements,
         bugFixes,
@@ -129,8 +135,8 @@ export class ReportService {
     const months = [];
     let totalFeatures = 0, totalImprovements = 0, totalBugFixes = 0;
 
-    const rangeStart = new Date(year, 0, 1);
-    const rangeEnd = new Date(year, 12, 0, 23, 59, 59, 999);
+    const rangeStart = new Date(Date.UTC(year, 0, 1));
+    const rangeEnd = new Date(Date.UTC(year, 12, 0, 23, 59, 59, 999));
     const counts = await this.groupByMonthAndType(rangeStart, rangeEnd, user, productId, ownerId);
 
     for (let m = 1; m <= 12; m++) {
@@ -143,7 +149,7 @@ export class ReportService {
 
       months.push({
         month: m,
-        label: new Date(year, m - 1, 1).toLocaleString('default', { month: 'long' }),
+        label: new Date(Date.UTC(year, m - 1, 1)).toLocaleString('default', { month: 'long', timeZone: 'UTC' }),
         features, improvements, bugFixes,
         total: features + improvements + bugFixes,
       });

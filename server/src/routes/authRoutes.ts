@@ -22,7 +22,7 @@ const authLimiter = rateLimit({
 
 router.post('/register', authLimiter, validate(registerSchema), AuthController.register);
 router.post('/login', authLimiter, validate(loginSchema), AuthController.login);
-router.get('/me', requireAuth, AuthController.me);
+router.get('/me', requireAuth, requireActive, AuthController.me);
 router.patch('/me', requireAuth, requireActive, validate(updateMeSchema), AuthController.updateMe);
 
 // Forgot-password flow (public, rate-limited): look up the account, then record
@@ -32,6 +32,6 @@ router.post('/password-reset-request', authLimiter, validate(emailOnlySchema), A
 
 // Authenticated self-service password change (also used for the forced
 // one-time-password change after an admin reset).
-router.post('/change-password', requireAuth, validate(changePasswordSchema), AuthController.changePassword);
+router.post('/change-password', requireAuth, requireActive, validate(changePasswordSchema), AuthController.changePassword);
 
 export default router;

@@ -12,6 +12,7 @@ import { Version } from '../models/Version';
 import { ProductMarketing } from '../models/ProductMarketing';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
+import { parseLimit, parsePage } from '../utils/pagination';
 import createHttpError from '../utils/httpError';
 import { escapeRegex } from '../utils/sanitize';
 import { parseReadmeChangelog } from '../utils/readmeChangelog';
@@ -50,10 +51,21 @@ export class ProductService {
   }
 
   async createProduct(data: any, user: AuthUser): Promise<IProduct> {
-    const slug = await this.uniqueSlugForOwner(data.name, user.id);
-    const product = await this.repository.create({ ...data, slug, ownerId: user.id });
-    await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id, name: user.name });
-    return product;
+    // uniqueSlugForOwner reads-then-writes, so two concurrent creates for the
+    // same owner+name can compute the same slug and collide on the
+    // { ownerId, slug } unique index. Retry a few times (recomputing the slug,
+    // which now sees the winner) before giving up with a clean 409.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const slug = await this.uniqueSlugForOwner(data.name, user.id);
+      try {
+        const product = await this.repository.create({ ...data, slug, ownerId: user.id });
+        await auditLogService.logEvent('CREATE', 'PRODUCT', product._id.toString(), product.name, 'Added a new product', { id: user.id, name: user.name });
+        return product;
+      } catch (err: any) {
+        if (err?.code !== 11000) throw err;
+      }
+    }
+    throw createHttpError(409, 'Could not generate a unique slug for this product name; please try again.');
   }
 
   async getProducts(query: any, user: AuthUser): Promise<any> {
@@ -73,8 +85,8 @@ export class ProductService {
       filter.ownerId = query.ownerId;
     }
     const options = {
-      page: parseInt(query.page) || 1,
-      limit: parseInt(query.limit) || 10
+      page: parsePage(query.page),
+      limit: parseLimit(query.limit)
     };
     return await this.repository.findAll(filter, options);
   }

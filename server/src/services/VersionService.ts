@@ -36,6 +36,9 @@ export class VersionService {
     const existing = await Version.findById(id);
     assertOwner(existing, user);
     delete data.ownerId;
+    // Never allow re-parenting to another product: ownership is only asserted
+    // on the existing doc, and downstream release assembly trusts productId.
+    delete data.productId;
     const version = await Version.findByIdAndUpdate(id, data, { new: true, runValidators: true });
     if (version) {
       await auditLogService.logEvent('UPDATE', 'VERSION', version._id.toString(), version.label, `Updated version ${version.label}`, { id: user.id, name: user.name });

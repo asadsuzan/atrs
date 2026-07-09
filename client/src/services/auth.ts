@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, setToken } from './api';
 
 export type UserRole = 'admin' | 'user';
 export type UserStatus = 'pending' | 'active' | 'suspended';
@@ -49,5 +49,8 @@ export const requestPasswordReset = async (email: string) => {
 
 export const changePassword = async (currentPassword: string, newPassword: string) => {
   const { data } = await api.post('/auth/change-password', { currentPassword, newPassword });
-  return data as { success: boolean };
+  // The server rotates the token on a password change (old tokens are now
+  // rejected); adopt the new one so the current session stays valid.
+  if (data?.token) setToken(data.token);
+  return data as { success: boolean; token?: string };
 };

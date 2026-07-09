@@ -12,6 +12,29 @@ export function isServerless(): boolean {
   return !!process.env.VERCEL;
 }
 
+/**
+ * Baseline config used when nothing is stored yet (fresh serverless deploy with
+ * no bundled app.config.json, or a first local run). Secrets stay empty and are
+ * supplied by env vars / the Settings page.
+ */
+export const DEFAULT_APP_CONFIG: Record<string, any> = {
+  server: { port: 5000, mongodbUri: 'mongodb://localhost:27017/atrs' },
+  sounds: {
+    enabled: true,
+    successSound: 'synth-success',
+    deleteSound: 'synth-delete',
+    errorSound: 'synth-error',
+    notificationSound: 'synth-notification',
+    clickSound: 'synth-click',
+    volume: 0.5,
+  },
+  navigation: { mode: 'expanded' },
+  changelogGen: { model: 'qwen2.5-coder', ollamaMode: 'local', ollamaCloudUrl: '', ollamaCloudKey: '' },
+  staleAlert: { days: 7 },
+  branding: { companyName: '', logoUrl: '', accentColor: '', accentDynamic: false, thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' },
+  storage: { provider: 'local', r2: { accountId: '', bucket: '', publicBaseUrl: '', accessKeyId: '', secretAccessKey: '' } },
+};
+
 // --- Serverless config cache -------------------------------------------------
 // readAppConfig() must stay synchronous (it's called deep inside request
 // handlers), so on serverless we keep an in-memory copy loaded from MongoDB at
@@ -48,7 +71,11 @@ export async function loadAppConfigCache(): Promise<void> {
   if (fromDb) {
     cache = fromDb;
   } else {
-    const seed = readConfigFile();
+    // Seed from the bundled app.config.json if present, otherwise from the
+    // built-in defaults, so a fresh deploy has a usable config (and the Settings
+    // page doesn't 404).
+    const fileSeed = readConfigFile();
+    const seed = Object.keys(fileSeed).length > 0 ? fileSeed : { ...DEFAULT_APP_CONFIG };
     // A sealed R2 secret was encrypted with the *local* machine's key
     // (derived from its JWT_SECRET) and can't be decrypted on this platform.
     // Drop it so the R2_SECRET_ACCESS_KEY env var (or a re-entry in Settings)
@@ -57,13 +84,11 @@ export async function loadAppConfigCache(): Promise<void> {
       seed.storage.r2.secretAccessKey = '';
     }
     cache = seed;
-    if (Object.keys(seed).length > 0) {
-      await AppConfig.updateOne(
-        { singleton: 'app' },
-        { $setOnInsert: { data: seed } },
-        { upsert: true }
-      ).catch((err) => console.error('[config]: Failed to seed config into MongoDB:', err));
-    }
+    await AppConfig.updateOne(
+      { singleton: 'app' },
+      { $setOnInsert: { data: seed } },
+      { upsert: true }
+    ).catch((err) => console.error('[config]: Failed to seed config into MongoDB:', err));
   }
   cacheLoadedAt = Date.now();
 }

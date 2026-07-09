@@ -29,7 +29,9 @@ export function MediaLibraryDialog({
 
   // Fetch Products for Filter
   const { data: productsData } = useQuery({
-    queryKey: ['products'],
+    // Key includes the limit so this 100-item fetch doesn't collide with the
+    // default 1000-item ['products'] cache used by list views.
+    queryKey: ['products', { limit: 100 }],
     queryFn: () => getProducts({ limit: 100 }),
     enabled: open,
   });

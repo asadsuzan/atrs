@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { isR2Active, uploadToR2 } from '../utils/r2Storage';
 import { isServerless } from '../utils/appConfig';
+import { sniffMedia } from '../utils/fileSignature';
 
 const router = Router();
 
@@ -106,6 +107,11 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     if (useR2) {
+      // Verify magic bytes before trusting the (client-supplied) MIME type.
+      const kind = sniffMedia(req.file.buffer);
+      if (kind === null) {
+        return res.status(400).json({ message: 'File contents do not match a supported image or video format.' });
+      }
       try {
         const key = makeFilename(req.file.originalname);
         const url = await uploadToR2(req.file.buffer, key, req.file.mimetype);
@@ -116,6 +122,21 @@ router.post('/', (req: Request, res: Response) => {
           message: 'Upload to Cloudflare R2 failed. Check the storage settings and bucket credentials.',
         });
       }
+    }
+
+    // Disk path: multer already wrote the file, so sniff the first bytes and
+    // delete it if the signature doesn't match a supported format.
+    try {
+      const fd = fs.openSync(req.file.path, 'r');
+      const head = Buffer.alloc(16);
+      fs.readSync(fd, head, 0, 16, 0);
+      fs.closeSync(fd);
+      if (sniffMedia(head) === null) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ message: 'File contents do not match a supported image or video format.' });
+      }
+    } catch {
+      /* if we can't read it back, fall through — the allow-list still applied */
     }
 
     const fileUrl = `/uploads/${req.file.filename}`;

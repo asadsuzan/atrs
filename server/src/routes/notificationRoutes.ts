@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { requireAuth, requireActive } from '../middlewares/auth';
+import { requireAuth, requireActive, requireAuthSSE } from '../middlewares/auth';
 import { readAppConfig } from '../utils/appConfig';
 import { notificationManager } from '../services/NotificationManager';
 import { getMyNotifications, markAsRead, markAllAsRead, deleteNotification } from '../controllers/NotificationController';
@@ -15,7 +15,7 @@ router.delete('/:id', requireAuth, requireActive, deleteNotification);
  * SSE Endpoint for clients to subscribe to real-time notification streams.
  * Expects JWT token either via Authorization header or "?token=<jwt>" query parameter.
  */
-router.get('/subscribe', requireAuth, requireActive, (req: Request, res: Response) => {
+router.get('/subscribe', requireAuthSSE, requireActive, (req: Request, res: Response) => {
   const user = req.user!;
 
   // Configure response headers for Server-Sent Events (SSE)

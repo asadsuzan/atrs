@@ -14,8 +14,12 @@ import type { AuthUser } from '../types/auth';
 export class UserService {
   async listUsers(query: any) {
     const filter: any = {};
-    if (query.status) filter.status = query.status;
-    if (query.role) filter.role = query.role;
+    // Coerce to string + validate against the enums so an object like
+    // ?status[$ne]=active can't inject a Mongo operator into the query.
+    const status = typeof query.status === 'string' ? query.status : undefined;
+    const role = typeof query.role === 'string' ? query.role : undefined;
+    if (status && ['pending', 'active', 'suspended'].includes(status)) filter.status = status;
+    if (role && ['admin', 'user'].includes(role)) filter.role = role;
     const users = await User.find(filter).sort({ createdAt: -1 });
     return users.map((u) => u.toJSON());
   }
@@ -71,6 +75,7 @@ export class UserService {
     user.mustChangePassword = true;
     user.passwordResetRequested = false;
     user.passwordResetRequestedAt = undefined;
+    user.passwordChangedAt = new Date(); // invalidates the user's existing JWTs
     await user.save();
 
     // Let the user know (if they're connected) that their access changed.

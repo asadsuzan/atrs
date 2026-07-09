@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { exportAllData } from '../services/export';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAppConfig, updateAppConfig, testStorageConnection, type NavMode, type R2TestResult } from '../services/config';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -95,6 +95,13 @@ export default function Settings() {
   });
   const [storageTestResult, setStorageTestResult] = useState<R2TestResult | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
+  // Health-poll interval for the "server is restarting" flow; tracked so it can
+  // be cleared if the user navigates away mid-restart (avoids setState-after-
+  // unmount and orphaned /api/health requests).
+  const restartPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (restartPollRef.current) clearInterval(restartPollRef.current);
+  }, []);
   const [soundsForm, setSoundsForm] = useState({
     enabled: true,
     successSound: 'synth-success',
@@ -265,12 +272,14 @@ export default function Settings() {
 
       // Poll health endpoint until server is back online
       let attempts = 0;
+      if (restartPollRef.current) clearInterval(restartPollRef.current);
       const interval = setInterval(async () => {
         attempts++;
         try {
           const res = await fetch('/api/health');
           if (res.ok) {
             clearInterval(interval);
+            restartPollRef.current = null;
             setIsRestarting(false);
             toast.success("Server is back online!");
             refetch();
@@ -279,11 +288,13 @@ export default function Settings() {
           // Server is still down or restarting
           if (attempts > 30) {
             clearInterval(interval);
+            restartPollRef.current = null;
             setIsRestarting(false);
             toast.error("Server took too long to restart. Please refresh manually.");
           }
         }
       }, 1500);
+      restartPollRef.current = interval;
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to save configuration");

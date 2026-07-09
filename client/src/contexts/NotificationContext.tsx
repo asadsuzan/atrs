@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
@@ -35,24 +35,45 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     queryKey: ['notifications'],
     queryFn: getMyNotifications,
     enabled: !!user,
+    // Poll as a fallback so notifications still arrive if a realtime SSE event
+    // is missed (e.g. on serverless, where the stream may reconnect to a
+    // different instance). Also drives the axios 401 → logout path on expiry.
+    refetchInterval: user ? 60_000 : false,
   });
 
   const [realtimeNotifications, setRealtimeNotifications] = useState<Notification[]>([]);
 
-  // Combine DB notifications with unread realtime ones
-  const notifications = [
-    ...realtimeNotifications,
-    ...dbNotifications.filter((dbN: any) => !realtimeNotifications.find(rN => rN._id === dbN._id))
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // Combine DB notifications with unread realtime ones. Memoized so a new array
+  // isn't produced (and consumers re-rendered) on every render.
+  const notifications = useMemo(
+    () =>
+      [
+        ...realtimeNotifications,
+        ...dbNotifications.filter((dbN: any) => !realtimeNotifications.find((rN) => rN._id === dbN._id)),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [realtimeNotifications, dbNotifications],
+  );
+
+  // Keep the latest refreshMe without putting the (possibly unstable) function
+  // in the effect deps — otherwise the SSE stream would tear down/reconnect on
+  // every auth refresh.
+  const refreshMeRef = useRef(refreshMe);
+  refreshMeRef.current = refreshMe;
+  const userId = user?._id ?? null;
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setRealtimeNotifications([]);
       return;
     }
 
     const token = getToken();
     if (!token) return;
+
+    // Track a burst of connection errors so a dead/expired stream doesn't
+    // reconnect forever; the polling query above is the fallback.
+    let errorBurst = 0;
+    let lastErrorAt = 0;
 
     // Fetch system-wide sound configuration to cache it locally
     api.get('/notifications/sounds')
@@ -69,6 +90,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Handle handshake confirmation
     eventSource.addEventListener('handshake', () => {
       console.log('[SSE] Connection established successfully.');
+      errorBurst = 0;
     });
 
     // Handle user activity notifications (Root Admin only)
@@ -76,7 +98,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       try {
         const data = JSON.parse(event.data);
         const newNotif: Notification = {
-          id: data.id || Math.random().toString(),
+          id: data.id || crypto.randomUUID(),
           title: `User Activity: ${data.action} ${data.entityType}`,
           message: `${data.userName} performed ${data.action} on ${data.entityName}`,
           type: 'user-activity',
@@ -104,7 +126,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       try {
         const data = JSON.parse(event.data);
         const newNotif: Notification = {
-          id: Math.random().toString(),
+          id: crypto.randomUUID(),
           title: data.role ? 'Role Access Updated' : 'Account Status Updated',
           message: data.message,
           type: 'access-change',
@@ -124,7 +146,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         });
 
         // Trigger context refresh to update permissions / roles instantly
-        refreshMe();
+        refreshMeRef.current();
       } catch (err) {
         console.error('[SSE] Failed to parse access-change payload:', err);
       }
@@ -135,7 +157,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       try {
         const data = JSON.parse(event.data);
         const newNotif: Notification = {
-          id: Math.random().toString(),
+          id: crypto.randomUUID(),
           title: 'Password reset requested',
           message: `${data.name} (${data.email}) requested a password reset.`,
           type: 'password-reset-request',
@@ -173,14 +195,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
     });
 
-    eventSource.onerror = (err) => {
-      console.error('[SSE] EventSource encountered connection error. Reconnecting...', err);
+    eventSource.onerror = () => {
+      const now = Date.now();
+      errorBurst = now - lastErrorAt < 5000 ? errorBurst + 1 : 1;
+      lastErrorAt = now;
+
+      // If the token is gone (logged out), stop for good — the axios layer
+      // handles the redirect.
+      if (!getToken()) {
+        eventSource.close();
+        return;
+      }
+      // A sustained error burst usually means an expired/rejected token or a
+      // persistently unreachable server. Stop reconnecting so we don't hammer
+      // the endpoint; the 60s polling query keeps notifications flowing and
+      // will surface a 401 through the axios interceptor.
+      if (errorBurst >= 6) {
+        console.warn('[SSE] Too many reconnect attempts; falling back to polling.');
+        eventSource.close();
+      }
+      // Otherwise let EventSource auto-reconnect.
     };
 
     return () => {
       eventSource.close();
     };
-  }, [user, refreshMe, queryClient]);
+  }, [userId, queryClient]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

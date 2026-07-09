@@ -118,13 +118,15 @@ async function gitAnalyze(
   switch (rangeType) {
     case 'tags':
       range = `${from}..${to || 'HEAD'}`;
-      diffArgs = ['diff', '--no-color', '--name-status', range];
-      logArgs = ['log', '--oneline', range];
+      // --end-of-options guarantees the (schema-validated) range is treated as
+      // a revision, never an option, even if a leading-dash value slips past.
+      diffArgs = ['diff', '--no-color', '--name-status', '--end-of-options', range];
+      logArgs = ['log', '--oneline', '--end-of-options', range];
       break;
     case 'commit':
       range = `${from}..${to || 'HEAD'}`;
-      diffArgs = ['diff', '--no-color', '--name-status', range];
-      logArgs = ['log', '--oneline', range];
+      diffArgs = ['diff', '--no-color', '--name-status', '--end-of-options', range];
+      logArgs = ['log', '--oneline', '--end-of-options', range];
       break;
     case 'date': {
       const since = `--since="${from}"`;
@@ -178,7 +180,7 @@ async function gitAnalyze(
 
   // Filter noise and get per-file diffs
   const files: ChangedFile[] = [];
-  const diffRange = rangeType === 'working' ? ['HEAD'] : [range];
+  const diffRange = rangeType === 'working' ? ['HEAD'] : ['--end-of-options', range];
 
   for (const f of parsedFiles) {
     if (isNoise(f.path)) continue;

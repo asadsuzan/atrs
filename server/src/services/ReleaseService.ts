@@ -11,11 +11,14 @@ import { assembleRelease, toReadmeChangelog, toMarkdown } from '../utils/release
 export class ReleaseService {
   async buildRelease(product: IProduct) {
     const productId = product._id;
+    // Scope children to the product's owner so a version/activity that was
+    // re-parented across tenants can never surface in someone else's release.
+    const ownerId = (product as any).ownerId;
     const [versions, activities] = await Promise.all([
-      Version.find({ productId }).lean(),
+      Version.find({ productId, ownerId }).lean(),
       // Exclude entries still pending review (AI-generated or imported drafts) —
       // they only enter the published changelog once confirmed in the review queue.
-      Activity.find({ productId, needsReview: { $ne: true } }).sort({ displayOrder: 1, activityDate: -1 }).lean(),
+      Activity.find({ productId, ownerId, needsReview: { $ne: true } }).sort({ displayOrder: 1, activityDate: -1 }).lean(),
     ]);
 
     const assembled = assembleRelease(versions as any[], activities as any[]);

@@ -24,9 +24,18 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
       return res.status(400).json({ message: 'Month and year (or startDate and endDate) are required' });
     }
 
+    const monthNum = parseInt(month as string, 10);
+    const yearNum = parseInt(year as string, 10);
+    if (!Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({ message: 'Month must be between 1 and 12' });
+    }
+    if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) {
+      return res.status(400).json({ message: 'Year must be between 2000 and 2100' });
+    }
+
     const report = await reportService.getMonthlyReport(
-      parseInt(month as string, 10),
-      parseInt(year as string, 10),
+      monthNum,
+      yearNum,
       req.user!,
       productId as string,
       undefined,
@@ -41,7 +50,9 @@ export const getMonthlyReport = async (req: Request, res: Response, next: NextFu
 
 export const getTrend = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const months = req.query.months ? parseInt(req.query.months as string, 10) : 6;
+    const parsedMonths = parseInt(req.query.months as string, 10);
+    // Clamp to a sane window so a caller can't request thousands of buckets.
+    const months = Number.isInteger(parsedMonths) ? Math.min(Math.max(parsedMonths, 1), 60) : 6;
     const productId = req.query.productId as string | undefined;
     const data = await reportService.getTrendData(months, req.user!, productId);
     res.status(200).json(data);
@@ -52,7 +63,10 @@ export const getTrend = async (req: Request, res: Response, next: NextFunction) 
 
 export const getAnnual = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const year = req.query.year ? parseInt(req.query.year as string, 10) : new Date().getFullYear();
+    const parsedYear = parseInt(req.query.year as string, 10);
+    const year = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
+      ? parsedYear
+      : new Date().getFullYear();
     const productId = req.query.productId as string | undefined;
     const ownerId = req.query.ownerId as string | undefined;
     const data = await reportService.getAnnualReport(year, req.user!, productId, ownerId);

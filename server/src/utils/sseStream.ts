@@ -48,11 +48,17 @@ export async function runStreamJob(
   const sessionId = randomUUID();
   importSessionManager.create(sessionId, userId);
 
+  // On serverless, poll the shared store so a cancel that lands on another
+  // instance is pulled into this instance's in-memory flag (no-op locally).
+  const cancelPoll = setInterval(() => {
+    void importSessionManager.refreshFromStore(sessionId);
+  }, 2000);
+
   // A client disconnect cancels the job (stops processing further items).
   let clientGone = false;
   req.on('close', () => {
     clientGone = true;
-    importSessionManager.cancel(sessionId, userId);
+    void importSessionManager.requestCancel(sessionId, userId);
   });
 
   const send = (event: string, data: unknown) => {
@@ -73,6 +79,7 @@ export async function runStreamJob(
     console.error('[runStreamJob] error:', err);
     send('error', { message: err?.message || 'Operation failed' });
   } finally {
+    clearInterval(cancelPoll);
     importSessionManager.delete(sessionId);
     if (!res.writableEnded) res.end();
   }

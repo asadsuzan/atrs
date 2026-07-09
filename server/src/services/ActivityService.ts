@@ -6,6 +6,7 @@ import { AuditLogService } from './AuditLogService';
 import { deleteMediaFiles } from '../utils/fileUtils';
 import { scopeFilter, assertOwner } from '../utils/ownership';
 import { escapeRegex } from '../utils/sanitize';
+import { parseLimit, parsePage } from '../utils/pagination';
 import { buildActivityBulkUpdate } from '../utils/activityBulkUpdate';
 import type { AuthUser } from '../types/auth';
 
@@ -73,8 +74,8 @@ export class ActivityService {
     }
 
     const options = {
-      page: parseInt(query.page) || 1,
-      limit: parseInt(query.limit) || 10,
+      page: parsePage(query.page),
+      limit: parseLimit(query.limit),
       sortBy: query.sortBy || 'activityDate',
       sortOrder: query.sortOrder || 'desc'
     };
@@ -92,6 +93,9 @@ export class ActivityService {
     const oldActivity = await this.repository.findById(id);
     assertOwner(oldActivity, user);
     delete data.ownerId;
+    // Never allow re-parenting to another product: ownership is only asserted
+    // on the existing doc, and downstream release assembly trusts productId.
+    delete data.productId;
     const activity = await this.repository.update(id, data);
 
     if (activity) {

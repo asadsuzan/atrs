@@ -3,14 +3,14 @@ import { objectId } from './common.schema';
 
 export const createActivitySchema = z.object({
   body: z.object({
-    productId: z.string(),
+    productId: objectId,
     type: z.enum(['feature', 'improvement', 'bug-fix']),
     title: z.string(),
     shortDescription: z.string(),
     tier: z.enum(['free', 'pro']).optional(),
     priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     referenceUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
-    versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    versionId: z.preprocess(val => (val === '' ? null : val), objectId.nullish()),
     relatedIssueIds: z.array(objectId).optional(),
     displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
@@ -37,14 +37,14 @@ export const createActivitySchema = z.object({
 
 export const updateActivitySchema = z.object({
   body: z.object({
-    productId: z.string().optional(),
+    productId: objectId.optional(),
     type: z.enum(['feature', 'improvement', 'bug-fix']).optional(),
     title: z.string().optional(),
     shortDescription: z.string().optional(),
     tier: z.enum(['free', 'pro']).optional(),
     priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     referenceUrl: z.string().nullable().optional().transform(val => val === '' ? null : val),
-    versionId: z.string().nullable().optional().transform(val => val === '' ? null : val),
+    versionId: z.preprocess(val => (val === '' ? null : val), objectId.nullish()),
     relatedIssueIds: z.array(objectId).optional(),
     displayOrder: z.number().optional(),
     tags: z.array(z.string()).optional(),
@@ -69,6 +69,6 @@ export const updateActivitySchema = z.object({
     needsReview: z.boolean().optional(),
   }),
   params: z.object({
-    id: z.string(),
+    id: objectId,
   }),
 });

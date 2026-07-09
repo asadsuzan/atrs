@@ -18,6 +18,8 @@ export interface IUser extends Document {
   /** Set when the user requests a reset from the login screen; cleared on reset. */
   passwordResetRequested: boolean;
   passwordResetRequestedAt?: Date;
+  /** Last time the password changed; JWTs issued before this are rejected. */
+  passwordChangedAt?: Date;
   /**
    * The user's GitHub Personal Access Token, encrypted at rest (see utils/crypto).
    * `select: false` so it is never returned by default queries or serialized to
@@ -60,6 +62,7 @@ const UserSchema: Schema = new Schema(
     mustChangePassword: { type: Boolean, default: false },
     passwordResetRequested: { type: Boolean, default: false },
     passwordResetRequestedAt: { type: Date },
+    passwordChangedAt: { type: Date },
     // Never selected/serialized by default — must be explicitly `.select('+githubToken')`.
     githubToken: { type: String, select: false },
     githubLogin: { type: String },
@@ -82,8 +85,11 @@ UserSchema.methods.comparePassword = function (candidate: string): Promise<boole
   return bcrypt.compare(candidate, this.passwordHash);
 };
 
+// Cost factor is env-configurable; default 12 (a sensible 2026 baseline).
+const BCRYPT_ROUNDS = Math.min(Math.max(parseInt(process.env.BCRYPT_ROUNDS || '', 10) || 12, 10), 15);
+
 export async function hashPassword(plain: string): Promise<string> {
-  return bcrypt.hash(plain, 10);
+  return bcrypt.hash(plain, BCRYPT_ROUNDS);
 }
 
 export const User = mongoose.model<IUser>('User', UserSchema);

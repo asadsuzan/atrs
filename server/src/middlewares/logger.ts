@@ -84,7 +84,11 @@ export const customLogger = (req: Request, res: Response, next: NextFunction) =>
   res.on('finish', () => {
     const duration = Date.now() - start;
     const method = req.method;
-    const url = req.originalUrl || req.url;
+    // Redact any query string before logging — it can carry the SSE `?token=`
+    // JWT, which must never land in logs/history.
+    const rawUrl = req.originalUrl || req.url;
+    const qIndex = rawUrl.indexOf('?');
+    const url = qIndex === -1 ? rawUrl : `${rawUrl.slice(0, qIndex)}?[redacted]`;
     const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'] || 'Unknown Agent';
 
