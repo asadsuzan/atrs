@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ActivityForm } from '../components/activities/ActivityForm';
-import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Tag, Edit2, Trash2, Bug, Loader2 } from 'lucide-react';
+import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Edit2, Trash2, Bug, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/layout/PageTransition';
 import { MarketingManager } from '../components/marketing/MarketingManager';
