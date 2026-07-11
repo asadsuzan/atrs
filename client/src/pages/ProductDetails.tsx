@@ -6,6 +6,8 @@ import { getActivities, reorderActivity, updateActivity, deleteActivity } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ActivityForm } from '../components/activities/ActivityForm';
 import { ArrowLeft, GitBranch, Globe, ChevronDown, ChevronRight, Download, GripVertical, Tag, Edit2, Trash2, Bug, Loader2 } from 'lucide-react';
@@ -16,6 +18,7 @@ import { VersionManager } from '../components/versions/VersionManager';
 import { VersionBadge } from '../components/versions/VersionBadge';
 import { useProductVersions } from '../hooks/useVersions';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { compareVersionDesc } from '../lib/versions';
 import { IssueManager } from '../components/issues/IssueManager';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
@@ -266,6 +269,13 @@ export default function ProductDetails() {
   const { versions: productVersions } = useProductVersions(id);
   const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release' | 'issues'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [type, setType] = useState('all');
+  const [tier, setTier] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [versionFilter, setVersionFilter] = useState<string>('all');
   const [editingActivity, setEditingActivity] = useState<any>(null);
   // Set when a linked issue is clicked from a changelog card — switches to the
@@ -340,6 +350,16 @@ export default function ProductDetails() {
   // The timeline lazy-loads in pages (infinite scroll + "Load More") instead of
   // fetching every entry up front.
   const ACTIVITIES_PAGE_SIZE = 9;
+
+  const queryParams: any = { productId: id, limit: ACTIVITIES_PAGE_SIZE, sortBy: 'displayOrder', sortOrder: 'asc' };
+  if (type !== 'all') queryParams.type = type;
+  if (type === 'feature' && tier !== 'all') queryParams.tier = tier;
+  if (tagFilter !== 'all') queryParams.tags = tagFilter;
+  if (debouncedSearch) queryParams.search = debouncedSearch;
+  if (startDate) queryParams.startDate = startDate;
+  if (endDate) queryParams.endDate = endDate;
+  if (versionFilter === '__none__') queryParams.versioned = 'none';
+
   const {
     data: activitiesPages,
     isLoading: activitiesLoading,
@@ -347,8 +367,8 @@ export default function ProductDetails() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['activities', id],
-    queryFn: ({ pageParam }) => getActivities({ productId: id, page: pageParam, limit: ACTIVITIES_PAGE_SIZE, sortBy: 'displayOrder', sortOrder: 'asc' }),
+    queryKey: ['activities', id, type, tier, tagFilter, debouncedSearch, startDate, endDate, versionFilter === '__none__' ? 'none' : 'all'],
+    queryFn: ({ pageParam }) => getActivities({ ...queryParams, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (lastPage: any) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
     enabled: !!id,
@@ -625,16 +645,55 @@ export default function ProductDetails() {
 
         {activeTab === 'activities' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              {(versionOptions.length > 0 || hasUnversioned) ? (
-                <div className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-muted-foreground" />
-                  <Select value={versionFilter} onValueChange={setVersionFilter}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Filter by version" />
+            <div className="bg-card rounded-lg border overflow-hidden">
+              <div className="flex flex-wrap items-center gap-3 p-3 border-b">
+                <Input
+                  placeholder="Search changelogs..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-9 w-[220px] flex-shrink-0"
+                />
+                <div className="w-px h-5 bg-border flex-shrink-0" />
+                <Select value={type} onValueChange={setType}>
+                  <SelectTrigger className="h-9 w-[150px] flex-shrink-0">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="feature">Feature</SelectItem>
+                    <SelectItem value="improvement">Improvement</SelectItem>
+                    <SelectItem value="bug-fix">Bug Fix</SelectItem>
+                  </SelectContent>
+                </Select>
+                {type === 'feature' && (
+                  <Select value={tier} onValueChange={setTier}>
+                    <SelectTrigger className="h-9 w-[110px] flex-shrink-0">
+                      <SelectValue placeholder="All Tiers" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All versions</SelectItem>
+                      <SelectItem value="all">All Tiers</SelectItem>
+                      <SelectItem value="free">Free</SelectItem>
+                      <SelectItem value="pro">Pro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Select value={tagFilter} onValueChange={setTagFilter}>
+                  <SelectTrigger className="h-9 w-[130px] flex-shrink-0">
+                    <SelectValue placeholder="All Tags" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Tags</SelectItem>
+                    <SelectItem value="released">Released</SelectItem>
+                    <SelectItem value="unreleased">Unreleased</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(versionOptions.length > 0 || hasUnversioned) && (
+                  <Select value={versionFilter} onValueChange={setVersionFilter}>
+                    <SelectTrigger className="h-9 w-[200px] flex-shrink-0">
+                      <SelectValue placeholder="All Versions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Versions</SelectItem>
                       {versionOptions.map((opt) => (
                         <SelectItem key={opt.label} value={opt.label}>
                           <span className="flex items-center gap-2">
@@ -647,11 +706,71 @@ export default function ProductDetails() {
                       {hasUnversioned && <SelectItem value="__none__">Unversioned</SelectItem>}
                     </SelectContent>
                   </Select>
+                )}
+                <div className="ml-auto flex shrink-0">
+                  <Button variant="outline" size="sm" onClick={exportChangelog} className="h-9">
+                    <Download className="w-4 h-4 mr-2" /> Export
+                  </Button>
                 </div>
-              ) : <div />}
-              <Button variant="outline" size="sm" onClick={exportChangelog}>
-                <Download className="w-4 h-4 mr-2" /> Export Changelog
-              </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 bg-muted/20">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                  Date Range
+                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">From</label>
+                    <DatePicker
+                      value={startDate}
+                      onChange={setStartDate}
+                      placeholder="Start date"
+                      max={endDate || undefined}
+                      clearable
+                      className="h-8 w-[160px] text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-xs text-muted-foreground whitespace-nowrap">To</label>
+                    <DatePicker
+                      value={endDate}
+                      onChange={setEndDate}
+                      placeholder="End date"
+                      min={startDate || undefined}
+                      clearable
+                      className="h-8 w-[160px] text-sm"
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => { setStartDate(''); setEndDate(''); }}
+                    >
+                      Clear dates
+                    </Button>
+                  )}
+                </div>
+                {(search || type !== 'all' || tagFilter !== 'all' || versionFilter !== 'all' || startDate || endDate) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground ml-auto"
+                    onClick={() => {
+                      setSearch('');
+                      setType('all');
+                      setTier('all');
+                      setTagFilter('all');
+                      setVersionFilter('all');
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                  >
+                    Reset all filters
+                  </Button>
+                )}
+              </div>
             </div>
             {activitiesLoading ? (
               <ProductActivitiesSkeleton />
