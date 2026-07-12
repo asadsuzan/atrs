@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 
 
-import { ChevronLeft, ChevronRight, Settings as SettingsIcon, Search, LogOut, Menu, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings as SettingsIcon, Search, LogOut, Menu, X, Sparkles } from 'lucide-react';
+import { APP_VERSION } from './data/changelog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { startTour, hasSeenTour } from './lib/tour';
@@ -34,6 +35,7 @@ const Users = lazy(() => import('./pages/admin/Users'));
 const ReadmeTools = lazy(() => import('./pages/ReadmeTools'));
 const Review = lazy(() => import('./pages/Review'));
 const PublicChangelog = lazy(() => import('./pages/PublicChangelog'));
+const AppChangelog = lazy(() => import('./pages/AppChangelog'));
 const PublicIssues = lazy(() => import('./pages/PublicIssues'));
 const Explore = lazy(() => import('./pages/Explore'));
 const ChangelogGenerator = lazy(() => import('./pages/ChangelogGenerator'));
@@ -99,8 +101,10 @@ function SidebarShell({
         </div>
         <div className={`flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
           <h1 className="text-xl font-bold tracking-tight leading-none">ATRS</h1>
-          <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">Automated Townhall Reporting System</span>
-        </div>
+          <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">Automated Townhall Reporting System <br />
+     
+          </span>
+        </div>  
         {mobile && (
           <button
             onClick={onClose}
@@ -118,6 +122,29 @@ function SidebarShell({
 
       {/* Bottom Actions */}
       <div className="mt-auto flex flex-col gap-2 pt-4 border-t">
+        <Link
+          to="/changelog"
+          className={`flex items-center min-h-[44px] md:min-h-0 py-2 rounded-md transition-all duration-300 ease-in-out text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground ${
+            collapsed ? 'justify-center px-0' : 'px-3 gap-2'
+          }`}
+          title={collapsed ? `What's New (v${APP_VERSION})` : undefined}
+        >
+          <Sparkles className={`shrink-0 transition-all duration-300 ${collapsed ? 'w-6 h-6' : 'w-4 h-4'}`} />
+          <span className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out text-sm ${collapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 flex items-baseline gap-1.5'}`}>
+            What&apos;s New
+            <span className="text-[10px] text-muted-foreground font-medium">v{APP_VERSION}</span>
+           
+          </span>
+          
+        </Link>
+
+        {
+          !collapsed && (
+            <span className="text-[10px] text-muted-foreground font-medium mt-0.5 tracking-wide">WordPress Plugin Coming Soon!
+            </span>
+          )
+        }
+   
         <Link
           to="/settings"
           className={`flex items-center min-h-[44px] md:min-h-0 py-2 rounded-md transition-all duration-300 ease-in-out ${
@@ -374,7 +401,9 @@ function AnimatedRoutes() {
         <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
         {/* Self-gates: requires auth + mustChangePassword (see component). */}
         <Route path="/set-password" element={<SetPassword />} />
-        {/* Public hosted changelog — no auth, outside the app shell. */}
+        {/* ATRS's own release notes — public, no auth, outside the app shell. */}
+        <Route path="/changelog" element={<Suspense fallback={<PageSkeleton />}><AppChangelog /></Suspense>} />
+        {/* Public hosted changelog for a product — no auth, outside the app shell. */}
         <Route path="/changelog/:id" element={<Suspense fallback={<PageSkeleton />}><PublicChangelog /></Suspense>} />
         {/* Public hosted issues — no auth, outside the app shell. */}
         <Route path="/issues/:id" element={<Suspense fallback={<PageSkeleton />}><PublicIssues /></Suspense>} />

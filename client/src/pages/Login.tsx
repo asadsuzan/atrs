@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
 import { playSound } from '@/lib/sound';
+import { APP_VERSION } from '@/data/changelog';
 
 export default function Login() {
   const { login } = useAuth();
@@ -34,7 +36,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm border rounded-xl bg-card p-8 shadow-sm">
         <div className="flex items-center gap-2 mb-6">
           <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-bold">A</div>
@@ -65,6 +67,12 @@ export default function Login() {
           <Link to="/register" className="text-primary font-medium hover:underline">Sign up</Link>
         </p>
       </div>
+      <Link
+        to="/changelog"
+        className="mt-6 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Sparkles className="w-3.5 h-3.5" /> What&apos;s new · v{APP_VERSION}
+      </Link>
     </div>
   );
 }

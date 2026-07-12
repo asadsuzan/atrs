@@ -33,6 +33,7 @@ const STATIC_TITLES: Record<string, string> = {
 const PAGE_OWNED = [
   /^\/explore\/?$/,
   /^\/products\/[^/]+/,
+  /^\/changelog\/?$/,
   /^\/changelog\/[^/]+/,
   /^\/issues\/[^/]+/,
 ];
