@@ -11,6 +11,8 @@
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
+    "docs:nav": "node docs/generate-nav.js",
+    "docs:serve": "npm run docs:nav && npx serve docs",
     "build": "npm run build -w client && npm run build -w server",
     "build:client": "npm run build -w client",
     "build:server": "npm run build -w server",

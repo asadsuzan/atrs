@@ -1,0 +1,2474 @@
+[
+  {
+    "type": "directory",
+    "name": "algorithms",
+    "children": [
+      {
+        "type": "file",
+        "name": "Accent Color Extraction",
+        "filename": "accent-color-extraction.md",
+        "path": "algorithms/accent-color-extraction.md"
+      },
+      {
+        "type": "file",
+        "name": "AI Generation (Ollama) — Title / Description Suggestions",
+        "filename": "ai-generation.md",
+        "path": "algorithms/ai-generation.md"
+      },
+      {
+        "type": "file",
+        "name": "ATRS — Algorithms Reference",
+        "filename": "index.md",
+        "path": "algorithms/index.md"
+      },
+      {
+        "type": "file",
+        "name": "Boot-Time Seed & Migration",
+        "filename": "seed-and-migrate.md",
+        "path": "algorithms/seed-and-migrate.md"
+      },
+      {
+        "type": "file",
+        "name": "Changelog Metrics Aggregation (Monthly / Trend / Annual)",
+        "filename": "metrics-aggregation.md",
+        "path": "algorithms/metrics-aggregation.md"
+      },
+      {
+        "type": "file",
+        "name": "Image Framer — Canvas Compositing & Export",
+        "filename": "framer-export-compositing.md",
+        "path": "algorithms/framer-export-compositing.md"
+      },
+      {
+        "type": "file",
+        "name": "Readme Changelog Parsing & Type Classification",
+        "filename": "readme-changelog-parsing.md",
+        "path": "algorithms/readme-changelog-parsing.md"
+      },
+      {
+        "type": "file",
+        "name": "Release Assembly & Export (readme + Markdown)",
+        "filename": "release-assembly-and-export.md",
+        "path": "algorithms/release-assembly-and-export.md"
+      },
+      {
+        "type": "file",
+        "name": "Slug Generation & Disambiguation",
+        "filename": "slug-disambiguation.md",
+        "path": "algorithms/slug-disambiguation.md"
+      },
+      {
+        "type": "file",
+        "name": "SVN Version Metadata Fetch",
+        "filename": "svn-version-metadata-fetch.md",
+        "path": "algorithms/svn-version-metadata-fetch.md"
+      },
+      {
+        "type": "file",
+        "name": "Timezone-Aware Streak Calculation",
+        "filename": "streak-calculation.md",
+        "path": "algorithms/streak-calculation.md"
+      },
+      {
+        "type": "file",
+        "name": "WordPress.org Ecosystem Stats Aggregation",
+        "filename": "wp-stats-scraping.md",
+        "path": "algorithms/wp-stats-scraping.md"
+      },
+      {
+        "type": "file",
+        "name": "WordPress.org Import Pipeline",
+        "filename": "wporg-import-pipeline.md",
+        "path": "algorithms/wporg-import-pipeline.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "api",
+    "children": [
+      {
+        "type": "file",
+        "name": "API — Client → Endpoint Map",
+        "filename": "client-endpoint-map.md",
+        "path": "api/client-endpoint-map.md"
+      },
+      {
+        "type": "file",
+        "name": "ATRS Server REST API Reference",
+        "filename": "server-api-endpoints.md",
+        "path": "api/server-api-endpoints.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "appendix",
+    "children": [
+      {
+        "type": "file",
+        "name": "Appendix — Coding & Architectural Conventions",
+        "filename": "conventions.md",
+        "path": "appendix/conventions.md"
+      },
+      {
+        "type": "file",
+        "name": "Appendix — Index",
+        "filename": "index.md",
+        "path": "appendix/index.md"
+      },
+      {
+        "type": "file",
+        "name": "Appendix — Technology Stack",
+        "filename": "tech-stack.md",
+        "path": "appendix/tech-stack.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "architecture",
+    "children": [
+      {
+        "type": "file",
+        "name": "ATRS — Data Flow Traces",
+        "filename": "data-flow.md",
+        "path": "architecture/data-flow.md"
+      },
+      {
+        "type": "file",
+        "name": "ATRS — Frontend Architecture",
+        "filename": "frontend.md",
+        "path": "architecture/frontend.md"
+      },
+      {
+        "type": "file",
+        "name": "ATRS — System Architecture Overview",
+        "filename": "overview.md",
+        "path": "architecture/overview.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "configuration",
+    "children": [
+      {
+        "type": "file",
+        "name": "Environment Variables",
+        "filename": "environment-variables.md",
+        "path": "configuration/environment-variables.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "database",
+    "children": [
+      {
+        "type": "file",
+        "name": "Database Schema (MongoDB / Mongoose)",
+        "filename": "schema.md",
+        "path": "database/schema.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "directories",
+    "children": [
+      {
+        "type": "file",
+        "name": "Directory Guide — `client/src/components`",
+        "filename": "client-components.md",
+        "path": "directories/client-components.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — `client/src/services`",
+        "filename": "client-services.md",
+        "path": "directories/client-services.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — `client/src`",
+        "filename": "client-src.md",
+        "path": "directories/client-src.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — `server/src`",
+        "filename": "server-src.md",
+        "path": "directories/server-src.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — `tools/dist-builder`",
+        "filename": "tools-dist-builder.md",
+        "path": "directories/tools-dist-builder.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — Project Root (monorepo)",
+        "filename": "project-root.md",
+        "path": "directories/project-root.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guide — Server Layering (controller → service → repository → model)",
+        "filename": "server-layers.md",
+        "path": "directories/server-layers.md"
+      },
+      {
+        "type": "file",
+        "name": "Directory Guides — Index",
+        "filename": "index.md",
+        "path": "directories/index.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "features",
+    "children": [
+      {
+        "type": "file",
+        "name": "AI Assist",
+        "filename": "ai-assist.md",
+        "path": "features/ai-assist.md"
+      },
+      {
+        "type": "file",
+        "name": "AI Changelog Generator",
+        "filename": "changelog-generator.md",
+        "path": "features/changelog-generator.md"
+      },
+      {
+        "type": "file",
+        "name": "ATRS Feature Documentation",
+        "filename": "index.md",
+        "path": "features/index.md"
+      },
+      {
+        "type": "file",
+        "name": "Authentication & User Management",
+        "filename": "auth-and-users.md",
+        "path": "features/auth-and-users.md"
+      },
+      {
+        "type": "file",
+        "name": "Changelog Management",
+        "filename": "changelog-management.md",
+        "path": "features/changelog-management.md"
+      },
+      {
+        "type": "file",
+        "name": "Image Framer",
+        "filename": "image-framer.md",
+        "path": "features/image-framer.md"
+      },
+      {
+        "type": "file",
+        "name": "Issues & Feature Requests",
+        "filename": "issues-and-feature-requests.md",
+        "path": "features/issues-and-feature-requests.md"
+      },
+      {
+        "type": "file",
+        "name": "Marketing Hub",
+        "filename": "marketing-hub.md",
+        "path": "features/marketing-hub.md"
+      },
+      {
+        "type": "file",
+        "name": "Media Library",
+        "filename": "media-library.md",
+        "path": "features/media-library.md"
+      },
+      {
+        "type": "file",
+        "name": "Notifications",
+        "filename": "notifications.md",
+        "path": "features/notifications.md"
+      },
+      {
+        "type": "file",
+        "name": "Product Management",
+        "filename": "product-management.md",
+        "path": "features/product-management.md"
+      },
+      {
+        "type": "file",
+        "name": "Releases & Publishing",
+        "filename": "releases.md",
+        "path": "features/releases.md"
+      },
+      {
+        "type": "file",
+        "name": "Reports & Dashboard",
+        "filename": "dashboard-and-insights.md",
+        "path": "features/dashboard-and-insights.md"
+      },
+      {
+        "type": "file",
+        "name": "Streak Tracking",
+        "filename": "streak-tracking.md",
+        "path": "features/streak-tracking.md"
+      },
+      {
+        "type": "file",
+        "name": "Version Management",
+        "filename": "version-management.md",
+        "path": "features/version-management.md"
+      },
+      {
+        "type": "file",
+        "name": "WordPress.org Import",
+        "filename": "wporg-import.md",
+        "path": "features/wporg-import.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "files",
+    "children": [
+      {
+        "type": "directory",
+        "name": "client",
+        "children": [
+          {
+            "type": "directory",
+            "name": "components",
+            "children": [
+              {
+                "type": "directory",
+                "name": "activities",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/activities/ActivityForm.tsx`",
+                    "filename": "ActivityForm.md",
+                    "path": "files/client/components/activities/ActivityForm.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "ai",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ai/AiAssist.tsx`",
+                    "filename": "AiAssist.md",
+                    "path": "files/client/components/ai/AiAssist.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "dashboard",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/dashboard/StreakCard.tsx`",
+                    "filename": "StreakCard.md",
+                    "path": "files/client/components/dashboard/StreakCard.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "issues",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/issues/IssueManager.tsx`",
+                    "filename": "IssueManager.md",
+                    "path": "files/client/components/issues/IssueManager.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/issues/QuickIssueDialog.tsx`",
+                    "filename": "QuickIssueDialog.md",
+                    "path": "files/client/components/issues/QuickIssueDialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/issues/ReportIssueDialog.tsx`",
+                    "filename": "ReportIssueDialog.md",
+                    "path": "files/client/components/issues/ReportIssueDialog.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "jobs",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/jobs/ChangelogGenMiniPlayer.tsx`",
+                    "filename": "ChangelogGenMiniPlayer.md",
+                    "path": "files/client/components/jobs/ChangelogGenMiniPlayer.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/jobs/JobStreamDialog.tsx`",
+                    "filename": "JobStreamDialog.md",
+                    "path": "files/client/components/jobs/JobStreamDialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/jobs/JobStreamMiniPlayer.tsx`",
+                    "filename": "JobStreamMiniPlayer.md",
+                    "path": "files/client/components/jobs/JobStreamMiniPlayer.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "layout",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/layout/CommandPalette.tsx`",
+                    "filename": "CommandPalette.md",
+                    "path": "files/client/components/layout/CommandPalette.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/layout/NotificationBell.tsx`",
+                    "filename": "NotificationBell.md",
+                    "path": "files/client/components/layout/NotificationBell.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/layout/PageTransition.tsx`",
+                    "filename": "PageTransition.md",
+                    "path": "files/client/components/layout/PageTransition.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/layout/SidebarNav.tsx`",
+                    "filename": "SidebarNav.md",
+                    "path": "files/client/components/layout/SidebarNav.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/layout/SmoothScroll.tsx`",
+                    "filename": "SmoothScroll.md",
+                    "path": "files/client/components/layout/SmoothScroll.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "marketing",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/marketing/MarketingManager.tsx`",
+                    "filename": "MarketingManager.md",
+                    "path": "files/client/components/marketing/MarketingManager.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/marketing/SmartParser.ts`",
+                    "filename": "SmartParser.md",
+                    "path": "files/client/components/marketing/SmartParser.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "media",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/media/MediaLibraryDialog.tsx`",
+                    "filename": "MediaLibraryDialog.md",
+                    "path": "files/client/components/media/MediaLibraryDialog.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "onboarding",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/onboarding/GetStarted.tsx`",
+                    "filename": "GetStarted.md",
+                    "path": "files/client/components/onboarding/GetStarted.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "products",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/AddProductDialog.tsx`",
+                    "filename": "AddProductDialog.md",
+                    "path": "files/client/components/products/AddProductDialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/NeedProductFirstDialog.tsx`",
+                    "filename": "NeedProductFirstDialog.md",
+                    "path": "files/client/components/products/NeedProductFirstDialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/ProductForm.tsx`",
+                    "filename": "ProductForm.md",
+                    "path": "files/client/components/products/ProductForm.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/ProductsEmptyState.tsx`",
+                    "filename": "ProductsEmptyState.md",
+                    "path": "files/client/components/products/ProductsEmptyState.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/ProductWpStats.tsx`",
+                    "filename": "ProductWpStats.md",
+                    "path": "files/client/components/products/ProductWpStats.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/ReleasePublish.tsx`",
+                    "filename": "ReleasePublish.md",
+                    "path": "files/client/components/products/ReleasePublish.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/RepoPathBrowser.tsx`",
+                    "filename": "RepoPathBrowser.md",
+                    "path": "files/client/components/products/RepoPathBrowser.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/StaleProductAlert.tsx`",
+                    "filename": "StaleProductAlert.md",
+                    "path": "files/client/components/products/StaleProductAlert.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/WpImportMiniPlayer.tsx`",
+                    "filename": "WpImportMiniPlayer.md",
+                    "path": "files/client/components/products/WpImportMiniPlayer.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/WpOrgImportDialog.tsx`",
+                    "filename": "WpOrgImportDialog.md",
+                    "path": "files/client/components/products/WpOrgImportDialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/products/WpReadmeViewer.tsx`",
+                    "filename": "WpReadmeViewer.md",
+                    "path": "files/client/components/products/WpReadmeViewer.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "reports",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/reports/DonutChart.tsx`",
+                    "filename": "DonutChart.md",
+                    "path": "files/client/components/reports/DonutChart.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/reports/PresentationMode.tsx`",
+                    "filename": "PresentationMode.md",
+                    "path": "files/client/components/reports/PresentationMode.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/reports/TrendChart.tsx`",
+                    "filename": "TrendChart.md",
+                    "path": "files/client/components/reports/TrendChart.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "tools",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/tools/framerExport.ts`",
+                    "filename": "framerExport.md",
+                    "path": "files/client/components/tools/framerExport.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/tools/FramerExportBoard.tsx`",
+                    "filename": "FramerExportBoard.md",
+                    "path": "files/client/components/tools/FramerExportBoard.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/tools/ImageFramer.tsx`",
+                    "filename": "ImageFramer.md",
+                    "path": "files/client/components/tools/ImageFramer.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "ui",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/alert-dialog.tsx`",
+                    "filename": "alert-dialog.md",
+                    "path": "files/client/components/ui/alert-dialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/AuthorAvatar.tsx`",
+                    "filename": "AuthorAvatar.md",
+                    "path": "files/client/components/ui/AuthorAvatar.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/badge.tsx`",
+                    "filename": "badge.md",
+                    "path": "files/client/components/ui/badge.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/button.tsx`",
+                    "filename": "button.md",
+                    "path": "files/client/components/ui/button.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/card.tsx`",
+                    "filename": "card.md",
+                    "path": "files/client/components/ui/card.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/checkbox.tsx`",
+                    "filename": "checkbox.md",
+                    "path": "files/client/components/ui/checkbox.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/command.tsx`",
+                    "filename": "command.md",
+                    "path": "files/client/components/ui/command.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/DatePicker.tsx`",
+                    "filename": "DatePicker.md",
+                    "path": "files/client/components/ui/DatePicker.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/dialog.tsx`",
+                    "filename": "dialog.md",
+                    "path": "files/client/components/ui/dialog.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/dropdown-menu.tsx`",
+                    "filename": "dropdown-menu.md",
+                    "path": "files/client/components/ui/dropdown-menu.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/form.tsx`",
+                    "filename": "form.md",
+                    "path": "files/client/components/ui/form.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/input.tsx`",
+                    "filename": "input.md",
+                    "path": "files/client/components/ui/input.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/label.tsx`",
+                    "filename": "label.md",
+                    "path": "files/client/components/ui/label.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/media-carousel.tsx`",
+                    "filename": "media-carousel.md",
+                    "path": "files/client/components/ui/media-carousel.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/media-lightbox.tsx`",
+                    "filename": "media-lightbox.md",
+                    "path": "files/client/components/ui/media-lightbox.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/MediaUploader.tsx`",
+                    "filename": "MediaUploader.md",
+                    "path": "files/client/components/ui/MediaUploader.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/Pagination.tsx`",
+                    "filename": "Pagination.md",
+                    "path": "files/client/components/ui/Pagination.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/PasswordInput.tsx`",
+                    "filename": "PasswordInput.md",
+                    "path": "files/client/components/ui/PasswordInput.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/popover.tsx`",
+                    "filename": "popover.md",
+                    "path": "files/client/components/ui/popover.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/RichText.tsx`",
+                    "filename": "RichText.md",
+                    "path": "files/client/components/ui/RichText.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/RichTextEditor.tsx`",
+                    "filename": "RichTextEditor.md",
+                    "path": "files/client/components/ui/RichTextEditor.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/select.tsx`",
+                    "filename": "select.md",
+                    "path": "files/client/components/ui/select.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/skeleton.tsx`",
+                    "filename": "skeleton.md",
+                    "path": "files/client/components/ui/skeleton.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/skeletons.tsx`",
+                    "filename": "skeletons.md",
+                    "path": "files/client/components/ui/skeletons.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/slider.tsx`",
+                    "filename": "slider.md",
+                    "path": "files/client/components/ui/slider.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/sonner.tsx`",
+                    "filename": "sonner.md",
+                    "path": "files/client/components/ui/sonner.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/table.tsx`",
+                    "filename": "table.md",
+                    "path": "files/client/components/ui/table.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/tabs.tsx`",
+                    "filename": "tabs.md",
+                    "path": "files/client/components/ui/tabs.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/textarea.tsx`",
+                    "filename": "textarea.md",
+                    "path": "files/client/components/ui/textarea.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/ui/ViewToggle.tsx`",
+                    "filename": "ViewToggle.md",
+                    "path": "files/client/components/ui/ViewToggle.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "versions",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/versions/VersionBadge.tsx`",
+                    "filename": "VersionBadge.md",
+                    "path": "files/client/components/versions/VersionBadge.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/versions/VersionManager.tsx`",
+                    "filename": "VersionManager.md",
+                    "path": "files/client/components/versions/VersionManager.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "windows",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/windows/DesktopWindow.tsx`",
+                    "filename": "DesktopWindow.md",
+                    "path": "files/client/components/windows/DesktopWindow.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`client/src/components/windows/WindowLayer.tsx`",
+                    "filename": "WindowLayer.md",
+                    "path": "files/client/components/windows/WindowLayer.md"
+                  }
+                ]
+              },
+              {
+                "type": "file",
+                "name": "`client/src/components/ErrorBoundary.tsx`",
+                "filename": "ErrorBoundary.md",
+                "path": "files/client/components/ErrorBoundary.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "contexts",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/contexts/AddProductContext.tsx`",
+                "filename": "AddProductContext.md",
+                "path": "files/client/contexts/AddProductContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/AuthContext.tsx`",
+                "filename": "AuthContext.md",
+                "path": "files/client/contexts/AuthContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/ChangelogGenContext.tsx`",
+                "filename": "ChangelogGenContext.md",
+                "path": "files/client/contexts/ChangelogGenContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/ConfirmContext.tsx`",
+                "filename": "ConfirmContext.md",
+                "path": "files/client/contexts/ConfirmContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/FramerExportContext.tsx`",
+                "filename": "FramerExportContext.md",
+                "path": "files/client/contexts/FramerExportContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/JobDockContext.tsx`",
+                "filename": "JobDockContext.md",
+                "path": "files/client/contexts/JobDockContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/JobStreamContext.tsx`",
+                "filename": "JobStreamContext.md",
+                "path": "files/client/contexts/JobStreamContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/NotificationContext.tsx`",
+                "filename": "NotificationContext.md",
+                "path": "files/client/contexts/NotificationContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/ThemeProvider.tsx`",
+                "filename": "ThemeProvider.md",
+                "path": "files/client/contexts/ThemeProvider.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/WindowManagerContext.tsx`",
+                "filename": "WindowManagerContext.md",
+                "path": "files/client/contexts/WindowManagerContext.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/contexts/WpImportContext.tsx`",
+                "filename": "WpImportContext.md",
+                "path": "files/client/contexts/WpImportContext.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "data",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/data/changelog.ts`",
+                "filename": "changelog.md",
+                "path": "files/client/data/changelog.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "hooks",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/hooks/useDebouncedValue.ts`",
+                "filename": "useDebouncedValue.md",
+                "path": "files/client/hooks/useDebouncedValue.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/hooks/useDocumentTitle.ts`",
+                "filename": "useDocumentTitle.md",
+                "path": "files/client/hooks/useDocumentTitle.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/hooks/useFormDraft.ts`",
+                "filename": "useFormDraft.md",
+                "path": "files/client/hooks/useFormDraft.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/hooks/useLocalStorage.ts`",
+                "filename": "useLocalStorage.md",
+                "path": "files/client/hooks/useLocalStorage.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/hooks/useVersions.ts`",
+                "filename": "useVersions.md",
+                "path": "files/client/hooks/useVersions.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "lib",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/lib/imageColor.ts`",
+                "filename": "imageColor.md",
+                "path": "files/client/lib/imageColor.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/pageTitle.ts`",
+                "filename": "pageTitle.md",
+                "path": "files/client/lib/pageTitle.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/richText.ts`",
+                "filename": "richText.md",
+                "path": "files/client/lib/richText.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/sound.ts`",
+                "filename": "sound.md",
+                "path": "files/client/lib/sound.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/tour.ts`",
+                "filename": "tour.md",
+                "path": "files/client/lib/tour.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/utils.ts`",
+                "filename": "utils.md",
+                "path": "files/client/lib/utils.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/lib/versions.ts`",
+                "filename": "versions.md",
+                "path": "files/client/lib/versions.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "pages",
+            "children": [
+              {
+                "type": "directory",
+                "name": "admin",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`client/src/pages/admin/Users.tsx`",
+                    "filename": "Users.md",
+                    "path": "files/client/pages/admin/Users.md"
+                  }
+                ]
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Activities.tsx`",
+                "filename": "Activities.md",
+                "path": "files/client/pages/Activities.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/AppChangelog.tsx`",
+                "filename": "AppChangelog.md",
+                "path": "files/client/pages/AppChangelog.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/AuditLogs.tsx`",
+                "filename": "AuditLogs.md",
+                "path": "files/client/pages/AuditLogs.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/ChangelogGenerator.tsx`",
+                "filename": "ChangelogGenerator.md",
+                "path": "files/client/pages/ChangelogGenerator.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Dashboard.tsx`",
+                "filename": "Dashboard.md",
+                "path": "files/client/pages/Dashboard.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Explore.tsx`",
+                "filename": "Explore.md",
+                "path": "files/client/pages/Explore.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/FeatureRequests.tsx`",
+                "filename": "FeatureRequests.md",
+                "path": "files/client/pages/FeatureRequests.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/ForgotPassword.tsx`",
+                "filename": "ForgotPassword.md",
+                "path": "files/client/pages/ForgotPassword.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Help.tsx`",
+                "filename": "Help.md",
+                "path": "files/client/pages/Help.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Login.tsx`",
+                "filename": "Login.md",
+                "path": "files/client/pages/Login.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/MediaManager.tsx`",
+                "filename": "MediaManager.md",
+                "path": "files/client/pages/MediaManager.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/ProductDetails.tsx`",
+                "filename": "ProductDetails.md",
+                "path": "files/client/pages/ProductDetails.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Products.tsx`",
+                "filename": "Products.md",
+                "path": "files/client/pages/Products.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/PublicChangelog.tsx`",
+                "filename": "PublicChangelog.md",
+                "path": "files/client/pages/PublicChangelog.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/PublicIssues.tsx`",
+                "filename": "PublicIssues.md",
+                "path": "files/client/pages/PublicIssues.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/ReadmeTools.tsx`",
+                "filename": "ReadmeTools.md",
+                "path": "files/client/pages/ReadmeTools.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Register.tsx`",
+                "filename": "Register.md",
+                "path": "files/client/pages/Register.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Reports.tsx`",
+                "filename": "Reports.md",
+                "path": "files/client/pages/Reports.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Review.tsx`",
+                "filename": "Review.md",
+                "path": "files/client/pages/Review.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/SetPassword.tsx`",
+                "filename": "SetPassword.md",
+                "path": "files/client/pages/SetPassword.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/pages/Settings.tsx`",
+                "filename": "Settings.md",
+                "path": "files/client/pages/Settings.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "services",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/services/activities.ts`",
+                "filename": "activities.md",
+                "path": "files/client/services/activities.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/ai.ts`",
+                "filename": "ai.md",
+                "path": "files/client/services/ai.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/api.ts`",
+                "filename": "api.md",
+                "path": "files/client/services/api.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/auditLogs.ts`",
+                "filename": "auditLogs.md",
+                "path": "files/client/services/auditLogs.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/auth.ts`",
+                "filename": "auth.md",
+                "path": "files/client/services/auth.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/changelogGen.ts`",
+                "filename": "changelogGen.md",
+                "path": "files/client/services/changelogGen.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/config.ts`",
+                "filename": "config.md",
+                "path": "files/client/services/config.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/export.ts`",
+                "filename": "export.md",
+                "path": "files/client/services/export.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/featureRequests.ts`",
+                "filename": "featureRequests.md",
+                "path": "files/client/services/featureRequests.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/github.ts`",
+                "filename": "github.md",
+                "path": "files/client/services/github.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/issues.ts`",
+                "filename": "issues.md",
+                "path": "files/client/services/issues.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/jobStream.ts`",
+                "filename": "jobStream.md",
+                "path": "files/client/services/jobStream.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/marketing.ts`",
+                "filename": "marketing.md",
+                "path": "files/client/services/marketing.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/media.ts`",
+                "filename": "media.md",
+                "path": "files/client/services/media.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/notifications.ts`",
+                "filename": "notifications.md",
+                "path": "files/client/services/notifications.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/products.ts`",
+                "filename": "products.md",
+                "path": "files/client/services/products.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/public.ts`",
+                "filename": "public.md",
+                "path": "files/client/services/public.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/release.ts`",
+                "filename": "release.md",
+                "path": "files/client/services/release.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/reports.ts`",
+                "filename": "reports.md",
+                "path": "files/client/services/reports.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/streak.ts`",
+                "filename": "streak.md",
+                "path": "files/client/services/streak.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/users.ts`",
+                "filename": "users.md",
+                "path": "files/client/services/users.md"
+              },
+              {
+                "type": "file",
+                "name": "`client/src/services/versions.ts`",
+                "filename": "versions.md",
+                "path": "files/client/services/versions.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "types",
+            "children": [
+              {
+                "type": "file",
+                "name": "`client/src/types/gif.js.d.ts`",
+                "filename": "gif.js.d.md",
+                "path": "files/client/types/gif.js.d.md"
+              }
+            ]
+          },
+          {
+            "type": "file",
+            "name": "`client/src/App.css`",
+            "filename": "App-css.md",
+            "path": "files/client/App-css.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/src/App.tsx`",
+            "filename": "App.md",
+            "path": "files/client/App.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/src/index.css`",
+            "filename": "index-css.md",
+            "path": "files/client/index-css.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/src/main.tsx`",
+            "filename": "main.md",
+            "path": "files/client/main.md"
+          }
+        ]
+      },
+      {
+        "type": "directory",
+        "name": "root",
+        "children": [
+          {
+            "type": "file",
+            "name": "`.env.example` (root)",
+            "filename": "env-example.md",
+            "path": "files/root/env-example.md"
+          },
+          {
+            "type": "file",
+            "name": "`.env` (root)",
+            "filename": "env.md",
+            "path": "files/root/env.md"
+          },
+          {
+            "type": "file",
+            "name": "`.gitignore` (root)",
+            "filename": "gitignore.md",
+            "path": "files/root/gitignore.md"
+          },
+          {
+            "type": "file",
+            "name": "`.vercelignore`",
+            "filename": "vercelignore.md",
+            "path": "files/root/vercelignore.md"
+          },
+          {
+            "type": "file",
+            "name": "`.vscode/`",
+            "filename": "vscode.md",
+            "path": "files/root/vscode.md"
+          },
+          {
+            "type": "file",
+            "name": "`app.config.example.json`",
+            "filename": "app-config-example-json.md",
+            "path": "files/root/app-config-example-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`app.config.json`",
+            "filename": "app-config-json.md",
+            "path": "files/root/app-config-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/.gitignore`",
+            "filename": "client-gitignore.md",
+            "path": "files/root/client-gitignore.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/components.json`",
+            "filename": "client-components-json.md",
+            "path": "files/root/client-components-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/eslint.config.js`",
+            "filename": "client-eslint-config-js.md",
+            "path": "files/root/client-eslint-config-js.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/index.html`",
+            "filename": "client-index-html.md",
+            "path": "files/root/client-index-html.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/package.json`",
+            "filename": "client-package-json.md",
+            "path": "files/root/client-package-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/postcss.config.js`",
+            "filename": "client-postcss-config-js.md",
+            "path": "files/root/client-postcss-config-js.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/tailwind.config.js`",
+            "filename": "client-tailwind-config-js.md",
+            "path": "files/root/client-tailwind-config-js.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/tsconfig.app.json`",
+            "filename": "client-tsconfig-app-json.md",
+            "path": "files/root/client-tsconfig-app-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/tsconfig.json`",
+            "filename": "client-tsconfig-json.md",
+            "path": "files/root/client-tsconfig-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/tsconfig.node.json`",
+            "filename": "client-tsconfig-node-json.md",
+            "path": "files/root/client-tsconfig-node-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`client/vite.config.ts`",
+            "filename": "client-vite-config-ts.md",
+            "path": "files/root/client-vite-config-ts.md"
+          },
+          {
+            "type": "file",
+            "name": "`package-lock.json` (root)",
+            "filename": "package-lock-json.md",
+            "path": "files/root/package-lock-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`package.json` (root)",
+            "filename": "package-json.md",
+            "path": "files/root/package-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`server/package.json`",
+            "filename": "server-package-json.md",
+            "path": "files/root/server-package-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`server/tsconfig.json`",
+            "filename": "server-tsconfig-json.md",
+            "path": "files/root/server-tsconfig-json.md"
+          },
+          {
+            "type": "file",
+            "name": "`server/vitest.config.ts`",
+            "filename": "server-vitest-config-ts.md",
+            "path": "files/root/server-vitest-config-ts.md"
+          },
+          {
+            "type": "file",
+            "name": "`vercel.json`",
+            "filename": "vercel-json.md",
+            "path": "files/root/vercel-json.md"
+          }
+        ]
+      },
+      {
+        "type": "directory",
+        "name": "server",
+        "children": [
+          {
+            "type": "directory",
+            "name": "config",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/config/db.ts`",
+                "filename": "db.md",
+                "path": "files/server/config/db.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "controllers",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ActivityController.ts`",
+                "filename": "ActivityController.md",
+                "path": "files/server/controllers/ActivityController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/AiController.ts`",
+                "filename": "AiController.md",
+                "path": "files/server/controllers/AiController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/AuditLogController.ts`",
+                "filename": "AuditLogController.md",
+                "path": "files/server/controllers/AuditLogController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/AuthController.ts`",
+                "filename": "AuthController.md",
+                "path": "files/server/controllers/AuthController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ChangelogGenController.ts`",
+                "filename": "ChangelogGenController.md",
+                "path": "files/server/controllers/ChangelogGenController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ConfigController.ts`",
+                "filename": "ConfigController.md",
+                "path": "files/server/controllers/ConfigController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ExportController.ts`",
+                "filename": "ExportController.md",
+                "path": "files/server/controllers/ExportController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/FeatureRequestController.ts`",
+                "filename": "FeatureRequestController.md",
+                "path": "files/server/controllers/FeatureRequestController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/FsController.ts`",
+                "filename": "FsController.md",
+                "path": "files/server/controllers/FsController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/GitHubController.ts`",
+                "filename": "GitHubController.md",
+                "path": "files/server/controllers/GitHubController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/IssueController.ts`",
+                "filename": "IssueController.md",
+                "path": "files/server/controllers/IssueController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/MediaController.ts`",
+                "filename": "MediaController.md",
+                "path": "files/server/controllers/MediaController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/NotificationController.ts`",
+                "filename": "NotificationController.md",
+                "path": "files/server/controllers/NotificationController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ProductController.ts`",
+                "filename": "ProductController.md",
+                "path": "files/server/controllers/ProductController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ProductMarketingController.ts`",
+                "filename": "ProductMarketingController.md",
+                "path": "files/server/controllers/ProductMarketingController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ReadmeToolsController.ts`",
+                "filename": "ReadmeToolsController.md",
+                "path": "files/server/controllers/ReadmeToolsController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ReleaseController.ts`",
+                "filename": "ReleaseController.md",
+                "path": "files/server/controllers/ReleaseController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/ReportController.ts`",
+                "filename": "ReportController.md",
+                "path": "files/server/controllers/ReportController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/StreakController.ts`",
+                "filename": "StreakController.md",
+                "path": "files/server/controllers/StreakController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/UserController.ts`",
+                "filename": "UserController.md",
+                "path": "files/server/controllers/UserController.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/controllers/VersionController.ts`",
+                "filename": "VersionController.md",
+                "path": "files/server/controllers/VersionController.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "middlewares",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/middlewares/auth.test.ts`",
+                "filename": "auth.test.md",
+                "path": "files/server/middlewares/auth.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/middlewares/auth.ts`",
+                "filename": "auth.md",
+                "path": "files/server/middlewares/auth.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/middlewares/errorHandler.ts`",
+                "filename": "errorHandler.md",
+                "path": "files/server/middlewares/errorHandler.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/middlewares/logger.ts`",
+                "filename": "logger.md",
+                "path": "files/server/middlewares/logger.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/middlewares/validate.ts`",
+                "filename": "validate.md",
+                "path": "files/server/middlewares/validate.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "models",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/models/Activity.ts`",
+                "filename": "Activity.md",
+                "path": "files/server/models/Activity.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/AppConfig.ts`",
+                "filename": "AppConfig.md",
+                "path": "files/server/models/AppConfig.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/AuditLog.ts`",
+                "filename": "AuditLog.md",
+                "path": "files/server/models/AuditLog.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/DailyLog.ts`",
+                "filename": "DailyLog.md",
+                "path": "files/server/models/DailyLog.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/FeatureRequest.ts`",
+                "filename": "FeatureRequest.md",
+                "path": "files/server/models/FeatureRequest.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/Issue.ts`",
+                "filename": "Issue.md",
+                "path": "files/server/models/Issue.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/JobSession.ts`",
+                "filename": "JobSession.md",
+                "path": "files/server/models/JobSession.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/Notification.ts`",
+                "filename": "Notification.md",
+                "path": "files/server/models/Notification.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/Product.ts`",
+                "filename": "Product.md",
+                "path": "files/server/models/Product.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/ProductMarketing.ts`",
+                "filename": "ProductMarketing.md",
+                "path": "files/server/models/ProductMarketing.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/User.ts`",
+                "filename": "User.md",
+                "path": "files/server/models/User.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/models/Version.ts`",
+                "filename": "Version.md",
+                "path": "files/server/models/Version.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "repositories",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/repositories/ActivityRepository.ts`",
+                "filename": "ActivityRepository.md",
+                "path": "files/server/repositories/ActivityRepository.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/repositories/ProductMarketingRepository.ts`",
+                "filename": "ProductMarketingRepository.md",
+                "path": "files/server/repositories/ProductMarketingRepository.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/repositories/ProductRepository.ts`",
+                "filename": "ProductRepository.md",
+                "path": "files/server/repositories/ProductRepository.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "routes",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/routes/activityRoutes.ts`",
+                "filename": "activityRoutes.md",
+                "path": "files/server/routes/activityRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/aiRoutes.ts`",
+                "filename": "aiRoutes.md",
+                "path": "files/server/routes/aiRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/auditLogRoutes.ts`",
+                "filename": "auditLogRoutes.md",
+                "path": "files/server/routes/auditLogRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/authRoutes.ts`",
+                "filename": "authRoutes.md",
+                "path": "files/server/routes/authRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/changelogGenRoutes.ts`",
+                "filename": "changelogGenRoutes.md",
+                "path": "files/server/routes/changelogGenRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/configRoutes.ts`",
+                "filename": "configRoutes.md",
+                "path": "files/server/routes/configRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/featureRequestRoutes.ts`",
+                "filename": "featureRequestRoutes.md",
+                "path": "files/server/routes/featureRequestRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/githubRoutes.ts`",
+                "filename": "githubRoutes.md",
+                "path": "files/server/routes/githubRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/issueRoutes.ts`",
+                "filename": "issueRoutes.md",
+                "path": "files/server/routes/issueRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/jobRoutes.ts`",
+                "filename": "jobRoutes.md",
+                "path": "files/server/routes/jobRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/mediaRoutes.ts`",
+                "filename": "mediaRoutes.md",
+                "path": "files/server/routes/mediaRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/notificationRoutes.ts`",
+                "filename": "notificationRoutes.md",
+                "path": "files/server/routes/notificationRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/productRoutes.ts`",
+                "filename": "productRoutes.md",
+                "path": "files/server/routes/productRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/publicRoutes.ts`",
+                "filename": "publicRoutes.md",
+                "path": "files/server/routes/publicRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/readmeToolsRoutes.ts`",
+                "filename": "readmeToolsRoutes.md",
+                "path": "files/server/routes/readmeToolsRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/reportRoutes.ts`",
+                "filename": "reportRoutes.md",
+                "path": "files/server/routes/reportRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/streakRoutes.ts`",
+                "filename": "streakRoutes.md",
+                "path": "files/server/routes/streakRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/uploadRoutes.ts`",
+                "filename": "uploadRoutes.md",
+                "path": "files/server/routes/uploadRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/userRoutes.ts`",
+                "filename": "userRoutes.md",
+                "path": "files/server/routes/userRoutes.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/routes/versionRoutes.ts`",
+                "filename": "versionRoutes.md",
+                "path": "files/server/routes/versionRoutes.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "schemas",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/schemas/activity.schema.ts`",
+                "filename": "activity.schema.md",
+                "path": "files/server/schemas/activity.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/activityBulk.schema.ts`",
+                "filename": "activityBulk.schema.md",
+                "path": "files/server/schemas/activityBulk.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/ai.schema.ts`",
+                "filename": "ai.schema.md",
+                "path": "files/server/schemas/ai.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/auth.schema.ts`",
+                "filename": "auth.schema.md",
+                "path": "files/server/schemas/auth.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/changelogGen.schema.ts`",
+                "filename": "changelogGen.schema.md",
+                "path": "files/server/schemas/changelogGen.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/common.schema.ts`",
+                "filename": "common.schema.md",
+                "path": "files/server/schemas/common.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/featureRequest.schema.ts`",
+                "filename": "featureRequest.schema.md",
+                "path": "files/server/schemas/featureRequest.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/github.schema.ts`",
+                "filename": "github.schema.md",
+                "path": "files/server/schemas/github.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/issue.schema.ts`",
+                "filename": "issue.schema.md",
+                "path": "files/server/schemas/issue.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/marketing.schema.ts`",
+                "filename": "marketing.schema.md",
+                "path": "files/server/schemas/marketing.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/product.schema.ts`",
+                "filename": "product.schema.md",
+                "path": "files/server/schemas/product.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/streak.schema.ts`",
+                "filename": "streak.schema.md",
+                "path": "files/server/schemas/streak.schema.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/schemas/version.schema.ts`",
+                "filename": "version.schema.md",
+                "path": "files/server/schemas/version.schema.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "scripts",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/scripts/seedAndMigrate.ts`",
+                "filename": "seedAndMigrate.md",
+                "path": "files/server/scripts/seedAndMigrate.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "services",
+            "children": [
+              {
+                "type": "directory",
+                "name": "ai",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`server/src/services/ai/AiService.ts`",
+                    "filename": "AiService.md",
+                    "path": "files/server/services/ai/AiService.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`server/src/services/ai/prompts.ts`",
+                    "filename": "prompts.md",
+                    "path": "files/server/services/ai/prompts.md"
+                  }
+                ]
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ActivityService.ts`",
+                "filename": "ActivityService.md",
+                "path": "files/server/services/ActivityService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/AuditLogService.ts`",
+                "filename": "AuditLogService.md",
+                "path": "files/server/services/AuditLogService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/AuthService.ts`",
+                "filename": "AuthService.md",
+                "path": "files/server/services/AuthService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ChangelogGenService.ts`",
+                "filename": "ChangelogGenService.md",
+                "path": "files/server/services/ChangelogGenService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/FeatureRequestService.ts`",
+                "filename": "FeatureRequestService.md",
+                "path": "files/server/services/FeatureRequestService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/GitHubService.ts`",
+                "filename": "GitHubService.md",
+                "path": "files/server/services/GitHubService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ImportSessionManager.ts`",
+                "filename": "ImportSessionManager.md",
+                "path": "files/server/services/ImportSessionManager.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/IssueService.ts`",
+                "filename": "IssueService.md",
+                "path": "files/server/services/IssueService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/MediaService.ts`",
+                "filename": "MediaService.md",
+                "path": "files/server/services/MediaService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/NotificationManager.ts`",
+                "filename": "NotificationManager.md",
+                "path": "files/server/services/NotificationManager.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ProductMarketingService.ts`",
+                "filename": "ProductMarketingService.md",
+                "path": "files/server/services/ProductMarketingService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ProductService.ts`",
+                "filename": "ProductService.md",
+                "path": "files/server/services/ProductService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ReleaseService.ts`",
+                "filename": "ReleaseService.md",
+                "path": "files/server/services/ReleaseService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/ReportService.ts`",
+                "filename": "ReportService.md",
+                "path": "files/server/services/ReportService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/StreakService.ts`",
+                "filename": "StreakService.md",
+                "path": "files/server/services/StreakService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/UserService.ts`",
+                "filename": "UserService.md",
+                "path": "files/server/services/UserService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/VersionService.ts`",
+                "filename": "VersionService.md",
+                "path": "files/server/services/VersionService.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/services/WpStatsService.ts`",
+                "filename": "WpStatsService.md",
+                "path": "files/server/services/WpStatsService.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "types",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/types/auth.ts`",
+                "filename": "auth.md",
+                "path": "files/server/types/auth.md"
+              }
+            ]
+          },
+          {
+            "type": "directory",
+            "name": "utils",
+            "children": [
+              {
+                "type": "file",
+                "name": "`server/src/utils/activityBulkUpdate.test.ts`",
+                "filename": "activityBulkUpdate.test.md",
+                "path": "files/server/utils/activityBulkUpdate.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/activityBulkUpdate.ts`",
+                "filename": "activityBulkUpdate.md",
+                "path": "files/server/utils/activityBulkUpdate.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/appConfig.ts`",
+                "filename": "appConfig.md",
+                "path": "files/server/utils/appConfig.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/crypto.ts`",
+                "filename": "crypto.md",
+                "path": "files/server/utils/crypto.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/fileSignature.ts`",
+                "filename": "fileSignature.md",
+                "path": "files/server/utils/fileSignature.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/fileUtils.ts`",
+                "filename": "fileUtils.md",
+                "path": "files/server/utils/fileUtils.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/github.test.ts`",
+                "filename": "github.test.md",
+                "path": "files/server/utils/github.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/github.ts`",
+                "filename": "github.md",
+                "path": "files/server/utils/github.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/html.ts`",
+                "filename": "html.md",
+                "path": "files/server/utils/html.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/httpError.ts`",
+                "filename": "httpError.md",
+                "path": "files/server/utils/httpError.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/ollama.ts`",
+                "filename": "ollama.md",
+                "path": "files/server/utils/ollama.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/ownership.ts`",
+                "filename": "ownership.md",
+                "path": "files/server/utils/ownership.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/pagination.ts`",
+                "filename": "pagination.md",
+                "path": "files/server/utils/pagination.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/r2Storage.ts`",
+                "filename": "r2Storage.md",
+                "path": "files/server/utils/r2Storage.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/readmeChangelog.ts`",
+                "filename": "readmeChangelog.md",
+                "path": "files/server/utils/readmeChangelog.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/releaseFormat.test.ts`",
+                "filename": "releaseFormat.test.md",
+                "path": "files/server/utils/releaseFormat.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/releaseFormat.ts`",
+                "filename": "releaseFormat.md",
+                "path": "files/server/utils/releaseFormat.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/repoAccess.ts`",
+                "filename": "repoAccess.md",
+                "path": "files/server/utils/repoAccess.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/sanitize.test.ts`",
+                "filename": "sanitize.test.md",
+                "path": "files/server/utils/sanitize.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/sanitize.ts`",
+                "filename": "sanitize.md",
+                "path": "files/server/utils/sanitize.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/slug.test.ts`",
+                "filename": "slug.test.md",
+                "path": "files/server/utils/slug.test.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/slug.ts`",
+                "filename": "slug.md",
+                "path": "files/server/utils/slug.md"
+              },
+              {
+                "type": "file",
+                "name": "`server/src/utils/sseStream.ts`",
+                "filename": "sseStream.md",
+                "path": "files/server/utils/sseStream.md"
+              }
+            ]
+          },
+          {
+            "type": "file",
+            "name": "`server/src/app.ts`",
+            "filename": "app.md",
+            "path": "files/server/app.md"
+          },
+          {
+            "type": "file",
+            "name": "`server/src/index.ts`",
+            "filename": "index.md",
+            "path": "files/server/index.md"
+          }
+        ]
+      },
+      {
+        "type": "directory",
+        "name": "tools",
+        "children": [
+          {
+            "type": "directory",
+            "name": "dist-builder",
+            "children": [
+              {
+                "type": "directory",
+                "name": "__tests__",
+                "children": [
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/__tests__/transforms.test.ts`",
+                    "filename": "transforms.test.md",
+                    "path": "files/tools/dist-builder/__tests__/transforms.test.md"
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "examples",
+                "children": [
+                  {
+                    "type": "directory",
+                    "name": "offcanvas-block",
+                    "children": [
+                      {
+                        "type": "file",
+                        "name": "`tools/dist-builder/examples/offcanvas-block/dist.config.json`",
+                        "filename": "dist.config.md",
+                        "path": "files/tools/dist-builder/examples/offcanvas-block/dist.config.md"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "directory",
+                "name": "src",
+                "children": [
+                  {
+                    "type": "directory",
+                    "name": "transforms",
+                    "children": [
+                      {
+                        "type": "file",
+                        "name": "`tools/dist-builder/src/transforms/jsonPatches.ts`",
+                        "filename": "jsonPatches.md",
+                        "path": "files/tools/dist-builder/src/transforms/jsonPatches.md"
+                      },
+                      {
+                        "type": "file",
+                        "name": "`tools/dist-builder/src/transforms/markers.ts`",
+                        "filename": "markers.md",
+                        "path": "files/tools/dist-builder/src/transforms/markers.md"
+                      },
+                      {
+                        "type": "file",
+                        "name": "`tools/dist-builder/src/transforms/removals.ts`",
+                        "filename": "removals.md",
+                        "path": "files/tools/dist-builder/src/transforms/removals.md"
+                      },
+                      {
+                        "type": "file",
+                        "name": "`tools/dist-builder/src/transforms/textEdits.ts`",
+                        "filename": "textEdits.md",
+                        "path": "files/tools/dist-builder/src/transforms/textEdits.md"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/build.ts`",
+                    "filename": "build.md",
+                    "path": "files/tools/dist-builder/src/build.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/cli.ts`",
+                    "filename": "cli.md",
+                    "path": "files/tools/dist-builder/src/cli.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/config.ts`",
+                    "filename": "config.md",
+                    "path": "files/tools/dist-builder/src/config.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/fork.ts`",
+                    "filename": "fork.md",
+                    "path": "files/tools/dist-builder/src/fork.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/index.ts`",
+                    "filename": "index.md",
+                    "path": "files/tools/dist-builder/src/index.md"
+                  },
+                  {
+                    "type": "file",
+                    "name": "`tools/dist-builder/src/verify.ts`",
+                    "filename": "verify.md",
+                    "path": "files/tools/dist-builder/src/verify.md"
+                  }
+                ]
+              },
+              {
+                "type": "file",
+                "name": "`tools/dist-builder/.gitignore`",
+                "filename": "gitignore.md",
+                "path": "files/tools/dist-builder/gitignore.md"
+              },
+              {
+                "type": "file",
+                "name": "`tools/dist-builder/package.json`",
+                "filename": "package.md",
+                "path": "files/tools/dist-builder/package.md"
+              },
+              {
+                "type": "file",
+                "name": "`tools/dist-builder/README.md`",
+                "filename": "README.md",
+                "path": "files/tools/dist-builder/README.md"
+              },
+              {
+                "type": "file",
+                "name": "`tools/dist-builder/tsconfig.json`",
+                "filename": "tsconfig.md",
+                "path": "files/tools/dist-builder/tsconfig.md"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "glossary",
+    "children": [
+      {
+        "type": "file",
+        "name": "ATRS Glossary",
+        "filename": "glossary.md",
+        "path": "glossary/glossary.md"
+      }
+    ]
+  },
+  {
+    "type": "directory",
+    "name": "inventory",
+    "children": [
+      {
+        "type": "file",
+        "name": "ATRS — Reverse-Engineering Knowledge Base (working file)",
+        "filename": "KNOWLEDGE-BASE.md",
+        "path": "inventory/KNOWLEDGE-BASE.md"
+      }
+    ]
+  },
+  {
+    "type": "file",
+    "name": "ATRS — Documentation",
+    "filename": "README.md",
+    "path": "README.md"
+  }
+]
