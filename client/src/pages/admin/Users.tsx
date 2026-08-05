@@ -17,10 +17,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from 'sonner';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { useJobStream } from '@/contexts/JobStreamContext';
-import { ShieldCheck, UserCheck, UserX, Trash2, Crown, KeyRound, RefreshCw, Copy, Check } from 'lucide-react';
+import { ShieldCheck, UserCheck, UserX, Trash2, Crown, KeyRound, RefreshCw, Copy, Check, Clipboard, Plus } from 'lucide-react';
 import { playSound } from '@/lib/sound';
 import { UsersTableSkeleton } from '@/components/ui/skeletons';
 import { Pagination } from '@/components/ui/Pagination';
+import AddUserDialog from '@/components/admin/AddUserDialog';
 
 const statusVariant: Record<string, string> = {
   active: 'bg-green-500/15 text-green-600 dark:text-green-400',
@@ -63,12 +64,16 @@ export default function Users() {
   const [copied, setCopied] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  //  admin driven add user state
+  const [open, setOpen] = useState<boolean>(false)
+
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
     const arr = new Uint32Array(16);
     crypto.getRandomValues(arr);
     setNewPassword(Array.from(arr, (n) => chars[n % chars.length]).join(''));
     setCopied(false);
+    return Array.from(arr, (n) => chars[n % chars.length]).join('');
   };
 
   const closeReset = () => {
@@ -143,7 +148,10 @@ export default function Users() {
           {u.name}
           {u.isRoot && <Crown className="w-3.5 h-3.5 text-amber-500" aria-label="Root admin" />}
         </div>
-        <div className="text-xs text-muted-foreground">{u.email}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-muted-foreground flex items-center gap-1">{<Clipboard size={13} className='cursor-pointer' onClick={() => { navigator.clipboard.writeText(u.email); toast.success('Email copied to clipboard'); }} />} {u.email}</div>
+
+        </div>
       </td>
       <td className="py-3 px-4">
         <Badge variant="outline" className={u.role === 'admin' ? 'border-primary text-primary' : ''}>
@@ -208,9 +216,14 @@ export default function Users() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Approve registrations and manage roles and access.</p>
+      <div className='flex justify-between items-center'>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground">Approve registrations and manage roles and access.</p>
+        </div>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" /> Add User
+        </Button>
       </div>
 
       {isLoading ? (
@@ -232,23 +245,23 @@ export default function Users() {
 
           <div className="border rounded-xl bg-card overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[32rem]">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 px-4 font-medium">User</th>
-                  <th className="py-2 px-4 font-medium">Role</th>
-                  <th className="py-2 px-4 font-medium">Status</th>
-                  <th className="py-2 px-4" />
-                </tr>
-              </thead>
-              <tbody>
-                {others.length === 0 ? (
-                  <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">No active users yet.</td></tr>
-                ) : (
-                  pagedOthers.map((u) => <Row key={u._id} u={u} />)
-                )}
-              </tbody>
-            </table>
+              <table className="w-full text-sm min-w-[32rem]">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 px-4 font-medium">User</th>
+                    <th className="py-2 px-4 font-medium">Role</th>
+                    <th className="py-2 px-4 font-medium">Status</th>
+                    <th className="py-2 px-4" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {others.length === 0 ? (
+                    <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">No active users yet.</td></tr>
+                  ) : (
+                    pagedOthers.map((u) => <Row key={u._id} u={u} />)
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -311,6 +324,12 @@ export default function Users() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* {admin add user dialog } */}
+      {
+        open ? <AddUserDialog open={open} setOpen={setOpen} /> : null
+      }
+
     </div>
   );
 }

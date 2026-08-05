@@ -18,6 +18,8 @@ import { getToken, setToken } from '../services/api';
 import { getGithubStatus, connectGithub, disconnectGithub } from '../services/github';
 import { updateMe } from '../services/auth';
 import { isUserMuted, setUserMute, playSound, setCachedSoundConfig } from '../lib/sound';
+import { IntelligenceSettings } from '../components/intelligence/IntelligenceSettings';
+import { Target } from 'lucide-react';
 
 const THEMES = [
   { id: 'todoist', name: 'Todoist', color: '#e44332' },
@@ -499,6 +501,7 @@ export default function Settings() {
           <TabsTrigger value="sound"><Volume2 className="w-3.5 h-3.5" /> Sound</TabsTrigger>
           <TabsTrigger value="integrations"><GitBranch className="w-3.5 h-3.5" /> Integrations</TabsTrigger>
           <TabsTrigger value="presentation"><Presentation className="w-3.5 h-3.5" /> Presentation</TabsTrigger>
+          {isAdmin && <TabsTrigger value="intelligence"><Target className="w-3.5 h-3.5" /> Intelligence</TabsTrigger>}
           {isAdmin && <TabsTrigger value="system"><Server className="w-3.5 h-3.5" /> System</TabsTrigger>}
           <TabsTrigger value="data"><Database className="w-3.5 h-3.5" /> Data</TabsTrigger>
         </TabsList>
@@ -596,6 +599,13 @@ export default function Settings() {
             </motion.div>
           </SettingCard>
         </TabsContent>
+
+        {/* ── Intelligence ───────────────────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="intelligence" className="space-y-6">
+            <IntelligenceSettings />
+          </TabsContent>
+        )}
 
         {/* ── Sound ────────────────────────────────────────────────── */}
         <TabsContent value="sound" className="space-y-6">

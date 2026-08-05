@@ -12,7 +12,10 @@ export class ProductRepository {
     const skip = (page - 1) * limit;
 
     const data = await Product.find(filter)
-      .sort({ createdAt: -1 })
+      // _id breaks ties so paging is stable: a bulk WP.org import creates many
+      // products within the same millisecond, and tied rows are not ordered
+      // consistently across the per-page queries.
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit);
       

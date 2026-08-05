@@ -6,6 +6,7 @@ import { getProducts } from '../services/products';
 import { useAddProduct } from '../contexts/AddProductContext';
 import { getUsers } from '../services/users';
 import { useAuth } from '../contexts/AuthContext';
+import { ACTIVITY_TYPES } from '.././../../consts/index';
 import { playSound } from '@/lib/sound';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -283,10 +284,14 @@ export default function Activities() {
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
+              {/* <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="feature">Feature</SelectItem>
               <SelectItem value="improvement">Improvement</SelectItem>
-              <SelectItem value="bug-fix">Bug Fix</SelectItem>
+              <SelectItem value="bug-fix">Bug Fix</SelectItem> */}
+
+              {ACTIVITY_TYPES.map((type: string) => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           {type === 'feature' && (

@@ -33,6 +33,7 @@ export const DEFAULT_APP_CONFIG: Record<string, any> = {
   staleAlert: { days: 7 },
   branding: { companyName: '', logoUrl: '', accentColor: '', accentDynamic: false, thankYouEnabled: true, thankYouTitle: '', thankYouMessage: '' },
   storage: { provider: 'local', r2: { accountId: '', bucket: '', publicBaseUrl: '', accessKeyId: '', secretAccessKey: '' } },
+  intelligence: { enabled: true, autoAnalysis: false },
 };
 
 // --- Serverless config cache -------------------------------------------------

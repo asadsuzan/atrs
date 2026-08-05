@@ -5,7 +5,7 @@ import {
   Users as UsersIcon, HelpCircle, ChevronRight, Calendar, CalendarRange,
   Snowflake, Heart, Sprout, CloudRain, Flower2, Sun, Umbrella, Waves, Leaf, Wind, CloudFog, Gift,
   PlusCircle, Wrench, Bug, FileText, Plus, Tag, Megaphone, User, FileCheck2, Rocket, ClipboardCheck,
-  GitBranch, Lightbulb
+  GitBranch, Lightbulb, Swords
 } from 'lucide-react';
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { getProducts } from '../../services/products';
@@ -525,6 +525,7 @@ export function SidebarNav({ isCollapsed, isAdmin }: Props) {
         </>
       )}
 
+      <LeafLink to="/competitor-analysis" icon={Swords} label="Competitor Analysis" />
       <LeafLink to="/readme-tools" icon={FileCheck2} label="Readme Tools" />
       <LeafLink to="/changelog-generator" icon={GitBranch} label="Git Changelog" />
       <LeafLink to="/audit-logs" icon={History} label="Audit Logs" />

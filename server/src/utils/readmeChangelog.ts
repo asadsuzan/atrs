@@ -55,6 +55,48 @@ function classify(line: string): ParsedChangelogItem {
   };
 }
 
+/**
+ * Canonical numeric form of a version label, used only for matching (never
+ * displayed). Drops a leading "v", leading zeros and trailing zero segments so
+ * a readme heading of `= 1.0 =` resolves to the SVN tag `1.0.0` instead of
+ * silently importing an unversioned entry. Labels that aren't purely numeric
+ * (`2.0-beta1`) fall back to a lowercased trim so they still compare stably.
+ */
+export function canonicalVersion(label: string): string {
+  const raw = String(label ?? '').trim().replace(/^v/i, '');
+  if (!/^\d+(\.\d+)*$/.test(raw)) return raw.toLowerCase();
+  const parts = raw.split('.').map((n) => String(parseInt(n, 10) || 0));
+  while (parts.length > 1 && parts[parts.length - 1] === '0') parts.pop();
+  return parts.join('.');
+}
+
+/**
+ * Normalizes a change line for duplicate detection (matching only — the stored
+ * title keeps the author's original text). Strips markdown emphasis, list
+ * markers and edge punctuation and collapses whitespace, so `* **Update SDK**`,
+ * `Update SDK.` and `update sdk` all compare equal.
+ */
+export function normalizeChangelogTitle(title: string): string {
+  return String(title ?? '')
+    .replace(/[*_`~]+/g, ' ')
+    .replace(/^[\s\-–—•·:]+/, '')
+    .replace(/[\s.;,:!-]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * The identity of an imported changelog entry: one normalized change line per
+ * version, per product. `versionLabel` must be the label of the Version the
+ * entry is actually linked to (falling back to the readme heading when no
+ * Version matched) — keying on the *resolved* version is what stops two readme
+ * headings that map to the same version from both being imported.
+ */
+export function changelogFingerprint(versionLabel: string, title: string): string {
+  return `${canonicalVersion(versionLabel)}|${normalizeChangelogTitle(title)}`;
+}
+
 /** Parses a date string like "4 June 2026", "June 4, 2026", "2026-06-04". */
 function parseDate(s: string): Date | null {
   if (!s) return null;

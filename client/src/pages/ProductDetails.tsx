@@ -21,6 +21,8 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { compareVersionDesc } from '../lib/versions';
 import { IssueManager } from '../components/issues/IssueManager';
+import { IntelligenceHub } from '../components/intelligence/IntelligenceHub';
+import { ReleaseReadinessPanel } from '../components/intelligence/ReleaseReadinessPanel';
 import { WpReadmeViewer } from '../components/products/WpReadmeViewer';
 import { ReleasePublish } from '../components/products/ReleasePublish';
 import { MediaCarousel } from '@/components/ui/media-carousel';
@@ -35,6 +37,7 @@ import { ProductDetailsSkeleton, ProductActivitiesSkeleton } from '@/components/
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ACTIVITY_TYPES } from '../../../consts';
 
 // Issue status / severity → badge classes, dark-mode aware (mirrors the Issue Tracker).
 const ISSUE_STATUS_BADGE: Record<string, string> = {
@@ -267,7 +270,7 @@ export default function ProductDetails() {
   // Single source for this product's versions — drives the filter options and
   // the "Latest" flag on activity cards (shared with VersionManager's cache).
   const { versions: productVersions } = useProductVersions(id);
-  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release' | 'issues'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'marketing' | 'versions' | 'readme' | 'release' | 'issues' | 'intelligence'>('activities');
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -373,7 +376,23 @@ export default function ProductDetails() {
     getNextPageParam: (lastPage: any) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
     enabled: !!id,
   });
-  const allActivities: any[] = activitiesPages?.pages.flatMap((p: any) => p.data) ?? [];
+  // Dedupe by _id while flattening. The server now sorts on a total ordering so
+  // pages can't overlap, but offset pagination still shifts if a row is inserted
+  // or deleted between page fetches (e.g. a WP.org import running while the user
+  // scrolls) — which would otherwise render the same entry twice.
+  const allActivities: any[] = (() => {
+    const seen = new Set<string>();
+    const out: any[] = [];
+    for (const p of activitiesPages?.pages ?? []) {
+      for (const a of (p as any).data ?? []) {
+        const key = String(a?._id ?? '');
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        out.push(a);
+      }
+    }
+    return out;
+  })();
   const totalActivities: number = activitiesPages?.pages?.[0]?.total ?? 0;
 
   // Sentinel for infinite scroll; observed only when the Activity tab is open and
@@ -387,7 +406,7 @@ export default function ProductDetails() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release' || tab === 'issues') {
+    if (tab === 'activities' || tab === 'versions' || tab === 'marketing' || tab === 'readme' || tab === 'release' || tab === 'issues' || tab === 'intelligence') {
       setActiveTab(tab);
     }
     // Deep-link straight to a specific issue (e.g. from the dashboard): open the
@@ -604,6 +623,12 @@ export default function ProductDetails() {
       <div className="pt-2">
         <div className="flex space-x-4 border-b mb-6 pb-2">
           <button 
+            className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'intelligence' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('intelligence')}
+          >
+            Intelligence
+          </button>
+          <button 
             className={`pb-2 text-lg font-bold border-b-2 transition-colors ${activeTab === 'activities' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('activities')}
           >
@@ -643,6 +668,12 @@ export default function ProductDetails() {
           )}
         </div>
 
+        {activeTab === 'intelligence' && (
+          <div className="mt-6 mb-12">
+            <IntelligenceHub productId={id as string} />
+          </div>
+        )}
+
         {activeTab === 'activities' && (
           <div className="space-y-6">
             <div className="bg-card rounded-lg border overflow-hidden">
@@ -659,10 +690,14 @@ export default function ProductDetails() {
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
+                    {/* <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="feature">Feature</SelectItem>
                     <SelectItem value="improvement">Improvement</SelectItem>
-                    <SelectItem value="bug-fix">Bug Fix</SelectItem>
+                    <SelectItem value="bug-fix">Bug Fix</SelectItem> */}
+
+                    {ACTIVITY_TYPES.map((type: string) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {type === 'feature' && (
@@ -784,9 +819,13 @@ export default function ProductDetails() {
                   </div>
                 ) : (
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
+                    {/* <ActivitySection title="Features" items={features} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
                     <ActivitySection title="Improvements" items={improvements} colorClass="text-purple-600 dark:text-purple-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
-                    <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
+                    <ActivitySection title="Bug Fixes" items={bugFixes} colorClass="text-red-600 dark:text-red-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} /> */}
+                    {ACTIVITY_TYPES.map((type: string) => (
+                      <ActivitySection key={type} title={type} 
+                      items={activities.filter((activity: any) => activity.type === type)} colorClass="text-blue-600 dark:text-blue-400" activeCardId={activeCardId} onCardClick={setActiveCardId} onEdit={handleEditActivity} onDelete={handleDeleteActivity} avatarFor={avatarFor} onIssueClick={handleIssueClick} latestLabel={latestLabel} />
+                    ))} 
                   </DndContext>
                 )}
 
@@ -824,7 +863,12 @@ export default function ProductDetails() {
         )}
 
         {activeTab === 'release' && id && (
-          <ReleasePublish productId={id} />
+          <div className="space-y-8">
+            {/* The readiness gate lives here rather than under Intelligence: it answers a
+                question you have at the moment of shipping, not one you browse. */}
+            <ReleaseReadinessPanel productId={id} />
+            <ReleasePublish productId={id} />
+          </div>
         )}
 
         {activeTab === 'issues' && id && (

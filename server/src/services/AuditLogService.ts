@@ -93,7 +93,9 @@ export class AuditLogService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name email'),
+      // _id breaks ties: a batch of events logged in the same millisecond would
+      // otherwise page inconsistently, repeating some rows and hiding others.
+      AuditLog.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).populate('userId', 'name email'),
       AuditLog.countDocuments(filter),
     ]);
 

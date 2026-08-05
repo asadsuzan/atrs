@@ -37,16 +37,45 @@ function classifyFile(filePath: string): string {
 }
 
 /** Filter out files we don't want the AI to summarise. */
+// function isNoise(filePath: string): boolean {
+//   const lower = filePath.toLowerCase();
+//   return (
+//     /package-lock\.json|yarn\.lock|pnpm-lock\.yaml|shrinkwrap\.json/i.test(lower) ||
+//     /\.(map|min\.(js|css)|lock)$/i.test(lower) ||
+//     lower.includes('node_modules/') ||
+//     lower.includes('.git/') ||
+//     lower.includes('.gitignore') ||
+//     lower.includes('.CHANGELOG-1.8.9.md') ||
+//     lower.includes('docs/') ||
+//     lower.includes('dist') ||
+//     lower.includes('tools') ||
+//     lower.includes('AI-product-inteligence-doc') ||
+//     lower.includes('.claude') ||
+//     lower.includes('implementation_plan.md') ||
+//     lower.includes('bundled')
+
+
+
+//   );
+// }
 function isNoise(filePath: string): boolean {
   const lower = filePath.toLowerCase();
   return (
     /package-lock\.json|yarn\.lock|pnpm-lock\.yaml|shrinkwrap\.json/i.test(lower) ||
-    /\.(map|min\.(js|css)|lock)$/i.test(lower) ||
+    /\.(map|min\.(js|css)|lock|md)$/i.test(lower) ||
     lower.includes('node_modules/') ||
-    lower.includes('.git/')
+    lower.includes('.git/') ||
+    lower.includes('.gitignore') ||
+    lower.includes('.changelog-1.8.9.md') ||
+    lower.includes('docs/') ||
+    lower.includes('dist') ||
+    lower.includes('tools') ||
+    lower.includes('ai-product-inteligence-doc') ||
+    lower.includes('.claude') ||
+    lower.includes('implementation_plan.md') ||
+    lower.includes('bundled')
   );
 }
-
 // ────────────────────────────────────────────────────────────────────
 // Types
 // ────────────────────────────────────────────────────────────────────

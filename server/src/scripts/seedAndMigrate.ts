@@ -3,6 +3,7 @@ import { Product } from '../models/Product';
 import { Activity } from '../models/Activity';
 import { Version } from '../models/Version';
 import { ProductMarketing } from '../models/ProductMarketing';
+import { canonicalVersion, changelogFingerprint } from '../utils/readmeChangelog';
 
 /**
  * Idempotent startup task:
@@ -94,11 +95,106 @@ async function dedupeImportedData(): Promise<void> {
       console.log(`[migrate]: Merged ${mergedVers} duplicate version row(s).`);
     }
 
-    // Now that duplicates are gone, ensure the schema indexes (incl. the new
-    // unique { productId, importSourceKey }) are built.
+    await backfillChangelogFingerprints();
+
+    // Now that duplicates are gone, ensure the schema indexes (incl. the unique
+    // { productId, importSourceKey } and { productId, importFingerprint }) are built.
     await Activity.createIndexes();
   } catch (err: any) {
     console.warn('[migrate]: Duplicate cleanup / index build skipped:', err?.message || err);
+  }
+}
+
+/**
+ * Backfills `importFingerprint` on changelog entries imported from a
+ * WordPress.org readme, and clears the duplicates that only the fingerprint can
+ * see. `importSourceKey` keys off the readme *heading*, so two headings that
+ * resolve to the same Version (`= 1.7.1 =` and `= 1.7.2 =` both linked to 1.7.2,
+ * or `= 1.0 =` alongside the SVN tag `1.0.0`) yield two distinct keys and a
+ * visibly duplicated line. The fingerprint keys off the version the entry is
+ * actually linked to, so those collapse.
+ *
+ * Runs in three steps:
+ *   1. Relink entries whose readme version canonically matches a Version row the
+ *      exact-label lookup missed (`1.0` → `1.0.0`) — do this first so step 2
+ *      fingerprints against the corrected version.
+ *   2. Compute each entry's fingerprint; where several share one, keep the oldest
+ *      and delete the rest.
+ *   3. Persist the fingerprints so the unique index can be built.
+ *
+ * Repeats of the same line under genuinely *different* versions are left alone —
+ * plugin authors legitimately ship "Update SDK." in release after release.
+ * Idempotent: a no-op once every imported entry carries a fingerprint.
+ */
+async function backfillChangelogFingerprints(): Promise<void> {
+  const acts = await Activity.find({ importSourceKey: { $exists: true, $ne: null } })
+    .select('productId versionId title importSourceKey importFingerprint')
+    .lean();
+  if (acts.length === 0) return;
+
+  const versions = await Version.find({}).select('productId label').lean();
+  const labelById = new Map<string, string>();
+  // Per product: canonical version → Version _id, for relinking near-misses.
+  const canonicalIndex = new Map<string, string>();
+  for (const v of versions as any[]) {
+    labelById.set(v._id.toString(), v.label);
+    canonicalIndex.set(`${v.productId.toString()}#${canonicalVersion(v.label)}`, v._id.toString());
+  }
+
+  // --- Step 1: relink entries the exact-label lookup missed ---
+  const relinks: any[] = [];
+  const versionIdOf = new Map<string, string>(); // activityId → versionId used for its fingerprint
+  for (const a of acts as any[]) {
+    const id = a._id.toString();
+    if (a.versionId) { versionIdOf.set(id, a.versionId.toString()); continue; }
+    const readmeVersion = String(a.importSourceKey).split('|')[0];
+    const match = canonicalIndex.get(`${a.productId.toString()}#${canonicalVersion(readmeVersion)}`);
+    if (match) {
+      relinks.push({ updateOne: { filter: { _id: a._id }, update: { $set: { versionId: match } } } });
+      versionIdOf.set(id, match);
+    }
+  }
+  if (relinks.length > 0) {
+    await Activity.bulkWrite(relinks);
+    console.log(`[migrate]: Linked ${relinks.length} imported changelog entr${relinks.length === 1 ? 'y' : 'ies'} to a matching version.`);
+  }
+
+  // --- Step 2: group by fingerprint, keep the oldest of each group ---
+  const groups = new Map<string, { id: string; fp: string }[]>();
+  for (const a of acts as any[]) {
+    const id = a._id.toString();
+    const linkedId = versionIdOf.get(id);
+    // Prefer the linked Version's label; fall back to the readme heading stored
+    // in the import key so unlinked entries stay distinct per readme version.
+    const label = (linkedId && labelById.get(linkedId)) || String(a.importSourceKey).split('|')[0];
+    const fp = changelogFingerprint(label, a.title);
+    const groupKey = `${a.productId.toString()}#${fp}`;
+    const bucket = groups.get(groupKey);
+    if (bucket) bucket.push({ id, fp });
+    else groups.set(groupKey, [{ id, fp }]);
+  }
+
+  const drop: string[] = [];
+  const writes: any[] = [];
+  for (const bucket of groups.values()) {
+    // ObjectIds sort by creation time, so [0] is the oldest — the keeper.
+    const sorted = bucket.slice().sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+    const [keep, ...rest] = sorted;
+    for (const r of rest) drop.push(r.id);
+    const current = (acts as any[]).find((a) => a._id.toString() === keep.id)?.importFingerprint;
+    if (current !== keep.fp) {
+      writes.push({ updateOne: { filter: { _id: keep.id }, update: { $set: { importFingerprint: keep.fp } } } });
+    }
+  }
+
+  if (drop.length > 0) {
+    await Activity.deleteMany({ _id: { $in: drop } });
+    console.log(`[migrate]: Removed ${drop.length} duplicated changelog entr${drop.length === 1 ? 'y' : 'ies'} (same line, same version).`);
+  }
+  // --- Step 3: persist fingerprints ---
+  if (writes.length > 0) {
+    await Activity.bulkWrite(writes);
+    console.log(`[migrate]: Stamped ${writes.length} changelog entr${writes.length === 1 ? 'y' : 'ies'} with a duplicate-proof fingerprint.`);
   }
 }
 

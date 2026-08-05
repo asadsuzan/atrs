@@ -8,8 +8,17 @@ export class ActivityRepository {
 
   async findAll(filter: any, options: any = {}): Promise<any> {
     const { page = 1, limit = 10, sortBy = 'activityDate', sortOrder = 'desc' } = options;
-    const sortObj: any = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-    
+    // Always break ties on _id so the ordering is TOTAL. None of the sort keys
+    // are unique: entries imported from one readme version block all share an
+    // activityDate, and `displayOrder` is only ever set by manual reordering, so
+    // in practice almost every row ties on `undefined`. skip/limit issues a
+    // separate query per page and MongoDB does not order tied documents
+    // consistently between them — without this tiebreaker the same entry is
+    // returned on several pages (the timeline renders it repeatedly) while other
+    // entries are never returned at all.
+    const dir = sortOrder === 'desc' ? -1 : 1;
+    const sortObj: any = sortBy === '_id' ? { _id: dir } : { [sortBy]: dir, _id: dir };
+
     if (limit === -1) {
       const data = await Activity.find(filter).sort(sortObj).populate('productId', 'name slug icon category status').populate('versionId', 'label author').populate('relatedIssueIds', 'title status severity versionLabel');
       return { data, total: data.length, page: 1, totalPages: 1 };

@@ -4,8 +4,10 @@ import { AuthService } from '../services/AuthService';
 const authService = new AuthService();
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
+  console.log({ headers: req.user });
   try {
-    const user = await authService.register(req.body);
+    const isAdmin = req.user?.isRoot && req.user?.role === 'admin';
+    const user = await authService.register(req.body, isAdmin);
     res.status(201).json({
       message: 'Registration successful. Your account is awaiting administrator approval.',
       user,

@@ -12,7 +12,7 @@ import { Notification } from '../models/Notification';
 
 export class AuthService {
   /** Self-registration. New accounts start as `pending` and require admin approval. */
-  async register(data: { name: string; email: string; password: string }) {
+  async register(data: { name: string; email: string; password: string }, isAdmin: boolean = false) {
     const email = data.email.toLowerCase().trim();
     const existing = await User.findOne({ email });
     if (existing) {
@@ -24,7 +24,7 @@ export class AuthService {
       email,
       passwordHash,
       role: 'user',
-      status: 'pending',
+      status: isAdmin ? 'active' : 'pending',
       isRoot: false,
     });
 

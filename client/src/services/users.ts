@@ -35,3 +35,9 @@ export const resetUserPassword = async (id: string, password: string) => {
   const { data } = await api.post(`/users/${id}/reset-password`, { password });
   return data as { id: string };
 };
+
+
+export const addUser = async (name: string, email: string, password: string, role: UserRole) => {
+  const { data } = await api.post('/users/create-user', { name, email, password, role });
+  return data as AuthUser;
+};

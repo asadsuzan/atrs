@@ -15,7 +15,7 @@ import { scopeFilter, assertOwner } from '../utils/ownership';
 import { parseLimit, parsePage } from '../utils/pagination';
 import createHttpError from '../utils/httpError';
 import { escapeRegex } from '../utils/sanitize';
-import { parseReadmeChangelog } from '../utils/readmeChangelog';
+import { parseReadmeChangelog, canonicalVersion, changelogFingerprint } from '../utils/readmeChangelog';
 import type { AuthUser } from '../types/auth';
 
 // Filled into the required shortDescription for changelog entries imported from
@@ -621,33 +621,55 @@ export class ProductService {
 
               const versionDocs = await Version.find({ productId: product._id }).select('label releasedAt').lean();
               const versionByLabel = new Map(versionDocs.map((v: any) => [v.label, v]));
+              // Second index on the canonical numeric form so a readme heading
+              // of "1.0" still resolves to the SVN tag "1.0.0" rather than
+              // importing an entry with no version at all.
+              const versionByCanonical = new Map(versionDocs.map((v: any) => [canonicalVersion(v.label), v]));
               const labelByVersionId = new Map(versionDocs.map((v: any) => [v._id.toString(), v.label]));
 
               const norm = (s: string) => s.trim().toLowerCase();
-              const existingActs = await Activity.find({ productId: product._id }).select('title versionId importSourceKey').lean();
-              // Dedup against two identities so a re-import skips a line it has
-              // already created:
+              const existingActs = await Activity.find({ productId: product._id })
+                .select('title versionId importSourceKey importFingerprint')
+                .lean();
+              // Dedup against three identities so a re-import skips a line it
+              // has already created:
               //  - importSourceKey: the stable key stamped at import time. This
               //    survives the user editing the title/description, so their
               //    manual edits are never re-inserted or clobbered.
               //  - version|title: legacy fallback for entries imported before
               //    importSourceKey existed (and for manually-authored entries
               //    that happen to match a readme line).
+              //  - importFingerprint: the content identity, keyed on the version
+              //    the entry is LINKED to and a punctuation-insensitive title.
+              //    importSourceKey alone keys off the readme heading, so two
+              //    headings resolving to one Version ("1.7.1"/"1.7.2" both
+              //    linked to 1.7.2) produced two keys and a visible duplicate.
               const existingKeys = new Set<string>();
               for (const a of existingActs as any[]) {
                 if (a.importSourceKey) existingKeys.add(a.importSourceKey);
                 const label = a.versionId ? (labelByVersionId.get(a.versionId.toString()) || '') : '';
                 existingKeys.add(`${label}|${norm(a.title)}`);
+                if (a.importFingerprint) existingKeys.add(a.importFingerprint);
+                // Entries imported before importFingerprint existed: derive it
+                // the same way, falling back to the readme label recorded in the
+                // legacy key when the entry never linked to a Version.
+                const fpLabel = label || (a.importSourceKey ? String(a.importSourceKey).split('|')[0] : '');
+                existingKeys.add(changelogFingerprint(fpLabel, a.title));
               }
 
               const toInsertActs: any[] = [];
               for (const block of parsed) {
-                const v: any = versionByLabel.get(block.version);
+                const v: any =
+                  versionByLabel.get(block.version) ?? versionByCanonical.get(canonicalVersion(block.version));
                 const activityDate = block.releasedAt || v?.releasedAt || new Date();
                 for (const item of block.items) {
                   const key = `${block.version}|${norm(item.title)}`;
-                  if (existingKeys.has(key)) continue;
+                  // Fingerprint on the resolved version so two readme headings
+                  // that land on the same Version can't both be inserted.
+                  const fingerprint = changelogFingerprint(v?.label || block.version, item.title);
+                  if (existingKeys.has(key) || existingKeys.has(fingerprint)) continue;
                   existingKeys.add(key);
+                  existingKeys.add(fingerprint);
                   // The readme rarely tags every line with an explicit
                   // "Fix:/Add:" prefix, so the type is often a guess. Flag any
                   // entry whose type wasn't derived from an explicit prefix
@@ -663,6 +685,7 @@ export class ProductService {
                     ...(v ? { versionId: v._id } : {}),
                     activityDate,
                     importSourceKey: key,
+                    importFingerprint: fingerprint,
                     needsReview,
                     importConfidence: item.confidence,
                     ...(needsReview ? { reviewReason: 'uncertain-type' } : {}),

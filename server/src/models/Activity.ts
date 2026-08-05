@@ -1,5 +1,24 @@
 import mongoose, { Schema, Document } from 'mongoose';
-
+ const ACTIVITY_TYPES = [
+  'feature',
+  'improvement',
+  'enhancement',
+  'bug-fix',
+  'security',
+  'performance',
+  'refactor',
+  'ui',
+  'accessibility',
+  'localization',
+  'documentation',
+  'dependency',
+  'breaking-change',
+  'deprecation',
+  'removal',
+  'maintenance',
+  'other',
+] as const;
+ type ActivityType = typeof ACTIVITY_TYPES[number];
 export interface IActivityItem {
   title: string;
   description?: string;
@@ -11,7 +30,7 @@ export interface IActivityItem {
 export interface IActivity extends Document {
   ownerId: mongoose.Types.ObjectId;
   productId: mongoose.Types.ObjectId;
-  type: 'feature' | 'improvement' | 'bug-fix';
+  type: ActivityType;
   title: string;
   shortDescription: string;
   tier?: 'free' | 'pro';
@@ -41,6 +60,13 @@ export interface IActivity extends Document {
    * manual edits are never clobbered or duplicated.
    */
   importSourceKey?: string;
+  /**
+   * Content identity of an imported entry: `canonicalVersion|normalizedTitle`,
+   * built from the version the entry is actually LINKED to. Backs the unique
+   * index that makes it impossible to hold the same change line twice for one
+   * version — see `changelogFingerprint`.
+   */
+  importFingerprint?: string;
   /**
    * Flags an entry whose data was auto-derived with low certainty and warrants a
    * human glance — currently set when a WordPress.org changelog line's type was
@@ -80,7 +106,7 @@ const ActivitySchema: Schema = new Schema(
     },
     type: {
       type: String,
-      enum: ['feature', 'improvement', 'bug-fix'],
+      enum:ACTIVITY_TYPES,
       required: true,
     },
     title: { type: String, required: true },
@@ -119,6 +145,7 @@ const ActivitySchema: Schema = new Schema(
     autoTracked: { type: Boolean, default: false, index: true },
     filePath: { type: String, required: false },
     importSourceKey: { type: String, required: false, index: true },
+    importFingerprint: { type: String, required: false },
     needsReview: { type: Boolean, default: false, index: true },
     reviewReason: { type: String, required: false },
     importConfidence: { type: String, enum: ['high', 'medium', 'low'], required: false },
@@ -139,6 +166,16 @@ ActivitySchema.index({ ownerId: 1, activityDate: 1, type: 1 });
 ActivitySchema.index(
   { productId: 1, importSourceKey: 1 },
   { unique: true, partialFilterExpression: { importSourceKey: { $exists: true } } }
+);
+// The content identity: one normalized change line per resolved version, per
+// product. importSourceKey keys off the *readme heading*, so two headings that
+// resolve to the same Version (e.g. "1.7.1" and "1.7.2" both linked to 1.7.2,
+// or "1.0" and "1.0.0") produce two distinct keys and slip past that index —
+// this one catches them. Genuine repeats of the same line under different
+// versions have different fingerprints and are kept, by design.
+ActivitySchema.index(
+  { productId: 1, importFingerprint: 1 },
+  { unique: true, partialFilterExpression: { importFingerprint: { $exists: true } } }
 );
 
 export const Activity = mongoose.model<IActivity>('Activity', ActivitySchema);

@@ -31,6 +31,8 @@ import featureRequestRoutes from './routes/featureRequestRoutes';
 import streakRoutes from './routes/streakRoutes';
 import changelogGenRoutes from './routes/changelogGenRoutes';
 import aiRoutes from './routes/aiRoutes';
+import intelligenceRoutes from './routes/intelligenceRoutes';
+import competitorRoutes from './routes/competitorRoutes';
 import { exportAllData } from './controllers/ExportController';
 
 // On Vercel env vars are injected by the platform; locally they come from the
@@ -135,6 +137,8 @@ app.use('/api/jobs', requireAuth, requireActive, jobRoutes);
 app.use('/api/github', requireAuth, requireActive, githubRoutes);
 app.use('/api/changelog-gen', requireAuth, requireActive, changelogGenRoutes);
 app.use('/api/ai', requireAuth, requireActive, aiRoutes);
+app.use('/api/intelligence', requireAuth, requireActive, intelligenceRoutes);
+app.use('/api/competitors', requireAuth, requireActive, competitorRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Admin-only routes

@@ -19,10 +19,10 @@ import { getIssues, type Issue } from '../../services/issues';
 import { MediaUploader } from '@/components/ui/MediaUploader';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
-
+import { ACTIVITY_TYPES } from '../../../../consts/index';
 const formSchema = z.object({
   productId: z.string().min(1, 'Product is required'),
-  type: z.enum(['feature', 'improvement', 'bug-fix']),
+  type: z.enum(ACTIVITY_TYPES),
   title: z.string().min(1, 'Title is required'),
   shortDescription: z.string().min(1, 'Short description is required'),
   tier: z.enum(['free', 'pro']).optional(),
@@ -154,9 +154,13 @@ export function ActivityForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="feature">Feature</SelectItem>
+                    {/* <SelectItem value="feature">Feature</SelectItem>
                     <SelectItem value="improvement">Improvement</SelectItem>
-                    <SelectItem value="bug-fix">Bug Fix</SelectItem>
+                    <SelectItem value="bug-fix">Bug Fix</SelectItem> */}
+                    {ACTIVITY_TYPES.map((type: string) => (
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    ))}
+
                   </SelectContent>
                 </Select>
                 <FormMessage />

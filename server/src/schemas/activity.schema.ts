@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { objectId } from './common.schema';
+import { ACTIVITY_TYPES } from '../../../consts/index';
 
 export const createActivitySchema = z.object({
   body: z.object({
     productId: objectId,
-    type: z.enum(['feature', 'improvement', 'bug-fix']),
+    type: z.enum(ACTIVITY_TYPES),
     title: z.string(),
     shortDescription: z.string(),
     tier: z.enum(['free', 'pro']).optional(),
@@ -38,7 +39,7 @@ export const createActivitySchema = z.object({
 export const updateActivitySchema = z.object({
   body: z.object({
     productId: objectId.optional(),
-    type: z.enum(['feature', 'improvement', 'bug-fix']).optional(),
+    type: z.enum(ACTIVITY_TYPES).optional(),
     title: z.string().optional(),
     shortDescription: z.string().optional(),
     tier: z.enum(['free', 'pro']).optional(),

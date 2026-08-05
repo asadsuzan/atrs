@@ -23,6 +23,7 @@ import { DashboardSkeleton } from '@/components/ui/skeletons';
 import { QuickIssueDialog } from '../components/issues/QuickIssueDialog';
 import { StreakCard } from '../components/dashboard/StreakCard';
 import { classifyStale } from '../components/products/StaleProductAlert';
+import { PortfolioHealthWidget } from '../components/intelligence/PortfolioHealthWidget';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const SEVERITY_DOT: Record<string, string> = {
@@ -284,8 +285,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Daily logging habit: cue → craving → one-click response → celebration */}
-      <StreakCard />
+      {/* Daily logging habit and Portfolio Health */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* <StreakCard /> */}
+        <div className="lg:col-span-3">
+          <PortfolioHealthWidget />
+        </div>
+      </div>
 
       {/* Priority alert banner — urgent products overdue for a changelog update */}
       <AnimatePresence>
@@ -441,6 +447,7 @@ export default function Dashboard() {
                 {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-muted/50 animate-pulse" />)}
               </div>
             ) : openIssues.length === 0 ? (
+              
               <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
                 <CircleCheck className="w-8 h-8 mb-2 text-emerald-500" />
                 <p className="text-sm">All clear. Nothing needs attention right now.</p>

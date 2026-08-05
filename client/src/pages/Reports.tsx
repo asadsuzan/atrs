@@ -36,6 +36,7 @@ import { ReportsSkeleton } from '@/components/ui/skeletons';
 import { MediaCarousel } from '@/components/ui/media-carousel';
 import { AuthorAvatar } from '@/components/ui/AuthorAvatar';
 import { PresentationMode } from '../components/reports/PresentationMode';
+import { ACTIVITY_TYPES } from '../../../consts';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -174,7 +175,7 @@ const ProductReportCard = ({ pData, forceExpanded }: { pData: any; forceExpanded
         {expanded && (
           <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
             <div className="border-t bg-muted/30 p-4 space-y-6">
-              {['feature', 'improvement', 'bug-fix'].map(type => (
+              {ACTIVITY_TYPES.map(type => (
                 <ReportActivitySection key={type} type={type} activities={activities} forceExpanded={forceExpanded} />
               ))}
             </div>
@@ -342,9 +343,13 @@ export default function Reports() {
       .map((pData: any) => {
         const activities = (pData.activities || []).filter(matchesVersion);
         const counts = {
-          features: activities.filter((a: any) => a.type === 'feature').length,
-          improvements: activities.filter((a: any) => a.type === 'improvement').length,
-          bugFixes: activities.filter((a: any) => a.type === 'bug-fix').length,
+          // features: activities.filter((a: any) => a.type === 'feature').length,
+          // improvements: activities.filter((a: any) => a.type === 'improvement').length,
+          // bugFixes: activities.filter((a: any) => a.type === 'bug-fix').length,
+          ...ACTIVITY_TYPES.reduce((acc: any, type) => ({
+            ...acc,
+            [type]: activities.filter((a: any) => a.type === type).length
+          }), {})
         };
         return { ...pData, activities, counts };
       })
@@ -352,9 +357,12 @@ export default function Reports() {
 
     products.forEach((pData: any) => {
       summary.products++;
-      summary.features += pData.counts.features;
-      summary.improvements += pData.counts.improvements;
-      summary.bugFixes += pData.counts.bugFixes;
+      // summary.features += pData.counts.features;
+      // summary.improvements += pData.counts.improvements;
+      // summary.bugFixes += pData.counts.bugFixes;
+      ACTIVITY_TYPES.forEach(type => {
+        summary[type] += pData.counts[type];
+      });
     });
 
     return { ...monthlyReport, summary, products };
@@ -482,10 +490,15 @@ export default function Reports() {
       const s = displayedMonthlyReport.summary || {};
       title.addText(
         [
+          // { text: `Products updated: ${s.products ?? 0}`, options: { bullet: true } },
+          // { text: `Features: ${s.features ?? 0}`, options: { bullet: true } },
+          // { text: `Improvements: ${s.improvements ?? 0}`, options: { bullet: true } },
+          // { text: `Bug fixes: ${s.bugFixes ?? 0}`, options: { bullet: true } },
           { text: `Products updated: ${s.products ?? 0}`, options: { bullet: true } },
-          { text: `Features: ${s.features ?? 0}`, options: { bullet: true } },
-          { text: `Improvements: ${s.improvements ?? 0}`, options: { bullet: true } },
-          { text: `Bug fixes: ${s.bugFixes ?? 0}`, options: { bullet: true } },
+          ...ACTIVITY_TYPES.map(type => ({
+            text: `${type.replace('-', ' ')}: ${s[type] ?? 0}`,
+            options: { bullet: true },
+          })),
         ],
         { x: 1, y: 3.4, w: '80%', h: 2, fontSize: 16 }
       );
