@@ -5,7 +5,7 @@ import * as IssueController from '../controllers/IssueController';
 import * as ProductController from '../controllers/ProductController';
 import { validate } from '../middlewares/validate';
 import { publicReportIssueSchema } from '../schemas/issue.schema';
-
+import { trackVisit } from '../controllers/VisitController';
 // Unauthenticated, read-only endpoints safe to expose to the public web
 // (e.g. the /explore directory and the hosted /changelog/:id and /issues/:id
 // pages), plus the public "report an issue" submission.
@@ -21,9 +21,18 @@ const reportLimiter = rateLimit({
   message: { message: 'Too many reports from this address. Please try again later.' },
 });
 
+const visitLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests from this address. Please try again later.' },
+});
+
 router.get('/products', ProductController.getPublicProducts);
 router.get('/changelog/:id', ReleaseController.getPublicChangelog);
 router.get('/issues/:id', IssueController.getPublicIssues);
 router.post('/products/:id/issues', reportLimiter, validate(publicReportIssueSchema), IssueController.reportPublicIssue);
+router.post('/visit', visitLimiter, trackVisit);
 
 export default router;

@@ -66,6 +66,7 @@ import { StaleProductAlert } from './components/products/StaleProductAlert';
 import { Toaster } from '@/components/ui/sonner';
 import SmoothScroll from './components/layout/SmoothScroll';
 import { AuthBootSkeleton, PageSkeleton } from './components/ui/skeletons';
+import { reportVisitOnce } from './services/visit';
 
 const queryClient = new QueryClient();
 
@@ -431,6 +432,12 @@ function AnimatedRoutes() {
 }
 
 function App() {
+  // Fires once per browser session on the very first page load, whether or
+  // not the visitor is signed in — powers the Telegram visit alert.
+  useEffect(() => {
+    reportVisitOnce();
+  }, []);
+
   return (
     <ThemeProvider defaultTheme="todoist">
       <ConfirmProvider>
